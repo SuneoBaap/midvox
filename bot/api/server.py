@@ -121,10 +121,12 @@ def create_app() -> FastAPI:
             bot = get_bot()
         except HTTPException:
             return {"status": "starting", "detail": "Bot instance not yet initialized"}
-        if bot.user is None:
+        if bot.user is None or not bot.is_ready():
             return {"status": "starting", "detail": "Bot not yet connected to Discord"}
         return {
             "status": "ok",
+            "bot_id": str(bot.user.id),
+            "bot_name": bot.user.name,
             "guild_count": len(bot.guilds),
             "user_count": sum(g.member_count or 0 for g in bot.guilds),
         }

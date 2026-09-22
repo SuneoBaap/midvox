@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
 import {
   ArrowRight,
   BarChart3,
@@ -23,10 +22,7 @@ import {
 import { motion } from "framer-motion";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "MidVox";
-const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "";
-const BOT_INVITE = CLIENT_ID
-  ? `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot+applications.commands`
-  : "https://discord.com/oauth2/authorize";
+const BOT_INVITE = "/setup";
 
 const DISCOVERY_ITEMS = [
   { icon: ShieldCheck, title: "Protect", description: "Keep bad actors out before they become a problem.", tint: "sage" },
@@ -209,7 +205,7 @@ export default function HomePage() {
   const openPanel = async () => {
     if (isSigningIn) return;
     setIsSigningIn(true);
-    await signIn("discord", { callbackUrl: "/dashboard/guilds" });
+    window.location.assign("/setup");
     setIsSigningIn(false);
   };
 
