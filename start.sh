@@ -41,13 +41,46 @@ if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   echo "FATAL: Cobalt runtime is missing from the image. Railway must build the repository Dockerfile (builder=DOCKERFILE)." >&2
   exit 1
 fi
+
+# Generate YouTube's short-lived proof-of-origin session in this same
+# container. Cobalt uses it to avoid the `error.api.youtube.login` response
+# that anonymous cloud requests can receive. The generator listens only on
+# loopback and needs no Railway variable or public endpoint.
+if [ ! -f /opt/yt-session/potoken-generator.py ]; then
+  echo "FATAL: YouTube session generator is missing from the image." >&2
+  exit 1
+fi
+YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
+echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
+(
+  cd /opt/yt-session || exit 1
+  Xvfb :99 -ac -screen 0 "${XVFB_WHD:-1280x720x16}" -nolisten tcp >/tmp/yt-session-xvfb.log 2>&1 &
+  export DISPLAY=:99
+  export CHROME_PATH="${CHROME_PATH:-/usr/bin/chromium}"
+  python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" > "$ROOT/yt-session.log" 2>&1
+) &
+YT_SESSION_PID=$!
+for i in $(seq 1 90); do
+  if python -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:' + '${YT_SESSION_PORT}' + '/token', timeout=2); raise SystemExit(0 if r.status == 200 else 1)" > /dev/null 2>&1; then
+    echo "YouTube session generator is ready."
+    break
+  fi
+  if ! kill -0 "$YT_SESSION_PID" 2>/dev/null; then
+    echo "WARNING: YouTube session generator exited; Cobalt may be challenged." >&2
+    tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
+    break
+  fi
+  sleep 1
+done
+
 echo "Starting local Cobalt sidecar on port 9000..."
 (
   cd /opt/cobalt || exit 1
   API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
     API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
     API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
-    CUSTOM_INNERTUBE_CLIENT=IOS \
+    YOUTUBE_SESSION_SERVER="http://127.0.0.1:${YT_SESSION_PORT}/" \
+    YOUTUBE_SESSION_INNERTUBE_CLIENT=WEB_EMBEDDED \
     node src/cobalt.js > "$ROOT/cobalt.log" 2>&1
 ) &
 COBALT_PID=$!
@@ -113,5 +146,6 @@ echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
 echo "Cobalt PID: $COBALT_PID"
+echo "YouTube session PID: $YT_SESSION_PID"
 
 wait
