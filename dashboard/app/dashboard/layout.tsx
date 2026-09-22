@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (status !== "unauthenticated" || authRedirectStarted.current) return;
 
     authRedirectStarted.current = true;
-    const callbackUrl = pathname === "/dashboard" ? "/dashboard/guilds" : pathname;
+    const callbackUrl = pathname;
     void signIn("discord", { callbackUrl });
   }, [pathname, status]);
 

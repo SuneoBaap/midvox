@@ -22,7 +22,7 @@ import {
 import { motion } from "framer-motion";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "MidVox";
-const BOT_INVITE = "/setup";
+const BOT_INVITE = "/dashboard";
 
 const DISCOVERY_ITEMS = [
   { icon: ShieldCheck, title: "Protect", description: "Keep bad actors out before they become a problem.", tint: "sage" },
@@ -205,7 +205,7 @@ export default function HomePage() {
   const openPanel = async () => {
     if (isSigningIn) return;
     setIsSigningIn(true);
-    window.location.assign("/setup");
+    window.location.assign("/dashboard");
     setIsSigningIn(false);
   };
 
