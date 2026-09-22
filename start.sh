@@ -42,71 +42,13 @@ if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   exit 1
 fi
 
-# Generate YouTube's short-lived proof-of-origin session in this same
-# container. Cobalt uses it to avoid the `error.api.youtube.login` response
-# that anonymous cloud requests can receive. The generator listens only on
-# loopback and needs no Railway variable or public endpoint.
-if [ ! -f /opt/yt-session/potoken-generator.py ]; then
-  echo "FATAL: YouTube session generator is missing from the image." >&2
-  exit 1
-fi
-export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
-echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
-(
-  cd /opt/yt-session || exit 1
-  Xvfb :99 -ac -screen 0 "${XVFB_WHD:-1280x720x16}" -nolisten tcp > "$ROOT/yt-session-xvfb.log" 2>&1 &
-  XVFB_PID=$!
-  # Match the official image: give Xvfb time to create the display before
-  # Nodriver launches Chromium.
-  sleep 2
-  if ! kill -0 "$XVFB_PID" 2>/dev/null; then
-    echo "[yt-session] Xvfb failed to start:" >&2
-    tail -n 40 "$ROOT/yt-session-xvfb.log" 2>/dev/null || true
-  fi
-  export DISPLAY=:99
-  export CHROME_PATH="${CHROME_PATH:-/usr/bin/chromium}"
-  while true; do
-    runuser -u midvox -- env DISPLAY="$DISPLAY" CHROME_PATH="$CHROME_PATH" \
-      python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" 2>&1 \
-      | tee -a "$ROOT/yt-session.log" \
-      | grep --line-buffered -E 'WARNING|ERROR|Failed|failed|Traceback|Exception|Chromium|browser|Permission|No such' || true
-    echo "[yt-session] generator exited; restarting in 5s"
-    sleep 5
-  done
-) &
-YT_SESSION_PID=$!
-YT_SESSION_READY=0
-# Do not hold up Railway's public port while Chromium warms up. Cobalt will
-# begin using the session endpoint as soon as the first token is available.
-for i in $(seq 1 10); do
-  if python -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:' + '${YT_SESSION_PORT}' + '/token', timeout=2); raise SystemExit(0 if r.status == 200 else 1)" > /dev/null 2>&1; then
-    echo "YouTube session generator is ready."
-    YT_SESSION_READY=1
-    break
-  fi
-  if ! kill -0 "$YT_SESSION_PID" 2>/dev/null; then
-    echo "WARNING: YouTube session generator exited; Cobalt may be challenged." >&2
-    tail -n 100 "$ROOT/yt-session.log" 2>/dev/null \
-      | grep -E 'WARNING|ERROR|Failed|failed|Traceback|Exception|Chromium|browser|Permission|No such' || true
-    break
-  fi
-  sleep 1
-done
-if [ "$YT_SESSION_READY" -ne 1 ]; then
-  echo "YouTube session generator is still warming up; continuing bot startup." >&2
-  echo "YouTube session generator error summary:"
-  tail -n 100 "$ROOT/yt-session.log" 2>/dev/null \
-    | grep -E 'WARNING|ERROR|Failed|failed|Traceback|Exception|Chromium|browser|Permission|No such' || true
-fi
-
 echo "Starting local Cobalt sidecar on port 9000..."
 (
   cd /opt/cobalt || exit 1
-  API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
+    API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
     API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
     API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
-    YOUTUBE_SESSION_SERVER="http://127.0.0.1:${YT_SESSION_PORT}/" \
-    YOUTUBE_SESSION_INNERTUBE_CLIENT=WEB_EMBEDDED \
+    CUSTOM_INNERTUBE_CLIENT=ANDROID_VR \
     node src/cobalt.js > "$ROOT/cobalt.log" 2>&1
 ) &
 COBALT_PID=$!
@@ -172,6 +114,5 @@ echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
 echo "Cobalt PID: $COBALT_PID"
-echo "YouTube session PID: $YT_SESSION_PID"
 
 wait
