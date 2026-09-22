@@ -11,6 +11,10 @@ FROM python:3.12-slim-bookworm
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=cobalt /app /opt/cobalt
+# Fail during the image build if the official Cobalt API was not copied. This
+# makes a Railway builder/configuration mistake visible in Build Logs.
+RUN test -e /opt/cobalt/src/cobalt \
+    || (echo 'Cobalt image was not copied: expected /opt/cobalt/src/cobalt' >&2; find /opt/cobalt -maxdepth 3 -type f -print >&2; exit 1)
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && apt-get update \
