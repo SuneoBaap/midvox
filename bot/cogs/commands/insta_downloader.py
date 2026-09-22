@@ -50,6 +50,10 @@ CONFIG_DEFAULTS = {
     "delete_original": True,
 }
 
+# Discord's upload limit varies by plan/server. Keep a safety margin below the
+# common 10 MB limit unless the deployment explicitly raises it.
+UPLOAD_LIMIT_BYTES = int(os.getenv("DISCORD_UPLOAD_LIMIT", "9500000"))
+
 
 class InstaDownloader(commands.Cog):
     def __init__(self, bot):
@@ -385,7 +389,7 @@ class InstaDownloader(commands.Cog):
         except Exception as e:
             print(f"[InstaDL] cleanup error: {e}")
 
-    def _cobalt_download(self, url):
+    def _cobalt_download(self, url, quality="720"):
         """Download a YouTube Short through a public Cobalt instance.
 
         Cobalt performs the extraction/remuxing remotely. This bot deliberately
@@ -400,7 +404,7 @@ class InstaDownloader(commands.Cog):
             body = json.dumps(
                 {
                     "url": url,
-                    "videoQuality": "max",
+                    "videoQuality": quality,
                     # H.264 is broadly playable in Discord while max quality
                     # still lets Cobalt select the highest available stream.
                     "youtubeVideoCodec": "h264",
@@ -546,7 +550,9 @@ class InstaDownloader(commands.Cog):
         file_path = None
 
         if source == "youtube":
-            file_path = await loop.run_in_executor(None, self._cobalt_download, url)
+            file_path = await loop.run_in_executor(
+                None, lambda: self._cobalt_download(url, "720")
+            )
             if not file_path:
                 await self._send_status(
                     message.channel,
@@ -643,18 +649,48 @@ class InstaDownloader(commands.Cog):
 
         try:
             size = os.path.getsize(file_path)
-            if size > 25 * 1024 * 1024:
+            # Retry YouTube at a smaller resolution before giving up. Cobalt
+            # still performs the processing; the bot never runs FFmpeg.
+            if source == "youtube" and size > UPLOAD_LIMIT_BYTES:
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
+                file_path = await loop.run_in_executor(
+                    None, lambda: self._cobalt_download(url, "480")
+                )
+                if not file_path or not os.path.exists(file_path):
+                    await self._send_status(
+                        message.channel,
+                        "That Short is too large for Discord to upload.",
+                        reference=message,
+                    )
+                    return
+                size = os.path.getsize(file_path)
+
+            if size > UPLOAD_LIMIT_BYTES:
                 await self._send_status(
                     message.channel,
-                    f"That media is {size // 1024 // 1024}MB — Discord's upload limit is 25MB.",
+                    "That media is too large for this Discord server's upload limit.",
                     reference=message,
                 )
                 return
 
             ext = os.path.splitext(file_path)[1] or ".mp4"
-            await message.channel.send(
-                file=discord.File(file_path, filename=f"{source}_{int(time.time())}{ext}")
-            )
+            try:
+                await message.channel.send(
+                    file=discord.File(
+                        file_path, filename=f"{source}_{int(time.time())}{ext}"
+                    )
+                )
+            except discord.HTTPException as e:
+                await self._send_status(
+                    message.channel,
+                    "Discord rejected the upload because the file is too large.",
+                    reference=message,
+                )
+                print(f"[InstaDL] Discord upload failed: {e}")
+                return
 
         finally:
             if file_path and os.path.exists(file_path):
