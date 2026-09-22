@@ -563,8 +563,7 @@ class InstaDownloader(commands.Cog):
             return None
 
     async def _download_and_send(self, message, url, config, source="instagram"):
-        """Show an animated status, download and repost the media, then remove
-        the source link when configured."""
+        """Delete the source link first, then download and repost the media."""
         status = await self._send_status(
             message.channel, "Downloading ⏳", reference=None, auto_delete=0
         )
@@ -575,6 +574,18 @@ class InstaDownloader(commands.Cog):
                 self._animate_loading(status)
             )
 
+        # Remove the source immediately before any network download starts.
+        # This prevents the original link from remaining visible while Cobalt
+        # or yt-dlp is working, including when the download later fails.
+        if config.get("delete_original"):
+            try:
+                await message.delete()
+            except Exception as e:
+                print(
+                    f"[InstaDL] could not delete source message "
+                    f"{message.id} before download: {e}"
+                )
+
         try:
             await self._download_and_send_inner(message, url, config, source)
         finally:
@@ -584,16 +595,6 @@ class InstaDownloader(commands.Cog):
                     await status.delete()
                 except Exception:
                     pass
-            # Remove the source link after processing, including failed
-            # downloads. This keeps the configured downloader channel clean.
-            if config.get("delete_original"):
-                try:
-                    await message.delete()
-                except Exception as e:
-                    print(
-                        f"[InstaDL] could not delete source message "
-                        f"{message.id}: {e}"
-                    )
 
     async def _animate_loading(self, status, interval=0.6):
         """Spin 'Downloading' through . → .. → ... while a download runs."""
