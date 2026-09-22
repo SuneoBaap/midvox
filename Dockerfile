@@ -40,6 +40,9 @@ COPY bot/requirements.txt bot/requirements.txt
 RUN python -m pip install -r bot/requirements.txt
 COPY --from=yt_session /app/requirements.txt yt-session-requirements.txt
 RUN python -m pip install -r yt-session-requirements.txt
+# Match the official session-generator image's Chromium startup workaround.
+RUN sed -i 's/await self.sleep(0.5)/await self.sleep(2)/' \
+    /usr/local/lib/python3.12/site-packages/nodriver/core/browser.py
 
 COPY dashboard/package.json dashboard/package.json
 RUN cd dashboard && npm install --no-audit --no-fund
