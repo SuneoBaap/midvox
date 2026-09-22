@@ -45,6 +45,13 @@ RUN python -m pip install -r yt-session-requirements.txt
 # Match the official session-generator image's Chromium startup workaround.
 RUN sed -i 's/await self.sleep(0.5)/await self.sleep(2)/' \
     /usr/local/lib/python3.12/site-packages/nodriver/core/browser.py
+# Railway does not expose the kernel features Chromium needs for its sandbox.
+# This applies only to the private token-generator browser, which still runs
+# as the unprivileged `midvox` user and listens only on loopback.
+RUN sed -i 's/nodriver.start(headless=False,/nodriver.start(headless=False, sandbox=False,/' \
+    /opt/yt-session/potoken_generator/extractor.py \
+    && grep -q 'nodriver.start(headless=False, sandbox=False,' \
+    /opt/yt-session/potoken_generator/extractor.py
 
 COPY dashboard/package.json dashboard/package.json
 RUN cd dashboard && npm install --no-audit --no-fund
