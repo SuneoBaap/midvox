@@ -60,9 +60,13 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
   python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" > "$ROOT/yt-session.log" 2>&1
 ) &
 YT_SESSION_PID=$!
-for i in $(seq 1 90); do
+YT_SESSION_READY=0
+# Do not hold up Railway's public port while Chromium warms up. Cobalt will
+# begin using the session endpoint as soon as the first token is available.
+for i in $(seq 1 10); do
   if python -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:' + '${YT_SESSION_PORT}' + '/token', timeout=2); raise SystemExit(0 if r.status == 200 else 1)" > /dev/null 2>&1; then
     echo "YouTube session generator is ready."
+    YT_SESSION_READY=1
     break
   fi
   if ! kill -0 "$YT_SESSION_PID" 2>/dev/null; then
@@ -72,6 +76,9 @@ for i in $(seq 1 90); do
   fi
   sleep 1
 done
+if [ "$YT_SESSION_READY" -ne 1 ]; then
+  echo "YouTube session generator is still warming up; continuing bot startup." >&2
+fi
 
 echo "Starting local Cobalt sidecar on port 9000..."
 (
