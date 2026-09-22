@@ -41,13 +41,13 @@ INSTA_URL_RE = re.compile(
 )
 
 YT_SHORTS_URL_RE = re.compile(
-    r"(?:https?://)?(?:www\.|m\.)?youtube\.com/shorts/([\w\-]{6,20})",
+    r"(?:https?://)?(?:(?:www\.|m\.)?youtube\.com/shorts/|(?:www\.)?youtu\.be/)([\w\-]{6,20})",
     re.IGNORECASE,
 )
 
 CONFIG_DEFAULTS = {
     "enabled": False,
-    "delete_original": False,
+    "delete_original": True,
 }
 
 
@@ -112,10 +112,20 @@ class InstaDownloader(commands.Cog):
             row = await cursor.fetchone()
             if not row:
                 await db.execute(
-                    "INSERT INTO config (guild_id) VALUES (?)", (guild_id,)
+                    "INSERT INTO config (guild_id, delete_original) VALUES (?, 1)",
+                    (guild_id,),
                 )
                 await db.commit()
-                row = (0, 0)
+                row = (0, 1)
+            elif row[0] and not row[1]:
+                # Older installs defaulted to keeping the link. Migrate an
+                # enabled downloader to the current always-clean behavior.
+                await db.execute(
+                    "UPDATE config SET delete_original = 1 WHERE guild_id = ?",
+                    (guild_id,),
+                )
+                await db.commit()
+                row = (row[0], 1)
             cursor = await db.execute(
                 "SELECT channel_id FROM channels WHERE guild_id = ?", (guild_id,)
             )
@@ -168,6 +178,14 @@ class InstaDownloader(commands.Cog):
         await self._ensure_mongo()
         doc = await self._mongo_get(guild_id)
         if doc:
+            if doc.get("enabled") and not doc.get("delete_original", False):
+                try:
+                    await self.mongo.instadl_config.update_one(
+                        {"_id": str(guild_id)}, {"$set": {"delete_original": True}}
+                    )
+                    doc["delete_original"] = True
+                except Exception as e:
+                    print(f"[InstaDL] delete-original migration failed: {e}")
             return {
                 "guild_id": guild_id,
                 "enabled": bool(doc.get("enabled", False)),
@@ -192,6 +210,8 @@ class InstaDownloader(commands.Cog):
             delete_original = row[1] if row else 0
             if "enabled" in data:
                 enabled = 1 if data["enabled"] else 0
+                if enabled and "delete_original" not in data:
+                    delete_original = 1
             if "delete_original" in data:
                 delete_original = 1 if data["delete_original"] else 0
             await db.execute(
@@ -459,15 +479,8 @@ class InstaDownloader(commands.Cog):
             return None
 
     async def _download_and_send(self, message, url, config, source="instagram"):
-        """Optionally delete the user's link message immediately, show an
-        animated "Downloading …" status, then download and repost the media.
-        The original message is only deleted when `delete_original` is on."""
-        if config.get("delete_original"):
-            try:
-                await message.delete()
-            except Exception:
-                pass
-
+        """Show an animated status, download and repost the media, then remove
+        the source link only after a successful repost when configured."""
         status = await self._send_status(
             message.channel, "Downloading ⏳", reference=None, auto_delete=0
         )
@@ -629,8 +642,8 @@ class InstaDownloader(commands.Cog):
             if config.get("delete_original"):
                 try:
                     await message.delete()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[InstaDL] could not delete source message {message.id}: {e}")
         finally:
             if file_path and os.path.exists(file_path):
                 try:
