@@ -419,7 +419,10 @@ class InstaDownloader(commands.Cog):
                 ).close()
             except Exception:
                 pass
-            for _ in range(30):
+            # Chromium can take several minutes on a cold Railway container;
+            # keep the original link deleted and wait for the first token
+            # instead of reporting a transient Cobalt failure.
+            for _ in range(150):
                 try:
                     with urllib.request.urlopen(endpoint, timeout=2) as resp:
                         if resp.status == 200:
