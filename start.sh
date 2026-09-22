@@ -28,7 +28,8 @@ export PYTHONUNBUFFERED=1
 export API_ENABLED=true
 export API_PORT=5001
 export TUNNEL_ENABLED=false
-export EMOJI_SYNC=true
+# Copying emojis from another application is optional and may fail with 403s.
+export EMOJI_SYNC="${EMOJI_SYNC:-false}"
 
 ROOT="$(pwd)"
 
@@ -104,9 +105,13 @@ else
 fi
 
 # ── One-time emoji sync (before bot starts, patches emoji.py) ─
-echo "Running one-time emoji sync..."
-(cd "$(pwd)/bot" && timeout 120 python sync_emojis_once.py)
-echo "--- Emoji sync exit code: $? ---"
+if [ "${EMOJI_SYNC,,}" = "true" ]; then
+  echo "Running one-time emoji sync..."
+  (cd "$ROOT/bot" && timeout 120 python sync_emojis_once.py)
+  echo "--- Emoji sync exit code: $? ---"
+else
+  echo "Emoji sync disabled; continuing to bot startup."
+fi
 
 # Run bot in a restart loop so if it crashes the API stays up
 (
