@@ -3,9 +3,7 @@ services:
     name: midvox
     env: python
     buildCommand: |
-      apt-get update && apt-get install -y ffmpeg || true
       pip install -r bot/requirements.txt
-      pip install -U yt-dlp
       mkdir -p .node
       curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.gz | tar -xzf - -C .node --strip-components=1
       export PATH="$PWD/.node/bin:$PATH"
@@ -24,8 +22,6 @@ services:
         sync: false
       - key: WEBHOOK_URL
         sync: false
-      - key: WARP
-        value: "1"
       - key: TUNNEL_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_API_URL

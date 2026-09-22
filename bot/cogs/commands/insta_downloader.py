@@ -31,6 +31,7 @@ import re
 import time
 import tempfile
 import urllib.request
+import urllib.error
 from collections import defaultdict
 
 INSTA_URL_RE = re.compile(
@@ -43,109 +44,6 @@ YT_SHORTS_URL_RE = re.compile(
     r"(?:https?://)?(?:www\.|m\.)?youtube\.com/shorts/([\w\-]{6,20})",
     re.IGNORECASE,
 )
-
-_YT_COOKIES_PATH = None
-
-
-def _json_cookies_to_netscape(content):
-    """Convert a JSON cookie export (Cookie-Editor style) to the Netscape
-    cookies.txt format yt-dlp expects. Returns None if not JSON."""
-    try:
-        import json
-
-        cookies = json.loads(content)
-    except Exception:
-        return None
-    if not isinstance(cookies, list):
-        return None
-    lines = ["# Netscape HTTP Cookie File"]
-    for c in cookies:
-        if not isinstance(c, dict):
-            continue
-        domain = str(c.get("domain", ""))
-        if not domain:
-            continue
-        include_sub = "TRUE" if not c.get("hostOnly") else "FALSE"
-        # Netscape format: a leading dot on the domain is REQUIRED when the
-        # includeSubdomains flag is TRUE (http.cookiejar asserts this).
-        if include_sub == "TRUE":
-            if not domain.startswith("."):
-                domain = "." + domain.lstrip(".")
-        else:
-            domain = domain.lstrip(".")
-        path = str(c.get("path") or "/")
-        secure = "TRUE" if c.get("secure") else "FALSE"
-        exp = c.get("expirationDate")
-        expiry = str(int(exp)) if exp and not c.get("session") else "0"
-        lines.append(
-            f"{domain}\t{include_sub}\t{path}\t{secure}\t{expiry}\t"
-            f"{c.get('name') or ''}\t{c.get('value') or ''}"
-        )
-    return "\n".join(lines) + "\n"
-
-
-def _header_to_netscape(content):
-    """Convert a raw cookie header (`Name=Value; Name=Value; ...`) to the
-    Netscape format. Returns None if it doesn't look like one."""
-    if "\t" in content or ";" not in content:
-        return None
-    lines = ["# Netscape HTTP Cookie File"]
-    count = 0
-    for part in content.split(";"):
-        if "=" not in part:
-            continue
-        name, _, value = part.partition("=")
-        name, value = name.strip(), value.strip()
-        if not name or not value:
-            continue
-        lines.append(f".youtube.com\tTRUE\t/\tTRUE\t0\t{name}\t{value}")
-        count += 1
-    if not count:
-        return None
-    return "\n".join(lines) + "\n"
-
-
-def _get_yt_cookies_path():
-    """Write the YT_COOKIES env var into a temp cookies.txt once.
-
-    YouTube blocks downloads from datacenter IPs unless the request carries
-    a logged-in browser session. Set YT_COOKIES in Render to any of these,
-    taken while signed into YouTube:
-      * a raw cookie header (Name=Value; Name=Value; ...),
-      * a JSON cookie export (Cookie-Editor), or
-      * base64 of a Netscape cookies.txt ("Get cookies.txt LOCALLY").
-    Returns None if unset.
-    """
-    global _YT_COOKIES_PATH
-    if _YT_COOKIES_PATH:
-        return _YT_COOKIES_PATH
-    raw = os.getenv("YT_COOKIES", "").strip()
-    if not raw:
-        return None
-    try:
-        import base64
-
-        content = base64.b64decode(raw).decode("utf-8", "replace")
-        if not content.startswith(("[", "{")) and "\t" not in content and ";" not in content:
-            content = raw
-    except Exception:
-        content = raw
-    if content.lstrip().startswith(("[", "{")):
-        converted = _json_cookies_to_netscape(content)
-        if converted:
-            content = converted
-        else:
-            print("[InstaDL] YT_COOKIES looks like JSON but couldn't be parsed")
-    else:
-        header_cookies = _header_to_netscape(content)
-        if header_cookies:
-            content = header_cookies
-    path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    _YT_COOKIES_PATH = path
-    print("[InstaDL] using YT_COOKIES session for YouTube downloads")
-    return path
 
 CONFIG_DEFAULTS = {
     "enabled": False,
@@ -468,52 +366,93 @@ class InstaDownloader(commands.Cog):
             print(f"[InstaDL] cleanup error: {e}")
 
     def _cobalt_download(self, url):
-        """Download media through the cobalt API — it extracts on its own
-        (clean) infrastructure, so Render's flagged datacenter IP never
-        matters. Returns a temp file path or None."""
-        key = os.getenv("COBALT_API_KEY", "").strip()
-        if not key:
-            return None
+        """Download a YouTube Short through a public Cobalt instance.
+
+        Cobalt performs the extraction/remuxing remotely. This bot deliberately
+        does not pass YouTube cookies, invoke yt-dlp, or run local FFmpeg for
+        Shorts. ``COBALT_API_URL`` may point at any compatible instance; the
+        legacy ``COBALT_API_KEY`` value is accepted as a URL for existing
+        Railway configurations.
+        """
+        configured_url = os.getenv("COBALT_API_URL", "").strip()
+        if not configured_url:
+            legacy_value = os.getenv("COBALT_API_KEY", "").strip()
+            if legacy_value.startswith(("http://", "https://")):
+                configured_url = legacy_value
+        base_url = (configured_url or "https://api.cobalt.tools").rstrip("/")
         try:
-            body = json.dumps({"url": url, "videoQuality": 2160}).encode()
-            req = urllib.request.Request(
-                "https://api.cobalt.tools/api/json",
-                data=body,
-                method="POST",
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {key}",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=40) as resp:
-                data = json.loads(resp.read().decode("utf-8", "replace"))
+            body = json.dumps(
+                {
+                    "url": url,
+                    "videoQuality": "max",
+                    "youtubeVideoCodec": "av1",
+                    "youtubeVideoContainer": "mp4",
+                    "youtubeBetterAudio": True,
+                    "downloadMode": "auto",
+                    "localProcessing": "disabled",
+                }
+            ).encode()
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
+            }
+
+            # Current Cobalt instances use POST /. Older compatible instances
+            # exposed the same API at /api/json, so retain that fallback.
+            data = None
+            last_error = None
+            for endpoint in (base_url, f"{base_url}/api/json"):
+                try:
+                    req = urllib.request.Request(
+                        endpoint, data=body, method="POST", headers=headers
+                    )
+                    with urllib.request.urlopen(req, timeout=40) as resp:
+                        data = json.loads(resp.read().decode("utf-8", "replace"))
+                    break
+                except urllib.error.HTTPError as exc:
+                    last_error = exc
+                    if exc.code not in (404, 405):
+                        raise
+            if data is None:
+                raise last_error or RuntimeError("Cobalt returned no response")
             if not isinstance(data, dict):
                 return None
             status = data.get("status")
             if status not in ("redirect", "tunnel") or not data.get("url"):
-                print(f"[InstaDL] cobalt error: {data.get('error') or data.get('status')}")
+                error = data.get("error")
+                if isinstance(error, dict):
+                    error = error.get("code") or error
+                print(f"[InstaDL] cobalt error: {error or status}")
                 return None
             dreq = urllib.request.Request(
                 data["url"],
                 headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Authorization": f"Bearer {key}",
-                    "Range": "bytes=0-25165823",
+                    "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
                 },
             )
             with urllib.request.urlopen(dreq, timeout=120) as resp:
-                media = resp.read()
-            if not media:
+                content_type = resp.headers.get_content_type()
+                suffix = ".mp4" if content_type == "video/mp4" else ".webm"
+                path = os.path.join(
+                    tempfile.gettempdir(), f"cobalt_{int(time.time() * 1000)}{suffix}"
+                )
+                size = 0
+                with open(path, "wb") as output:
+                    while True:
+                        chunk = resp.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > 25 * 1024 * 1024:
+                            output.close()
+                            os.remove(path)
+                            print(f"[InstaDL] cobalt media too big ({size} bytes)")
+                            return None
+                        output.write(chunk)
+            if not os.path.exists(path) or os.path.getsize(path) == 0:
                 return None
-            if len(media) > 25 * 1024 * 1024:
-                print(f"[InstaDL] cobalt media too big ({len(media)} bytes)")
-                return None
-            path = os.path.join(tempfile.gettempdir(), f"cobalt_{int(time.time())}.mp4")
-            with open(path, "wb") as f:
-                f.write(media)
-            print(f"[InstaDL] cobalt download OK: {len(media)} bytes")
+            print(f"[InstaDL] cobalt download OK: {os.path.getsize(path)} bytes")
             return path
         except Exception as e:
             print(f"[InstaDL] cobalt download failed: {e}")
@@ -564,16 +503,22 @@ class InstaDownloader(commands.Cog):
             return
 
     async def _download_and_send_inner(self, message, url, config, source="instagram"):
-        """Download the media (YouTube via cobalt/youtube-dl, Instagram via
-        youtube-dl) and repost it inline. `_download_and_send` wraps this with
+        """Download the media (YouTube via Cobalt, Instagram via yt-dlp) and
+        repost it inline. `_download_and_send` wraps this with
         an immediate link deletion + animated loading indicator."""
         loop = asyncio.get_running_loop()
         file_path = None
 
         if source == "youtube":
             file_path = await loop.run_in_executor(None, self._cobalt_download, url)
-
-        if not file_path:
+            if not file_path:
+                await self._send_status(
+                    message.channel,
+                    "Cobalt could not download that Short right now. Try again shortly.",
+                    reference=message,
+                )
+                return
+        else:
             try:
                 import yt_dlp
             except ImportError:
@@ -586,9 +531,10 @@ class InstaDownloader(commands.Cog):
 
             tmp = os.path.join(tempfile.gettempdir(), "instadl_%(id)s.%(ext)s")
             opts = {
-                "format": "bv*+ba/b[ext=mp4]/b",
+                # Keep Instagram downloads to a single file so this bot never
+                # needs a local FFmpeg merge process.
+                "format": "b[ext=mp4]/b",
                 "format_sort": ["res", "fps", "vcodec:av01", "vcodec:vp9", "vcodec:h264"],
-                "merge_output_format": "mp4",
                 "outtmpl": tmp,
                 "quiet": True,
                 "no_warnings": True,
@@ -601,59 +547,18 @@ class InstaDownloader(commands.Cog):
                 "http_headers": {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
                 },
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": [
-                            "android_vr",
-                            "android",
-                            "ios",
-                            "tv",
-                            "web_embedded",
-                            "mweb",
-                        ],
-                    },
-                },
             }
-            cookie_file = _get_yt_cookies_path()
-            if cookie_file:
-                opts["cookiefile"] = cookie_file
-
             def _download():
-                attempts = [opts]
-                if source == "youtube":
-                    # A logged-in request from a flagged IP often gets checked
-                    # harder than an anonymous one. Try anonymous `android`
-                    # / embedded clients FIRST — they usually survive datacenter
-                    # IPs — and only fall back to cookies if those fail.
-                    anon = [
-                        dict(opts, cookiefile=None, extractor_args={"youtube": {"player_client": ["android"]}}),
-                        dict(opts, cookiefile=None, extractor_args={"youtube": {"player_client": ["tv_embedded", "web_embedded", "ios"]}}),
-                    ]
-                    for o in anon:
-                        o.pop("cookiefile", None)
-                    attempts = anon + attempts
-                    # Last-ditch: let yt-dlp use its default client rotation.
-                    opts_default = dict(opts)
-                    opts_default.pop("extractor_args", None)
-                    attempts.append(opts_default)
-                # Route YT traffic through the WARP SOCKS5 tunnel when one is
-                # up (setup in start.sh). Cookies are unnecessary there but
-                # harmless, so both paths are kept.
-                proxy = os.getenv("YT_DL_PROXY", "").strip()
-                if proxy:
-                    for o in attempts:
-                        o["proxy"] = proxy
                 last_err = None
-                for o in attempts:
-                    try:
-                        with yt_dlp.YoutubeDL(o) as ydl:
-                            info = ydl.extract_info(url, download=True)
-                            path = ydl.prepare_filename(info)
-                            if path and os.path.exists(path):
-                                return path
-                    except Exception as e:
-                        last_err = e
-                        print(f"[InstaDL] yt-dlp attempt failed for {url}: {e}")
+                try:
+                    with yt_dlp.YoutubeDL(opts) as ydl:
+                        info = ydl.extract_info(url, download=True)
+                        path = ydl.prepare_filename(info)
+                        if path and os.path.exists(path):
+                            return path
+                except Exception as e:
+                    last_err = e
+                    print(f"[InstaDL] yt-dlp attempt failed for {url}: {e}")
                 if last_err:
                     raise last_err
                 return None
@@ -676,30 +581,10 @@ class InstaDownloader(commands.Cog):
                             return
                     except Exception as fb:
                         print(f"[InstaDL] image fallback failed for {url}: {fb}")
-                if reason and "not a bot" in reason.lower():
-                    if os.getenv("YT_DL_PROXY", "").strip():
-                        text = (
-                            "YouTube blocked the download even through our Cloudflare "
-                            "WARP tunnel — the server's IP may still be flagged. Check "
-                            "the server logs (the `WARP` line) and retry in a few minutes."
-                        )
-                    else:
-                        text = (
-                            "YouTube blocked our server's data-center IP (\"not a bot\" "
-                            "check) — cookies won't fix this. The bot automatically retries "
-                            "YouTube anonymously (Android client) first and routes via a "
-                            "Cloudflare WARP tunnel. If it keeps failing, empty the "
-                            "`YT_COOKIES` env var and redeploy, then retry."
-                        )
+                if reason and "requested format is not available" in reason.lower():
                     await self._send_status(
                         message.channel,
-                        text,
-                        reference=message,
-                    )
-                elif reason and "requested format is not available" in reason.lower():
-                    await self._send_status(
-                        message.channel,
-                        "YouTube accepted the request but served no playable formats. "
+                        "The platform did not provide a compatible video format. "
                         "Try again shortly.",
                         reference=message,
                     )

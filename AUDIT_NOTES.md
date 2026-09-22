@@ -4,6 +4,12 @@ This file records findings from the repository-wide audit performed on
 2026-09-22. These items are intentionally deferred until the owner chooses the
 next major repair. Do not silently remove features while addressing them.
 
+## Resolved repairs
+
+- YouTube Shorts now use Cobalt only with `videoQuality=max`, AV1, and no
+  YouTube cookies, yt-dlp fallback, local FFmpeg, or WARP tunnel. The Cobalt
+  instance is configured with `COBALT_API_URL`.
+
 ## Major issues to address deliberately
 
 - Enforce Discord session and Manage Server authorization in the dashboard API

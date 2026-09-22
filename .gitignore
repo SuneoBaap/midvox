@@ -51,9 +51,6 @@ build/
 .env.local
 .env.*.local
 
-# Ignore runtime-generated Cloudflare WARP files (start.sh)
-.warp/
-
 # Ignore binaries downloaded on demand by the optional tunnel helper
 /bot/bin/
 
