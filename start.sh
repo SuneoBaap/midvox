@@ -37,7 +37,7 @@ ROOT="$(pwd)"
 # stays private and the bot talks to it over loopback; no second Railway
 # service or public Cobalt API key is needed.
 export COBALT_API_URL="http://127.0.0.1:9000"
-if [ ! -f /opt/cobalt/src/cobalt ]; then
+if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   echo "FATAL: Cobalt runtime is missing from the image. Railway must build the repository Dockerfile (builder=DOCKERFILE)." >&2
   exit 1
 fi
@@ -47,7 +47,7 @@ echo "Starting local Cobalt sidecar on port 9000..."
   API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
     API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
     API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
-    node src/cobalt > "$ROOT/cobalt.log" 2>&1
+    node src/cobalt.js > "$ROOT/cobalt.log" 2>&1
 ) &
 COBALT_PID=$!
 for i in $(seq 1 30); do
