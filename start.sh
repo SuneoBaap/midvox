@@ -38,7 +38,7 @@ ROOT="$(pwd)"
 # service or public Cobalt API key is needed.
 export COBALT_API_URL="http://127.0.0.1:9000"
 if [ ! -f /opt/cobalt/src/cobalt ]; then
-  echo "FATAL: Cobalt runtime is missing from the image." >&2
+  echo "FATAL: Cobalt runtime is missing from the image. Railway must build the repository Dockerfile (builder=DOCKERFILE)." >&2
   exit 1
 fi
 echo "Starting local Cobalt sidecar on port 9000..."
