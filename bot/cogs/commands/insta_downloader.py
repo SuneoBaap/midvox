@@ -401,7 +401,9 @@ class InstaDownloader(commands.Cog):
                 {
                     "url": url,
                     "videoQuality": "max",
-                    "youtubeVideoCodec": "av1",
+                    # H.264 is broadly playable in Discord while max quality
+                    # still lets Cobalt select the highest available stream.
+                    "youtubeVideoCodec": "h264",
                     "youtubeVideoContainer": "mp4",
                     "youtubeBetterAudio": True,
                     "downloadMode": "auto",
@@ -428,8 +430,23 @@ class InstaDownloader(commands.Cog):
                     break
                 except urllib.error.HTTPError as exc:
                     last_error = exc
+                    try:
+                        raw_error = exc.read().decode("utf-8", "replace")
+                        parsed_error = json.loads(raw_error)
+                        error_obj = parsed_error.get("error", parsed_error)
+                        error_code = (
+                            error_obj.get("code")
+                            if isinstance(error_obj, dict)
+                            else error_obj
+                        )
+                        print(
+                            f"[InstaDL] cobalt HTTP {exc.code}: "
+                            f"{error_code or raw_error[:300]}"
+                        )
+                    except Exception:
+                        print(f"[InstaDL] cobalt HTTP {exc.code}: {exc}")
                     if exc.code not in (404, 405):
-                        raise
+                        return None
             if data is None:
                 raise last_error or RuntimeError("Cobalt returned no response")
             if not isinstance(data, dict):
@@ -496,6 +513,16 @@ class InstaDownloader(commands.Cog):
                     await status.delete()
                 except Exception:
                     pass
+            # Remove the source link after processing, including failed
+            # downloads. This keeps the configured downloader channel clean.
+            if config.get("delete_original"):
+                try:
+                    await message.delete()
+                except Exception as e:
+                    print(
+                        f"[InstaDL] could not delete source message "
+                        f"{message.id}: {e}"
+                    )
 
     async def _animate_loading(self, status, interval=0.6):
         """Spin 'Downloading' through . → .. → ... while a download runs."""
@@ -582,11 +609,6 @@ class InstaDownloader(commands.Cog):
                 if source == "instagram":
                     try:
                         if await self._send_image_fallback(message, url):
-                            if config.get("delete_original"):
-                                try:
-                                    await message.delete()
-                                except Exception:
-                                    pass
                             return
                     except Exception as fb:
                         print(f"[InstaDL] image fallback failed for {url}: {fb}")
@@ -634,12 +656,6 @@ class InstaDownloader(commands.Cog):
                 file=discord.File(file_path, filename=f"{source}_{int(time.time())}{ext}")
             )
 
-            # Remove the original link message only when delete_original is on.
-            if config.get("delete_original"):
-                try:
-                    await message.delete()
-                except Exception as e:
-                    print(f"[InstaDL] could not delete source message {message.id}: {e}")
         finally:
             if file_path and os.path.exists(file_path):
                 try:
