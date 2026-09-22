@@ -55,9 +55,16 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
 (
   cd /opt/yt-session || exit 1
   Xvfb :99 -ac -screen 0 "${XVFB_WHD:-1280x720x16}" -nolisten tcp >/tmp/yt-session-xvfb.log 2>&1 &
+  # Match the official image: give Xvfb time to create the display before
+  # Nodriver launches Chromium.
+  sleep 2
   export DISPLAY=:99
   export CHROME_PATH="${CHROME_PATH:-/usr/bin/chromium}"
-  python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" > "$ROOT/yt-session.log" 2>&1
+  while true; do
+    python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" >> "$ROOT/yt-session.log" 2>&1
+    echo "[yt-session] generator exited; restarting in 5s" >> "$ROOT/yt-session.log"
+    sleep 5
+  done
 ) &
 YT_SESSION_PID=$!
 YT_SESSION_READY=0
