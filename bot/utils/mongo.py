@@ -13,9 +13,21 @@ def _discover_db_paths():
 
 SQLITE_DBS = _discover_db_paths() or []
 
+
+def normalize_mongo_uri(uri):
+    """Return a usable Mongo URI, treating Railway's empty quoted value as unset."""
+    value = (uri or "").strip().strip('"').strip("'").strip()
+    if not value or not value.startswith(("mongodb://", "mongodb+srv://")):
+        return None
+    return value
+
+
+def has_valid_mongo_uri(uri=None):
+    return normalize_mongo_uri(uri if uri is not None else os.getenv("MONGO_URI")) is not None
+
 class MongoManager:
     def __init__(self, uri: str = None, db_name: str = "midvox"):
-        self._uri = uri or os.getenv("MONGO_URI")
+        self._uri = normalize_mongo_uri(uri if uri is not None else os.getenv("MONGO_URI"))
         self._db_name = db_name
         # motor clients are bound to the event loop they were created on.
         # The bot loop and the FastAPI (uvicorn) loop are different, so we
@@ -45,7 +57,7 @@ class MongoManager:
         return self._get_client()[self._db_name]
 
     async def connect(self, uri: str = None, db_name: str = "midvox", server_selection_timeout: int = 10000):
-        uri = uri or os.getenv("MONGO_URI")
+        uri = normalize_mongo_uri(uri if uri is not None else os.getenv("MONGO_URI"))
         if not uri:
             raise ValueError("MONGO_URI is not set")
         # Add TLS params if missing — Render's SSL env may not have the right CAs

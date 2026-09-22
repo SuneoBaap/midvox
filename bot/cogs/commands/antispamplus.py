@@ -6,7 +6,7 @@ import os
 import time
 from collections import defaultdict, deque
 from utils.Tools import *
-from utils.mongo import MongoManager
+from utils.mongo import MongoManager, has_valid_mongo_uri
 
 
 CONFIG_DEFAULTS = {
@@ -64,7 +64,7 @@ class AntiSpamPlus(commands.Cog):
         if self.mongo:
             return True
         mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
+        if not has_valid_mongo_uri(mongo_uri):
             return False
         try:
             mongo = MongoManager()
@@ -263,7 +263,7 @@ class AntiSpamPlus(commands.Cog):
             try:
                 if not self.mongo:
                     mongo_uri = os.getenv("MONGO_URI")
-                    if mongo_uri:
+                    if has_valid_mongo_uri(mongo_uri):
                         try:
                             mongo = MongoManager()
                             await mongo.connect(mongo_uri)

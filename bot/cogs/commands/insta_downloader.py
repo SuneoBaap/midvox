@@ -71,8 +71,9 @@ class InstaDownloader(commands.Cog):
         empty SQLite mirror right after a redeploy."""
         if self.mongo:
             return True
+        from utils.mongo import has_valid_mongo_uri
         mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
+        if not has_valid_mongo_uri(mongo_uri):
             return False
         try:
             from utils.mongo import MongoManager
@@ -400,6 +401,21 @@ class InstaDownloader(commands.Cog):
         base_url = os.getenv(
             "COBALT_API_URL", "http://127.0.0.1:9000"
         ).strip().rstrip("/")
+
+        def _wait_for_session():
+            """Wait briefly for the bundled token generator to finish Chromium startup."""
+            session_port = os.getenv("YT_SESSION_PORT", "8081").strip() or "8081"
+            endpoint = f"http://127.0.0.1:{session_port}/token"
+            for _ in range(30):
+                try:
+                    with urllib.request.urlopen(endpoint, timeout=2) as resp:
+                        if resp.status == 200:
+                            return True
+                except Exception:
+                    pass
+                time.sleep(2)
+            return False
+
         def _request(quality):
             body = json.dumps(
                 {
@@ -419,35 +435,43 @@ class InstaDownloader(commands.Cog):
                 "Content-Type": "application/json",
                 "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
             }
-            last_error = None
-            for endpoint in (base_url, f"{base_url}/api/json"):
-                try:
-                    req = urllib.request.Request(
-                        endpoint, data=body, method="POST", headers=headers
-                    )
-                    with urllib.request.urlopen(req, timeout=40) as resp:
-                        return json.loads(resp.read().decode("utf-8", "replace"))
-                except urllib.error.HTTPError as exc:
-                    last_error = exc
+            for attempt in range(2):
+                last_error = None
+                session_missing = False
+                for endpoint in (base_url, f"{base_url}/api/json"):
                     try:
-                        raw_error = exc.read().decode("utf-8", "replace")
-                        parsed_error = json.loads(raw_error)
-                        error_obj = parsed_error.get("error", parsed_error)
-                        error_code = (
-                            error_obj.get("code")
-                            if isinstance(error_obj, dict)
-                            else error_obj
+                        req = urllib.request.Request(
+                            endpoint, data=body, method="POST", headers=headers
                         )
-                        print(
-                            f"[InstaDL] cobalt HTTP {exc.code}: "
-                            f"{error_code or raw_error[:300]}"
-                        )
-                    except Exception:
-                        print(f"[InstaDL] cobalt HTTP {exc.code}: {exc}")
-                    if exc.code not in (404, 405):
-                        return None
-            if last_error:
-                print(f"[InstaDL] cobalt request failed: {last_error}")
+                        with urllib.request.urlopen(req, timeout=40) as resp:
+                            return json.loads(resp.read().decode("utf-8", "replace"))
+                    except urllib.error.HTTPError as exc:
+                        last_error = exc
+                        try:
+                            raw_error = exc.read().decode("utf-8", "replace")
+                            parsed_error = json.loads(raw_error)
+                            error_obj = parsed_error.get("error", parsed_error)
+                            error_code = (
+                                error_obj.get("code")
+                                if isinstance(error_obj, dict)
+                                else error_obj
+                            )
+                            session_missing = error_code == "error.api.youtube.no_session_tokens"
+                            print(
+                                f"[InstaDL] cobalt HTTP {exc.code}: "
+                                f"{error_code or raw_error[:300]}"
+                            )
+                        except Exception:
+                            print(f"[InstaDL] cobalt HTTP {exc.code}: {exc}")
+                        if exc.code not in (404, 405):
+                            break
+                if session_missing and attempt == 0:
+                    print("[InstaDL] waiting for YouTube session token, then retrying Cobalt")
+                    if _wait_for_session():
+                        continue
+                if last_error:
+                    print(f"[InstaDL] cobalt request failed: {last_error}")
+                break
             return None
 
         def _probe_size(media_url):

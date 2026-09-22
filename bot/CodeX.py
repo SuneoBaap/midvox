@@ -389,7 +389,7 @@ async def main():
 
         # Connect to MongoDB if MONGO_URI is set
         mongo_uri = os.getenv("MONGO_URI")
-        if mongo_uri:
+        if mongo_uri and mongo_uri.strip().strip('"').strip("'").strip().startswith(("mongodb://", "mongodb+srv://")):
             try:
                 mongo = MongoManager()
                 await mongo.connect(mongo_uri)

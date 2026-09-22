@@ -50,7 +50,7 @@ if [ ! -f /opt/yt-session/potoken-generator.py ]; then
   echo "FATAL: YouTube session generator is missing from the image." >&2
   exit 1
 fi
-YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
+export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
 echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
 (
   cd /opt/yt-session || exit 1
