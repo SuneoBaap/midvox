@@ -406,6 +406,12 @@ class InstaDownloader(commands.Cog):
             """Wait briefly for the bundled token generator to finish Chromium startup."""
             session_port = os.getenv("YT_SESSION_PORT", "8081").strip() or "8081"
             endpoint = f"http://127.0.0.1:{session_port}/token"
+            try:
+                urllib.request.urlopen(
+                    f"http://127.0.0.1:{session_port}/update", timeout=2
+                ).close()
+            except Exception:
+                pass
             for _ in range(30):
                 try:
                     with urllib.request.urlopen(endpoint, timeout=2) as resp:

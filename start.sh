@@ -78,6 +78,8 @@ for i in $(seq 1 10); do
 done
 if [ "$YT_SESSION_READY" -ne 1 ]; then
   echo "YouTube session generator is still warming up; continuing bot startup." >&2
+  echo "YouTube session generator log tail:"
+  tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
 fi
 
 echo "Starting local Cobalt sidecar on port 9000..."
