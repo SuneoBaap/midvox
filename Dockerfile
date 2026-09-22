@@ -27,7 +27,9 @@ RUN test -f /opt/yt-session/potoken-generator.py \
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && apt-get update \
-    && apt-get install -y --no-install-recommends bash ca-certificates chromium chromium-driver xvfb \
+    && apt-get install -y --no-install-recommends bash ca-certificates chromium chromium-driver xvfb passwd util-linux \
+    && useradd --system --create-home --home-dir /home/midvox --shell /usr/sbin/nologin midvox \
+    && chown -R midvox:midvox /opt/yt-session \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \

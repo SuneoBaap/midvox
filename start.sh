@@ -61,7 +61,8 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
   export DISPLAY=:99
   export CHROME_PATH="${CHROME_PATH:-/usr/bin/chromium}"
   while true; do
-    python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" >> "$ROOT/yt-session.log" 2>&1
+    runuser -u midvox -- env DISPLAY="$DISPLAY" CHROME_PATH="$CHROME_PATH" \
+      python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" >> "$ROOT/yt-session.log" 2>&1
     echo "[yt-session] generator exited; restarting in 5s" >> "$ROOT/yt-session.log"
     sleep 5
   done
