@@ -389,7 +389,7 @@ class InstaDownloader(commands.Cog):
         except Exception as e:
             print(f"[InstaDL] cleanup error: {e}")
 
-    def _cobalt_download(self, url, quality="720"):
+    def _cobalt_download(self, url):
         """Download a YouTube Short through a public Cobalt instance.
 
         Cobalt performs the extraction/remuxing remotely. This bot deliberately
@@ -400,13 +400,13 @@ class InstaDownloader(commands.Cog):
         base_url = os.getenv(
             "COBALT_API_URL", "http://127.0.0.1:9000"
         ).strip().rstrip("/")
-        try:
+        def _request(quality):
             body = json.dumps(
                 {
                     "url": url,
                     "videoQuality": quality,
-                    # H.264 is broadly playable in Discord while max quality
-                    # still lets Cobalt select the highest available stream.
+                    # H.264 is broadly playable in Discord. The quality is
+                    # selected below after probing the returned file size.
                     "youtubeVideoCodec": "h264",
                     "youtubeVideoContainer": "mp4",
                     "youtubeBetterAudio": False,
@@ -419,10 +419,6 @@ class InstaDownloader(commands.Cog):
                 "Content-Type": "application/json",
                 "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
             }
-
-            # Current Cobalt instances use POST /. Older compatible instances
-            # exposed the same API at /api/json, so retain that fallback.
-            data = None
             last_error = None
             for endpoint in (base_url, f"{base_url}/api/json"):
                 try:
@@ -430,8 +426,7 @@ class InstaDownloader(commands.Cog):
                         endpoint, data=body, method="POST", headers=headers
                     )
                     with urllib.request.urlopen(req, timeout=40) as resp:
-                        data = json.loads(resp.read().decode("utf-8", "replace"))
-                    break
+                        return json.loads(resp.read().decode("utf-8", "replace"))
                 except urllib.error.HTTPError as exc:
                     last_error = exc
                     try:
@@ -451,53 +446,101 @@ class InstaDownloader(commands.Cog):
                         print(f"[InstaDL] cobalt HTTP {exc.code}: {exc}")
                     if exc.code not in (404, 405):
                         return None
-            if data is None:
-                raise last_error or RuntimeError("Cobalt returned no response")
-            if not isinstance(data, dict):
-                return None
-            status = data.get("status")
-            if status not in ("redirect", "tunnel") or not data.get("url"):
-                error = data.get("error")
-                if isinstance(error, dict):
-                    error = error.get("code") or error
-                print(f"[InstaDL] cobalt error: {error or status}")
-                return None
-            dreq = urllib.request.Request(
-                data["url"],
-                headers={
-                    "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
-                },
-            )
-            with urllib.request.urlopen(dreq, timeout=120) as resp:
-                content_type = resp.headers.get_content_type()
-                suffix = ".mp4" if content_type == "video/mp4" else ".webm"
-                path = os.path.join(
-                    tempfile.gettempdir(), f"cobalt_{int(time.time() * 1000)}{suffix}"
+            if last_error:
+                print(f"[InstaDL] cobalt request failed: {last_error}")
+            return None
+
+        def _probe_size(media_url):
+            try:
+                probe = urllib.request.Request(
+                    media_url,
+                    method="HEAD",
+                    headers={
+                        "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
+                    },
                 )
-                size = 0
-                with open(path, "wb") as output:
-                    while True:
-                        chunk = resp.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        size += len(chunk)
-                        if size > 25 * 1024 * 1024:
-                            output.close()
-                            os.remove(path)
-                            print(f"[InstaDL] cobalt media too big ({size} bytes)")
-                            return None
-                        output.write(chunk)
-            if not os.path.exists(path) or os.path.getsize(path) == 0:
-                return None
-            print(f"[InstaDL] cobalt download OK: {os.path.getsize(path)} bytes")
-            return path
+                with urllib.request.urlopen(probe, timeout=15) as resp:
+                    for header in ("Content-Length", "Estimated-Content-Length"):
+                        value = resp.headers.get(header)
+                        if value and str(value).isdigit():
+                            return int(value)
+            except Exception as exc:
+                print(f"[InstaDL] cobalt size probe unavailable: {exc}")
+            return None
+
+        try:
+            # Ask Cobalt for the best option first, but do not download it
+            # until its tunnel/redirect reports a size within Discord's limit.
+            for quality in ("max", "1080", "720", "480", "360", "240"):
+                data = _request(quality)
+                if not isinstance(data, dict):
+                    # A request-level failure (for example YouTube blocking
+                    # the instance) will not be fixed by trying resolutions.
+                    return None
+                status = data.get("status")
+                media_url = data.get("url")
+                if status not in ("redirect", "tunnel") or not media_url:
+                    error = data.get("error")
+                    if isinstance(error, dict):
+                        error = error.get("code") or error
+                    print(f"[InstaDL] cobalt error at {quality}: {error or status}")
+                    return None
+
+                expected_size = _probe_size(media_url)
+                if expected_size and expected_size > UPLOAD_LIMIT_BYTES:
+                    print(
+                        f"[InstaDL] skipping cobalt {quality}: "
+                        f"{expected_size} bytes exceeds Discord limit"
+                    )
+                    continue
+
+                dreq = urllib.request.Request(
+                    media_url,
+                    headers={
+                        "User-Agent": "MidVox/1.0 (+https://github.com/suneo779/midvox)",
+                    },
+                )
+                with urllib.request.urlopen(dreq, timeout=120) as resp:
+                    content_type = resp.headers.get_content_type()
+                    suffix = ".mp4" if content_type == "video/mp4" else ".webm"
+                    path = os.path.join(
+                        tempfile.gettempdir(),
+                        f"cobalt_{int(time.time() * 1000)}{suffix}",
+                    )
+                    size = 0
+                    with open(path, "wb") as output:
+                        while True:
+                            chunk = resp.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            size += len(chunk)
+                            if size > UPLOAD_LIMIT_BYTES:
+                                break
+                            output.write(chunk)
+                if size > UPLOAD_LIMIT_BYTES:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                    print(
+                        f"[InstaDL] skipping cobalt {quality}: "
+                        f"actual size {size} exceeds Discord limit"
+                    )
+                    continue
+                if os.path.exists(path) and os.path.getsize(path) > 0:
+                    print(
+                        f"[InstaDL] cobalt download OK at {quality}: "
+                        f"{os.path.getsize(path)} bytes"
+                    )
+                    return path
+            return None
         except Exception as e:
             print(f"[InstaDL] cobalt download failed: {e}")
             return None
 
     async def _download_and_send(self, message, url, config, source="instagram"):
         """Show an animated status, download and repost the media, then remove
-        the source link only after a successful repost when configured."""
+        the source link when configured."""
         status = await self._send_status(
             message.channel, "Downloading ⏳", reference=None, auto_delete=0
         )
@@ -550,9 +593,7 @@ class InstaDownloader(commands.Cog):
         file_path = None
 
         if source == "youtube":
-            file_path = await loop.run_in_executor(
-                None, lambda: self._cobalt_download(url, "720")
-            )
+            file_path = await loop.run_in_executor(None, self._cobalt_download, url)
             if not file_path:
                 await self._send_status(
                     message.channel,
@@ -649,25 +690,6 @@ class InstaDownloader(commands.Cog):
 
         try:
             size = os.path.getsize(file_path)
-            # Retry YouTube at a smaller resolution before giving up. Cobalt
-            # still performs the processing; the bot never runs FFmpeg.
-            if source == "youtube" and size > UPLOAD_LIMIT_BYTES:
-                try:
-                    os.remove(file_path)
-                except OSError:
-                    pass
-                file_path = await loop.run_in_executor(
-                    None, lambda: self._cobalt_download(url, "480")
-                )
-                if not file_path or not os.path.exists(file_path):
-                    await self._send_status(
-                        message.channel,
-                        "That Short is too large for Discord to upload.",
-                        reference=message,
-                    )
-                    return
-                size = os.path.getsize(file_path)
-
             if size > UPLOAD_LIMIT_BYTES:
                 await self._send_status(
                     message.channel,
