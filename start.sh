@@ -54,16 +54,23 @@ export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
 echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
 (
   cd /opt/yt-session || exit 1
-  Xvfb :99 -ac -screen 0 "${XVFB_WHD:-1280x720x16}" -nolisten tcp >/tmp/yt-session-xvfb.log 2>&1 &
+  Xvfb :99 -ac -screen 0 "${XVFB_WHD:-1280x720x16}" -nolisten tcp > "$ROOT/yt-session-xvfb.log" 2>&1 &
+  XVFB_PID=$!
   # Match the official image: give Xvfb time to create the display before
   # Nodriver launches Chromium.
   sleep 2
+  if ! kill -0 "$XVFB_PID" 2>/dev/null; then
+    echo "[yt-session] Xvfb failed to start:" >&2
+    tail -n 40 "$ROOT/yt-session-xvfb.log" 2>/dev/null || true
+  fi
   export DISPLAY=:99
   export CHROME_PATH="${CHROME_PATH:-/usr/bin/chromium}"
   while true; do
     runuser -u midvox -- env DISPLAY="$DISPLAY" CHROME_PATH="$CHROME_PATH" \
-      python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" >> "$ROOT/yt-session.log" 2>&1
-    echo "[yt-session] generator exited; restarting in 5s" >> "$ROOT/yt-session.log"
+      python potoken-generator.py --bind 127.0.0.1 --port "$YT_SESSION_PORT" --chrome-path "$CHROME_PATH" 2>&1 \
+      | tee -a "$ROOT/yt-session.log" \
+      | grep --line-buffered -E 'WARNING|ERROR|Failed|failed|Traceback|Exception|Chromium|browser|Permission|No such' || true
+    echo "[yt-session] generator exited; restarting in 5s"
     sleep 5
   done
 ) &
@@ -79,15 +86,17 @@ for i in $(seq 1 10); do
   fi
   if ! kill -0 "$YT_SESSION_PID" 2>/dev/null; then
     echo "WARNING: YouTube session generator exited; Cobalt may be challenged." >&2
-    tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
+    tail -n 100 "$ROOT/yt-session.log" 2>/dev/null \
+      | grep -E 'WARNING|ERROR|Failed|failed|Traceback|Exception|Chromium|browser|Permission|No such' || true
     break
   fi
   sleep 1
 done
 if [ "$YT_SESSION_READY" -ne 1 ]; then
   echo "YouTube session generator is still warming up; continuing bot startup." >&2
-  echo "YouTube session generator log tail:"
-  tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
+  echo "YouTube session generator error summary:"
+  tail -n 100 "$ROOT/yt-session.log" 2>/dev/null \
+    | grep -E 'WARNING|ERROR|Failed|failed|Traceback|Exception|Chromium|browser|Permission|No such' || true
 fi
 
 echo "Starting local Cobalt sidecar on port 9000..."

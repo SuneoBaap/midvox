@@ -258,22 +258,22 @@ class AntiSpamPlus(commands.Cog):
         background. On success, flush the SQLite mirror so no settings
         saved during the outage are lost."""
         await self.bot.wait_until_ready()
+        mongo_uri = os.getenv("MONGO_URI")
+        if not has_valid_mongo_uri(mongo_uri):
+            print("\033[33m◈ MONGO_URI not set — SQLite-only mode\033[0m")
+            return
         print("[AntiSpamPlus] Mongo watcher started (retries every 60s)")
         while True:
             try:
                 if not self.mongo:
-                    mongo_uri = os.getenv("MONGO_URI")
-                    if has_valid_mongo_uri(mongo_uri):
-                        try:
-                            mongo = MongoManager()
-                            await mongo.connect(mongo_uri)
-                            self.bot.mongo = mongo
-                            print("\033[32m◈ MongoDB: Connected (background retry)\033[0m")
-                            await self._flush_sqlite_to_mongo()
-                        except Exception as e:
-                            print(f"\033[33m◈ MongoDB: reconnect failed — {e}\033[0m")
-                    else:
-                        print("\033[33m◈ MONGO_URI not set — SQLite-only mode\033[0m")
+                    try:
+                        mongo = MongoManager()
+                        await mongo.connect(mongo_uri)
+                        self.bot.mongo = mongo
+                        print("\033[32m◈ MongoDB: Connected (background retry)\033[0m")
+                        await self._flush_sqlite_to_mongo()
+                    except Exception as e:
+                        print(f"\033[33m◈ MongoDB: reconnect failed — {e}\033[0m")
             except Exception as e:
                 print(f"[AntiSpamPlus] mongo watcher error: {e}")
             await asyncio.sleep(60)
