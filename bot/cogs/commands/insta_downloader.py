@@ -405,7 +405,7 @@ class InstaDownloader(commands.Cog):
                     # still lets Cobalt select the highest available stream.
                     "youtubeVideoCodec": "h264",
                     "youtubeVideoContainer": "mp4",
-                    "youtubeBetterAudio": True,
+                    "youtubeBetterAudio": False,
                     "downloadMode": "auto",
                     "localProcessing": "disabled",
                 }
