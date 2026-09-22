@@ -30,10 +30,14 @@ Thumbs.db
 # Ignore build outputs
 dist/
 build/
+*.tsbuildinfo
 
 # Ignore temporary files
 *.tmp
 *.temp
+*.db-journal
+*.db-shm
+*.db-wal
 
 # Ignore Python packaging
 *.egg-info/
@@ -49,6 +53,20 @@ build/
 
 # Ignore runtime-generated Cloudflare WARP files (start.sh)
 .warp/
+
+# Ignore binaries downloaded on demand by the optional tunnel helper
+/bot/bin/
+
+# Ignore obsolete source backups and archives
+*_backup.*
+*_original.py
+/bot/cogs/**/*.tar
+
+# Ignore images produced while commands run
+/bot/data/[0-9]*.png
+/bot/data/pictures/album_image.png
+/bot/data/pictures/spotify_card_output.png
+/bot/data/ship/tmp_ship.png
 
 # Ignore node_modules
 node_modules/

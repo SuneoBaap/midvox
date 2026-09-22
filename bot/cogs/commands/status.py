@@ -17,7 +17,7 @@ from utils.emoji import DND, ICON_BROWSER, IDLE, LOADING_ALT1, MOBILE, OFFLINE, 
 from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 import aiohttp
-import os
+from io import BytesIO
 from utils.Tools import *
 
 class Status(commands.Cog):
@@ -32,6 +32,7 @@ class Status(commands.Cog):
         user = user or ctx.author
         processing = await ctx.send(f"{LOADING_ALT1} Loading Status...")
         embed = discord.Embed(title=f"{user.display_name}'s Status", color=0x8A9A5B)
+        file = None
 
         status_emoji = {
             "online": f"{ONLINE} Online",
@@ -69,19 +70,13 @@ class Status(commands.Cog):
                     song_name = activity.title
                     album_cover_url = str(activity.album_cover_url)
 
-                    album_image_path = 'data/pictures/album_image.png'
-
                     async with aiohttp.ClientSession() as session:
                         async with session.get(album_cover_url) as resp:
                             if resp.status == 200:
                                 album_data = await resp.read()
-                                with open(album_image_path, 'wb') as f:
-                                    f.write(album_data)
-
-                    card_image_path = self.create_spotify_card(song_name, album_image_path)
-
-                    if os.path.exists(card_image_path):
-                        file = discord.File(card_image_path, filename="spotify_card.png")
+                                card_image = self.create_spotify_card(song_name, album_data)
+                                file = discord.File(card_image, filename="spotify_card.png")
+                    if file:
                         embed.set_image(url="attachment://spotify_card.png")
                     else:
                         await ctx.send("Failed to generate the Spotify card image.")
@@ -98,17 +93,17 @@ class Status(commands.Cog):
         requester_avatar_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=requester_avatar_url)
 
-        await ctx.send(embed=embed, file=file if 'file' in locals() else None)
+        await ctx.send(embed=embed, file=file)
         await processing.delete()
 
-    def create_spotify_card(self, song_name, album_image_path):
+    def create_spotify_card(self, song_name, album_data):
         card_path = 'data/pictures/spotify.png'
-        output_path = 'data/pictures/spotify_card_output.png'
-
-        base_img = Image.open(card_path).convert("RGBA")
+        with Image.open(card_path) as source:
+            base_img = source.convert("RGBA")
         draw = ImageDraw.Draw(base_img)
 
-        album_img = Image.open(album_image_path).convert("RGBA")
+        with Image.open(BytesIO(album_data)) as source:
+            album_img = source.convert("RGBA")
         album_img = album_img.resize((160, 160))
 
         mask = Image.new("L", album_img.size, 0)
@@ -124,8 +119,10 @@ class Status(commands.Cog):
         song_name_position = (220, 70) 
         draw.text(song_name_position, truncated_song_name, font=font, fill="white")
 
-        base_img.save(output_path)
-        return output_path
+        output = BytesIO()
+        base_img.save(output, format="PNG")
+        output.seek(0)
+        return output
 
     def get_platform(self, member):
         if member.desktop_status != discord.Status.offline:

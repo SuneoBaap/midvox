@@ -16,6 +16,7 @@ import discord
 from discord.ext import commands
 import os
 import random
+from io import BytesIO
 from typing import List, Tuple, Union
 from PIL import Image
 from utils.Tools import *
@@ -102,8 +103,11 @@ class Blackjack(commands.Cog):
 
         return bg
 
-    def output(self, name, *hands: Tuple[List[Card]]) -> None:
-        self.center(*map(self.hand_to_images, hands)).save(f'data/{name}.png')
+    def output(self, *hands: Tuple[List[Card]]) -> BytesIO:
+        output = BytesIO()
+        self.center(*map(self.hand_to_images, hands)).save(output, format="PNG")
+        output.seek(0)
+        return output
 
     @staticmethod
     def calc_hand(hand: List[Card]) -> int:
@@ -147,8 +151,8 @@ class Blackjack(commands.Cog):
             dealer_score = self.calc_hand(dealer_hand)
 
             async def out_table(**kwargs) -> discord.Message:
-                self.output(ctx.author.id, dealer_hand, player_hand)
-                file = discord.File(f"data/{ctx.author.id}.png", filename=f"{ctx.author.id}.png")
+                image = self.output(dealer_hand, player_hand)
+                file = discord.File(image, filename=f"blackjack-{ctx.author.id}.png")
                 view = CV2(kwargs.get('title', 'Blackjack'), kwargs.get('description', ''))
                 msg: discord.Message = await ctx.send(file=file, view=view)
                 return msg
@@ -235,9 +239,5 @@ class Blackjack(commands.Cog):
                     f"Dealer's hand: {dealer_score}"
                 )
             )
-            os.remove(f'data/{ctx.author.id}.png')
         except Exception as e:
             print(e)
-
-
- 
