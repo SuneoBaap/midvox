@@ -1,0 +1,14 @@
+.git
+**/.env
+**/.env.*
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/*.log
+**/*.exe
+.node
+.warp
+.venv
+venv
+myenv

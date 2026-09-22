@@ -1,9 +1,29 @@
 #!/bin/bash
 
+# Report Python failures instead of tee's successful exit status.
+set -o pipefail
+
+cd "$(dirname "$0")" || exit 1
+
 echo "=== Starting MidVox ==="
 
 # Add Node.js binary to PATH (extracted during build into .node/)
 export PATH="$(dirname "$0")/.node/bin:$PATH"
+
+# Fail deployment immediately when the image is missing required runtimes.
+for runtime in python node npx; do
+  if ! command -v "$runtime" >/dev/null 2>&1; then
+    echo "FATAL: $runtime is missing. Build from the repository-root Dockerfile." >&2
+    exit 1
+  fi
+done
+if [ ! -f dashboard/.next/BUILD_ID ]; then
+  echo "FATAL: Dashboard is not built. Build from the repository-root Dockerfile." >&2
+  exit 1
+fi
+
+export PORT="${PORT:-8080}"
+export PYTHONUNBUFFERED=1
 
 export API_ENABLED=true
 export API_PORT=5001
