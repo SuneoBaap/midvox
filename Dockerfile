@@ -1,10 +1,16 @@
-FROM node:22-bookworm-slim AS node
+FROM node:24-bookworm-slim AS node
+
+# Run Cobalt as a local sidecar in the same Railway container. This keeps the
+# deployment to one service while retaining Cobalt's own processing runtime.
+FROM ghcr.io/imputnet/cobalt:11.7.1 AS cobalt
 
 FROM python:3.12-slim-bookworm
 
-# Both runtimes are required: Python runs the bot and Node serves the dashboard.
+# Python runs the bot, Node serves the dashboard, and the bundled Cobalt
+# runtime handles YouTube Shorts inside the same container.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=cobalt /app /opt/cobalt
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && apt-get update \

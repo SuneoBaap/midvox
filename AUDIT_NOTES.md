@@ -6,9 +6,9 @@ next major repair. Do not silently remove features while addressing them.
 
 ## Resolved repairs
 
-- YouTube Shorts now use Cobalt only with `videoQuality=max`, AV1, and no
-  YouTube cookies, yt-dlp fallback, local FFmpeg, or WARP tunnel. The Cobalt
-  instance is configured with `COBALT_API_URL`.
+- YouTube Shorts now use the bundled Cobalt sidecar with `videoQuality=max`
+  and AV1. The bot no longer sends YouTube cookies or uses its old yt-dlp and
+  WARP path; Cobalt handles its own processing in the same container.
 
 ## Major issues to address deliberately
 

@@ -33,6 +33,41 @@ export EMOJI_SYNC="${EMOJI_SYNC:-false}"
 
 ROOT="$(pwd)"
 
+# Cobalt runs locally in this same Railway container. Its processing runtime
+# stays private and the bot talks to it over loopback; no second Railway
+# service or public Cobalt API key is needed.
+export COBALT_API_URL="http://127.0.0.1:9000"
+if [ ! -f /opt/cobalt/src/cobalt ]; then
+  echo "FATAL: Cobalt runtime is missing from the image." >&2
+  exit 1
+fi
+echo "Starting local Cobalt sidecar on port 9000..."
+(
+  cd /opt/cobalt || exit 1
+  API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
+    API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
+    API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
+    node src/cobalt > "$ROOT/cobalt.log" 2>&1
+) &
+COBALT_PID=$!
+for i in $(seq 1 30); do
+  if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/', timeout=1)" > /dev/null 2>&1; then
+    echo "Cobalt sidecar is ready."
+    break
+  fi
+  if ! kill -0 "$COBALT_PID" 2>/dev/null; then
+    echo "FATAL: Cobalt sidecar exited. Log tail:"
+    tail -n 30 "$ROOT/cobalt.log" 2>/dev/null || true
+    exit 1
+  fi
+  sleep 1
+done
+if ! python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/', timeout=2)" > /dev/null 2>&1; then
+  echo "FATAL: Cobalt sidecar did not become ready. Log tail:"
+  tail -n 30 "$ROOT/cobalt.log" 2>/dev/null || true
+  exit 1
+fi
+
 # ── One-time emoji sync (before bot starts, patches emoji.py) ─
 if [ "${EMOJI_SYNC,,}" = "true" ]; then
   echo "Running one-time emoji sync..."
@@ -76,5 +111,6 @@ DASHBOARD_PID=$!
 echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
+echo "Cobalt PID: $COBALT_PID"
 
 wait

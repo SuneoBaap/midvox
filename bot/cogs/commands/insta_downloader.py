@@ -390,16 +390,12 @@ class InstaDownloader(commands.Cog):
 
         Cobalt performs the extraction/remuxing remotely. This bot deliberately
         does not pass YouTube cookies, invoke yt-dlp, or run local FFmpeg for
-        Shorts. ``COBALT_API_URL`` may point at any compatible instance; the
-        legacy ``COBALT_API_KEY`` value is accepted as a URL for existing
-        Railway configurations.
+        Shorts. Railway starts the compatible Cobalt runtime locally and
+        exposes it to the bot through ``COBALT_API_URL``.
         """
-        configured_url = os.getenv("COBALT_API_URL", "").strip()
-        if not configured_url:
-            legacy_value = os.getenv("COBALT_API_KEY", "").strip()
-            if legacy_value.startswith(("http://", "https://")):
-                configured_url = legacy_value
-        base_url = (configured_url or "https://api.cobalt.tools").rstrip("/")
+        base_url = os.getenv(
+            "COBALT_API_URL", "http://127.0.0.1:9000"
+        ).strip().rstrip("/")
         try:
             body = json.dumps(
                 {
