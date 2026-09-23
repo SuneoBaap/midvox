@@ -18,37 +18,31 @@ def nonce() -> str:
 
 
 async def fetch_bump_command(session: aiohttp.ClientSession, headers: dict, guild_id: str):
-    # Client-side search endpoint (works with user tokens)
-    url = (
-        f"{API_BASE}/channels/{CHANNEL_ID}/application-commands/search"
-        f"?type=1&query=bump&limit=10&include_applications=true"
-        f"&application_id={DISBOARD_APP_ID}"
-    )
-    async with session.get(url, headers=headers) as r:
-        body = await r.text()
-        print(f"[bump] search {r.status} {body[:300]}", flush=True)
-        if r.status != 200:
-            return None
-        data = json.loads(body)
+    # Correct user-token endpoints (from discord.py-self)
+    urls = [
+        f"{API_BASE}/channels/{CHANNEL_ID}/application-command-index",
+        f"{API_BASE}/guilds/{guild_id}/application-command-index",
+    ]
+    for url in urls:
+        async with session.get(url, headers=headers) as r:
+            body = await r.text()
+            print(f"[bump] index {r.status} from {url.split('/')[-2]}: {body[:250]}", flush=True)
+            if r.status != 200:
+                continue
+            try:
+                data = json.loads(body)
+            except Exception:
+                continue
 
-    # Possible shapes Discord returns
-    candidates = []
-    if isinstance(data, dict):
-        candidates.extend(data.get("application_commands") or [])
-        candidates.extend(data.get("commands") or [])
-        if "application_command" in data:
-            candidates.append(data["application_command"])
-    elif isinstance(data, list):
-        candidates = data
-
-    for c in candidates:
-        if (
-            str(c.get("application_id")) == DISBOARD_APP_ID
-            and c.get("name") == "bump"
-            and c.get("type", 1) == 1
-        ):
-            print(f"[bump] found live id={c['id']} version={c.get('version')}", flush=True)
-            return c
+            cmds = data.get("application_commands") or data.get("commands") or []
+            for c in cmds:
+                if (
+                    str(c.get("application_id")) == DISBOARD_APP_ID
+                    and c.get("name") == "bump"
+                    and int(c.get("type", 1)) == 1
+                ):
+                    print(f"[bump] found live id={c['id']} version={c.get('version')}", flush=True)
+                    return c
     return None
 
 
@@ -64,7 +58,7 @@ async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
 
     cmd = await fetch_bump_command(session, headers, str(guild_id))
     if not cmd:
-        print("[bump] /bump not found in channel search — Disboard missing or API down", flush=True)
+        print("[bump] /bump not found — Disboard not in this guild/channel or still down", flush=True)
         return
 
     payload = {
