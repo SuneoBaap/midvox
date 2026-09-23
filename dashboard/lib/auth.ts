@@ -17,14 +17,18 @@
 import DiscordProvider from "next-auth/providers/discord";
 import { AuthOptions } from "next-auth";
 
+function runtimeEnv(name: string): string {
+  return process.env[name]?.trim() || "";
+}
+
 export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
   useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
     DiscordProvider({
-      clientId: process.env.DISCORD_CLIENT_ID || "",
-      clientSecret: process.env.DISCORD_CLIENT_SECRET || "",
+      clientId: runtimeEnv("DISCORD_CLIENT_ID"),
+      clientSecret: runtimeEnv("DISCORD_CLIENT_SECRET"),
       authorization: { params: { scope: "identify guilds" } },
     }),
   ],

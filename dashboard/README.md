@@ -131,7 +131,7 @@ Open [http://localhost:3000](http://localhost:3000)
 |---|---|
 | `NEXT_PUBLIC_API_URL` | Full URL to the bot's FastAPI backend — use the Cloudflare Tunnel URL |
 | `NEXT_PUBLIC_DASHBOARD_API_KEY` | Must exactly match `DASHBOARD_API_KEY` in the bot `.env` |
-| `NEXTAUTH_URL` | Your dashboard's public URL (Vercel domain in production) |
+| `NEXTAUTH_URL` | Dashboard URL outside Railway; Railway uses its current public domain automatically |
 | `NEXTAUTH_SECRET` | Random secret for NextAuth session signing |
 | `DISCORD_CLIENT_ID` | Discord OAuth2 client ID |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 client secret |

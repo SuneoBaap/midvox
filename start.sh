@@ -7,6 +7,27 @@ cd "$(dirname "$0")" || exit 1
 
 echo "=== Starting MidVox ==="
 
+# Railway changes the public hostname when this project is cloned to another
+# account. Always prefer Railway's live hostname over a copied NEXTAUTH_URL so
+# Discord OAuth cannot redirect to an older deployment.
+if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
+  export NEXTAUTH_URL="https://${RAILWAY_PUBLIC_DOMAIN%/}"
+  echo "Dashboard OAuth URL: $NEXTAUTH_URL"
+fi
+
+# A Discord bot token identifies its application in the token's first segment.
+# Use that runtime identity for OAuth and invites so copied Railway variables
+# cannot leave the dashboard connected to a previous bot application.
+TOKEN_CLIENT_ID="$(python -c 'import base64, os; part=os.environ.get("TOKEN", "").split(".", 1)[0]; print(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)).decode() if part else "")' 2>/dev/null || true)"
+if printf '%s' "$TOKEN_CLIENT_ID" | grep -Eq '^[0-9]+$'; then
+  if [ -n "${DISCORD_CLIENT_ID:-}" ] && [ "$DISCORD_CLIENT_ID" != "$TOKEN_CLIENT_ID" ]; then
+    echo "WARNING: DISCORD_CLIENT_ID did not match TOKEN; using the active bot application ID." >&2
+  fi
+  export DISCORD_CLIENT_ID="$TOKEN_CLIENT_ID"
+  export NEXT_PUBLIC_DISCORD_CLIENT_ID="$TOKEN_CLIENT_ID"
+  echo "Discord application ID: $DISCORD_CLIENT_ID"
+fi
+
 # Add Node.js binary to PATH (extracted during build into .node/)
 export PATH="$(dirname "$0")/.node/bin:$PATH"
 
