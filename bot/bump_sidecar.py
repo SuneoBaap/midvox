@@ -1,7 +1,9 @@
 import asyncio
+import contextlib
 import json
 import os
 import random
+import signal
 import string
 
 import aiohttp
@@ -149,6 +151,47 @@ async def cdp_call(ws, request_id, method, params=None):
         return response.get("result") or {}
 
 
+async def relay_desktop_output(stream):
+    """Drain Discord output and retain useful startup diagnostics."""
+    line_count = 0
+    while True:
+        line = await stream.readline()
+        if not line:
+            return
+        line_count += 1
+        text = line.decode("utf-8", errors="replace").strip()
+        important = any(
+            word in text.lower()
+            for word in (
+                "error",
+                "fail",
+                "install",
+                "update",
+                "module",
+                "ready",
+                "devtools",
+                "version",
+            )
+        )
+        if text and (line_count <= 80 or important):
+            print(f"[discord-desktop] {text}", flush=True)
+
+
+async def stop_desktop_process(process):
+    """Stop the desktop bootstrapper and any children it launched."""
+    if not process:
+        return
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(process.pid, signal.SIGTERM)
+    if process.returncode is None:
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(process.pid, signal.SIGKILL)
+            await process.wait()
+
+
 async def discord_desktop_client():
     """Keep Discord's official desktop client open on a virtual display."""
     if not os.path.isfile(DISCORD_DESKTOP):
@@ -158,6 +201,7 @@ async def discord_desktop_client():
     while True:
         display_process = None
         discord_process = None
+        output_task = None
         try:
             display_process = await asyncio.create_subprocess_exec(
                 "Xvfb",
@@ -178,6 +222,11 @@ async def discord_desktop_client():
 
             desktop_environment = os.environ.copy()
             desktop_environment["DISPLAY"] = ":99"
+            print(
+                "[discord-desktop] starting official client; first launch may "
+                "install desktop modules",
+                flush=True,
+            )
             discord_process = await asyncio.create_subprocess_exec(
                 DISCORD_DESKTOP,
                 "--no-sandbox",
@@ -192,18 +241,18 @@ async def discord_desktop_client():
                 f"--remote-debugging-port={debug_port}",
                 "--user-data-dir=/tmp/midvox-discord-desktop",
                 env=desktop_environment,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                start_new_session=True,
+            )
+            output_task = asyncio.create_task(
+                relay_desktop_output(discord_process.stdout)
             )
 
             async with aiohttp.ClientSession() as session:
                 target = None
-                for _ in range(60):
-                    if discord_process.returncode is not None:
-                        raise RuntimeError(
-                            "Discord desktop exited with code "
-                            f"{discord_process.returncode}"
-                        )
+                exited_at = None
+                for attempt in range(600):
                     try:
                         async with session.get(
                             f"http://127.0.0.1:{debug_port}/json/list"
@@ -227,6 +276,19 @@ async def discord_desktop_client():
                             break
                     except (aiohttp.ClientError, ValueError):
                         pass
+                    if discord_process.returncode is not None:
+                        exited_at = exited_at if exited_at is not None else attempt
+                        if attempt - exited_at >= 60:
+                            raise RuntimeError(
+                                "Discord desktop bootstrapper exited with code "
+                                f"{discord_process.returncode} and no client started"
+                            )
+                    if attempt in (60, 180, 360):
+                        print(
+                            "[discord-desktop] still waiting for desktop modules "
+                            "to become ready",
+                            flush=True,
+                        )
                     await asyncio.sleep(0.5)
                 if not target:
                     raise RuntimeError("Discord desktop DevTools did not become ready")
@@ -363,7 +425,7 @@ async def discord_desktop_client():
                         flush=True,
                     )
 
-                    while discord_process.returncode is None:
+                    while True:
                         await asyncio.sleep(60)
                         await cdp_call(
                             ws,
@@ -380,13 +442,10 @@ async def discord_desktop_client():
         except Exception as error:
             print(f"[discord-desktop] error: {error}", flush=True)
         finally:
-            if discord_process and discord_process.returncode is None:
-                discord_process.terminate()
-                try:
-                    await asyncio.wait_for(discord_process.wait(), timeout=5)
-                except TimeoutError:
-                    discord_process.kill()
-                    await discord_process.wait()
+            await stop_desktop_process(discord_process)
+            if output_task:
+                output_task.cancel()
+                await asyncio.gather(output_task, return_exceptions=True)
             if display_process and display_process.returncode is None:
                 display_process.terminate()
                 try:
