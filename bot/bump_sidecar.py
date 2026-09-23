@@ -12,6 +12,8 @@ INTERVAL = int(os.getenv("BUMP_INTERVAL", "7200"))
 DISBOARD_APP_ID = "302050872383242240"
 API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
+SESSION_ID = ""
+SESSION_READY = asyncio.Event()
 
 
 def nonce() -> str:
@@ -19,35 +21,55 @@ def nonce() -> str:
 
 
 async def fetch_bump_command(session: aiohttp.ClientSession, headers: dict, guild_id: str):
-    # Correct user-token endpoints (from discord.py-self)
+    # Query DISBOARD directly first, then fall back to the complete guild index.
+    # The channel index can contain unrelated user-installed applications.
     urls = [
-        f"{API_BASE}/channels/{CHANNEL_ID}/application-command-index",
+        f"{API_BASE}/applications/{DISBOARD_APP_ID}/application-command-index",
         f"{API_BASE}/guilds/{guild_id}/application-command-index",
     ]
     for url in urls:
         async with session.get(url, headers=headers) as r:
             body = await r.text()
-            print(f"[bump] index {r.status} from {url.split('/')[-2]}: {body[:250]}", flush=True)
+            source = "DISBOARD" if f"applications/{DISBOARD_APP_ID}" in url else "guild"
+            print(f"[bump] {source} command index HTTP {r.status}", flush=True)
             if r.status != 200:
                 continue
             try:
                 data = json.loads(body)
             except Exception:
+                print(f"[bump] {source} command index returned invalid JSON", flush=True)
                 continue
 
             cmds = data.get("application_commands") or data.get("commands") or []
+            if isinstance(cmds, dict):
+                cmds = list(cmds.values())
             for c in cmds:
+                if not isinstance(c, dict):
+                    continue
+                application_id = str(c.get("application_id") or DISBOARD_APP_ID)
                 if (
-                    str(c.get("application_id")) == DISBOARD_APP_ID
+                    application_id == DISBOARD_APP_ID
                     and c.get("name") == "bump"
-                    and int(c.get("type", 1)) == 1
+                    and int(c.get("type") or 1) == 1
                 ):
-                    print(f"[bump] found live id={c['id']} version={c.get('version')}", flush=True)
+                    print(
+                        f"[bump] selected DISBOARD /bump id={c['id']} "
+                        f"application={application_id}",
+                        flush=True,
+                    )
                     return c
+            print(f"[bump] {source} index had {len(cmds)} commands; DISBOARD /bump absent", flush=True)
     return None
 
 
 async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
+    if not SESSION_ID:
+        try:
+            await asyncio.wait_for(SESSION_READY.wait(), timeout=30)
+        except TimeoutError:
+            print("[bump] gateway session not ready; delaying bump", flush=True)
+            return
+
     async with session.get(f"{API_BASE}/channels/{CHANNEL_ID}", headers=headers) as r:
         if r.status != 200:
             print(f"[bump] channel lookup {r.status} {await r.text()}", flush=True)
@@ -67,7 +89,7 @@ async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
         "application_id": DISBOARD_APP_ID,
         "guild_id": str(guild_id),
         "channel_id": str(CHANNEL_ID),
-        "session_id": nonce(),
+        "session_id": SESSION_ID,
         "data": {
             "version": str(cmd.get("version") or cmd["id"]),
             "id": str(cmd["id"]),
@@ -110,6 +132,8 @@ async def heartbeat(ws, interval, sequence):
 
 async def connect_presence():
     """Maintain a Discord gateway session so the account appears online."""
+    global SESSION_ID
+
     while True:
         try:
             async with aiohttp.ClientSession() as session:
@@ -144,13 +168,18 @@ async def connect_presence():
                     heartbeat_task = asyncio.create_task(
                         heartbeat(ws, interval, sequence)
                     )
-                    print("[bump] user presence connected", flush=True)
+                    print("[bump] gateway identified; waiting for READY", flush=True)
                     try:
                         async for message in ws:
                             if message.type == aiohttp.WSMsgType.TEXT:
                                 payload = json.loads(message.data)
                                 if payload.get("s") is not None:
                                     sequence[0] = payload["s"]
+                                if payload.get("op") == 0 and payload.get("t") == "READY":
+                                    SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
+                                    if SESSION_ID:
+                                        SESSION_READY.set()
+                                        print("[bump] user presence online and session ready", flush=True)
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):
@@ -161,6 +190,8 @@ async def connect_presence():
                             ):
                                 break
                     finally:
+                        SESSION_ID = ""
+                        SESSION_READY.clear()
                         heartbeat_task.cancel()
                         await asyncio.gather(heartbeat_task, return_exceptions=True)
         except Exception as e:
