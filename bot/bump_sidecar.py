@@ -3,8 +3,6 @@ import json
 import os
 import random
 import string
-import time
-from urllib.parse import quote
 
 import aiohttp
 
@@ -16,17 +14,6 @@ API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
-SUPER_PROPERTIES = "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyMC4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTIwLjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjIyMzgxNiwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0="
-DISCORD_HEADERS = {
-    "Authorization": TOKEN,
-    "Content-Type": "application/json",
-    "User-Agent": USER_AGENT,
-    "X-Super-Properties": SUPER_PROPERTIES,
-}
 
 
 def nonce() -> str:
@@ -143,142 +130,32 @@ async def heartbeat(ws, interval, sequence):
         await asyncio.sleep(interval)
 
 
-async def linked_spotify_token(session):
-    """Use the existing Discord connection to obtain its Spotify access token."""
-    async with session.get(
-        f"{API_BASE}/users/@me/connections", headers=DISCORD_HEADERS
-    ) as response:
-        if response.status != 200:
-            print(f"[spotify] Discord connections HTTP {response.status}", flush=True)
-            return ""
-        connections = await response.json()
+def listening_activities(sessions, current_session_id):
+    """Return unique listening activities reported by another user session."""
+    mirrored = []
+    seen = set()
+    for session in sessions if isinstance(sessions, list) else []:
+        if not isinstance(session, dict):
+            continue
+        session_id = str(session.get("session_id") or "")
+        for activity in session.get("activities") or []:
+            if not isinstance(activity, dict) or int(activity.get("type") or 0) != 2:
+                continue
 
-    spotify = next(
-        (
-            connection
-            for connection in connections
-            if isinstance(connection, dict) and connection.get("type") == "spotify"
-        ),
-        None,
-    )
-    if not spotify or not spotify.get("id"):
-        print("[spotify] no Spotify account is connected to this Discord user", flush=True)
-        return ""
+            source_session = str(activity.get("session_id") or session_id)
+            if source_session == current_session_id:
+                continue
 
-    connection_id = quote(str(spotify["id"]), safe="")
-    url = f"{API_BASE}/users/@me/connections/spotify/{connection_id}/access-token"
-    async with session.get(url, headers=DISCORD_HEADERS) as response:
-        if response.status != 200:
-            print(f"[spotify] connection token HTTP {response.status}", flush=True)
-            return ""
-        data = await response.json()
-    return str(data.get("access_token") or "")
-
-
-def spotify_activity(playback, session_id):
-    """Convert Spotify's currently-playing response into Discord activity data."""
-    item = playback.get("item") if isinstance(playback, dict) else None
-    if not playback.get("is_playing") or not isinstance(item, dict):
-        return None
-
-    timestamp = int(playback.get("timestamp") or time.time() * 1000)
-    progress = int(playback.get("progress_ms") or 0)
-    duration = int(item.get("duration_ms") or 0)
-    started = timestamp - progress
-
-    artists = item.get("artists") or []
-    artist_names = "; ".join(
-        str(artist.get("name"))
-        for artist in artists
-        if isinstance(artist, dict) and artist.get("name")
-    )
-    album = item.get("album") if isinstance(item.get("album"), dict) else {}
-    assets = {"large_text": str(album.get("name") or "Spotify")}
-    images = album.get("images") or []
-    if images and isinstance(images[0], dict):
-        image_url = str(images[0].get("url") or "")
-        if "/image/" in image_url:
-            assets["large_image"] = f"spotify:{image_url.rsplit('/image/', 1)[-1]}"
-
-    activity = {
-        "type": 2,
-        "name": "Spotify",
-        "details": str(item.get("name") or "Unknown track"),
-        "state": artist_names or "Spotify",
-        "timestamps": {"start": started, "end": started + duration},
-        "assets": assets,
-        "sync_id": str(item.get("id") or ""),
-        "session_id": session_id,
-        "flags": 48,
-        "created_at": timestamp,
-    }
-    return activity
-
-
-async def spotify_presence_loop(ws, session_id):
-    """Publish linked Spotify playback without needing a local Discord client."""
-    access_token = ""
-    refresh_at = 0.0
-    last_track = object()
-
-    async with aiohttp.ClientSession() as session:
-        while not ws.closed and SESSION_ID == session_id:
-            try:
-                if not access_token or time.monotonic() >= refresh_at:
-                    access_token = await linked_spotify_token(session)
-                    if not access_token:
-                        await asyncio.sleep(60)
-                        continue
-                    refresh_at = time.monotonic() + 25 * 60
-                    print("[spotify] linked account token ready", flush=True)
-
-                async with session.get(
-                    "https://api.spotify.com/v1/me/player/currently-playing",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                ) as response:
-                    if response.status == 204:
-                        playback = {}
-                    elif response.status == 401:
-                        access_token = ""
-                        refresh_at = 0.0
-                        await asyncio.sleep(5)
-                        continue
-                    elif response.status == 429:
-                        await asyncio.sleep(float(response.headers.get("Retry-After", "15")))
-                        continue
-                    elif response.status != 200:
-                        print(f"[spotify] currently playing HTTP {response.status}", flush=True)
-                        await asyncio.sleep(30)
-                        continue
-                    else:
-                        playback = await response.json()
-
-                activity = spotify_activity(playback, session_id)
-                track_key = activity.get("sync_id") if activity else None
-                if track_key != last_track:
-                    await ws.send_json(
-                        {
-                            "op": 3,
-                            "d": {
-                                "since": 0,
-                                "activities": [activity] if activity else [],
-                                "status": "online",
-                                "afk": False,
-                            },
-                        }
-                    )
-                    last_track = track_key
-                    if activity:
-                        print(
-                            f"[spotify] showing {activity['details']} — {activity['state']}",
-                            flush=True,
-                        )
-                    else:
-                        print("[spotify] playback stopped; activity cleared", flush=True)
-            except Exception as error:
-                print(f"[spotify] update error: {error}", flush=True)
-
-            await asyncio.sleep(15)
+            outgoing = {
+                key: value
+                for key, value in activity.items()
+                if key not in {"id", "session_id"} and value is not None
+            }
+            signature = json.dumps(outgoing, sort_keys=True, separators=(",", ":"))
+            if signature not in seen:
+                seen.add(signature)
+                mirrored.append(outgoing)
+    return mirrored
 
 
 async def connect_presence():
@@ -319,7 +196,7 @@ async def connect_presence():
                     heartbeat_task = asyncio.create_task(
                         heartbeat(ws, interval, sequence)
                     )
-                    spotify_task = None
+                    mirrored_signature = None
                     print("[bump] gateway identified; waiting for READY", flush=True)
                     try:
                         async for message in ws:
@@ -332,10 +209,29 @@ async def connect_presence():
                                     if SESSION_ID:
                                         SESSION_READY.set()
                                         print("[bump] user presence online and session ready", flush=True)
-                                        if spotify_task is None:
-                                            spotify_task = asyncio.create_task(
-                                                spotify_presence_loop(ws, SESSION_ID)
-                                            )
+                                elif payload.get("op") == 0 and payload.get("t") == "SESSIONS_REPLACE":
+                                    activities = listening_activities(payload.get("d"), SESSION_ID)
+                                    signature = json.dumps(
+                                        activities, sort_keys=True, separators=(",", ":")
+                                    )
+                                    if signature != mirrored_signature:
+                                        await ws.send_json(
+                                            {
+                                                "op": 3,
+                                                "d": {
+                                                    "since": 0,
+                                                    "activities": activities,
+                                                    "status": "online",
+                                                    "afk": False,
+                                                },
+                                            }
+                                        )
+                                        mirrored_signature = signature
+                                        if activities:
+                                            song = activities[0].get("details") or activities[0].get("name")
+                                            print(f"[bump] mirrored listening activity: {song}", flush=True)
+                                        else:
+                                            print("[bump] no external listening activity", flush=True)
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):
@@ -349,13 +245,7 @@ async def connect_presence():
                         SESSION_ID = ""
                         SESSION_READY.clear()
                         heartbeat_task.cancel()
-                        if spotify_task is not None:
-                            spotify_task.cancel()
-                        await asyncio.gather(
-                            heartbeat_task,
-                            *([spotify_task] if spotify_task is not None else []),
-                            return_exceptions=True,
-                        )
+                        await asyncio.gather(heartbeat_task, return_exceptions=True)
         except Exception as e:
             print(f"[bump] presence error: {e}", flush=True)
 
@@ -364,7 +254,12 @@ async def connect_presence():
 
 
 async def loop():
-    headers = dict(DISCORD_HEADERS)
+    headers = {
+        "Authorization": TOKEN,
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "X-Super-Properties": "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyMC4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTIwLjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjIyMzgxNiwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=",
+    }
     print(f"[bump] start channel={CHANNEL_ID} every {INTERVAL}s", flush=True)
     async with aiohttp.ClientSession() as session:
         while True:
