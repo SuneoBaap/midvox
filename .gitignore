@@ -50,6 +50,7 @@ build/
 .env
 .env.local
 .env.*.local
+cookies.json
 
 # Ignore binaries downloaded on demand by the optional tunnel helper
 /bot/bin/

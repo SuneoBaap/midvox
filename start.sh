@@ -42,13 +42,28 @@ if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   exit 1
 fi
 
+# YouTube frequently challenges datacenter IPs. When a cookie header is supplied
+# as a Railway secret, convert it to Cobalt's cookies.json format at runtime.
+# The secret is never committed or printed. A complete Cobalt JSON object is
+# accepted too, which makes rotating an existing cookies.json straightforward.
+export COBALT_COOKIE_FILE="/tmp/midvox-cobalt-cookies.json"
+if [ -n "${YOUTUBE_COOKIE:-}" ]; then
+  python -c 'import json, os; raw = os.environ["YOUTUBE_COOKIE"].strip(); data = json.loads(raw) if raw.startswith("{") else {"youtube": [raw]}; entries = data.get("youtube") if isinstance(data, dict) else None; assert isinstance(entries, list) and entries and all(isinstance(item, str) and item.strip() for item in entries), "YOUTUBE_COOKIE must be a cookie header or Cobalt cookies.json"; json.dump(data, open(os.environ["COBALT_COOKIE_FILE"], "w", encoding="utf-8"))' \
+    || { echo "FATAL: YOUTUBE_COOKIE is empty or invalid." >&2; exit 1; }
+  chmod 600 "$COBALT_COOKIE_FILE"
+  export COOKIE_PATH="$COBALT_COOKIE_FILE"
+  echo "Cobalt YouTube cookies: enabled."
+else
+  unset COOKIE_PATH
+  echo "Cobalt YouTube cookies: not configured."
+fi
+
 echo "Starting local Cobalt sidecar on port 9000..."
 (
   cd /opt/cobalt || exit 1
     API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
     API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
     API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
-    CUSTOM_INNERTUBE_CLIENT=ANDROID_VR \
     node src/cobalt.js > "$ROOT/cobalt.log" 2>&1
 ) &
 COBALT_PID=$!

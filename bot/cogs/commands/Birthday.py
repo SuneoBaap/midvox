@@ -34,13 +34,17 @@ class CV2(LayoutView):
 def read_db(filename):
     """Read the JSON database file."""
     if os.path.exists(filename):
-        with open(filename, 'r') as f:
-            return json.load(f)
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # Treat empty or malformed legacy data files as a new database.
+            return {}
     return {}
 
 def write_db(filename, data):
     """Write data to the JSON database file."""
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
 
 class Birthdays(commands.Cog):
