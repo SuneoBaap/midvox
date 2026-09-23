@@ -30,6 +30,9 @@ RUN sed -i 's#from "youtubei.js"#from "file:///opt/youtube-extractor/node_module
         /opt/cobalt/src/processing/services/youtube.js \
     && node --input-type=module -e \
         'import("file:///opt/youtube-extractor/node_modules/youtubei.js/dist/src/platform/node.js").then((module) => { if (!module.Innertube) process.exit(1) })'
+COPY docker/patch_cobalt_youtube.py /tmp/patch_cobalt_youtube.py
+RUN python /tmp/patch_cobalt_youtube.py \
+    && rm /tmp/patch_cobalt_youtube.py
 # Fail during the image build if the official Cobalt API was not copied. This
 # makes a Railway builder/configuration mistake visible in Build Logs.
 RUN test -e /opt/cobalt/src/cobalt.js \

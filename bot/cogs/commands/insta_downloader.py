@@ -409,11 +409,12 @@ class InstaDownloader(commands.Cog):
             "COBALT_API_URL", "http://127.0.0.1:9000"
         ).strip().rstrip("/")
 
-        def _request(quality):
+        def _request(quality, youtube_client):
             body = json.dumps(
                 {
                     "url": url,
                     "videoQuality": quality,
+                    "youtubeClient": youtube_client,
                     # H.264 is broadly playable in Discord. The quality is
                     # selected below after probing the returned file size.
                     "youtubeVideoCodec": "h264",
@@ -438,6 +439,7 @@ class InstaDownloader(commands.Cog):
                         return json.loads(resp.read().decode("utf-8", "replace"))
                 except urllib.error.HTTPError as exc:
                     last_error = exc
+                    parsed_error = None
                     try:
                         raw_error = exc.read().decode("utf-8", "replace")
                         parsed_error = json.loads(raw_error)
@@ -454,7 +456,7 @@ class InstaDownloader(commands.Cog):
                     except Exception:
                         print(f"[InstaDL] cobalt HTTP {exc.code}: {exc}")
                     if exc.code not in (404, 405):
-                        return None
+                        return parsed_error if isinstance(parsed_error, dict) else None
             if last_error:
                 print(f"[InstaDL] cobalt request failed: {last_error}")
             return None
@@ -480,20 +482,43 @@ class InstaDownloader(commands.Cog):
         try:
             # Ask Cobalt for the best option first, but do not download it
             # until its tunnel/redirect reports a size within Discord's limit.
+            clients = (
+                "TV_SIMPLY",
+                "VISIONOS",
+                "ANDROID",
+                "IOS",
+                "ANDROID_VR",
+                "MWEB",
+            )
+            selected_client = None
             for quality in ("max", "1080", "720", "480", "360", "240"):
-                data = _request(quality)
-                if not isinstance(data, dict):
-                    # A request-level failure (for example YouTube blocking
-                    # the instance) will not be fixed by trying resolutions.
-                    return None
-                status = data.get("status")
-                media_url = data.get("url")
-                if status not in ("redirect", "tunnel") or not media_url:
+                data = None
+                candidates = (selected_client,) if selected_client else clients
+                for youtube_client in candidates:
+                    data = _request(quality, youtube_client)
+                    if not isinstance(data, dict):
+                        continue
+                    status = data.get("status")
+                    media_url = data.get("url")
+                    if status in ("redirect", "tunnel") and media_url:
+                        selected_client = youtube_client
+                        print(
+                            f"[InstaDL] cobalt client {youtube_client} accepted "
+                            f"YouTube request at {quality}"
+                        )
+                        break
                     error = data.get("error")
                     if isinstance(error, dict):
                         error = error.get("code") or error
-                    print(f"[InstaDL] cobalt error at {quality}: {error or status}")
+                    print(
+                        f"[InstaDL] cobalt client {youtube_client} failed "
+                        f"at {quality}: {error or status}"
+                    )
+                else:
                     return None
+
+                status = data.get("status")
+                media_url = data.get("url")
 
                 expected_size = _probe_size(media_url)
                 if expected_size and expected_size > UPLOAD_LIMIT_BYTES:
