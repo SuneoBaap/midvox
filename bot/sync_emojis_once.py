@@ -5,6 +5,12 @@ Uses only stdlib (urllib, re, base64) — no aiohttp, no dotenv needed.
 import os, re, sys, json, base64, urllib.request, urllib.error, time
 
 EMOJI_PY = os.path.join(os.path.dirname(__file__), "utils", "emoji.py")
+LOCAL_ASSETS = {
+    "mv_error": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_error.gif"),
+    "mv_success": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_success.gif"),
+    "mv_warning": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_warning.gif"),
+    "mv_loading": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_loading.gif"),
+}
 
 def log(msg):
     print(f"[EmojiSync] {msg}")
@@ -34,6 +40,10 @@ except Exception as e:
     sys.exit(1)
 
 matches = set(re.findall(r"<(a?):(\w+):(\d+)>", content))
+# Ship MidVox's core animated status icons with the bot and upload them first.
+# This guarantees that a missing legacy Discord CDN asset can never turn an
+# error/success/warning response back into a keyboard emoji.
+matches = sorted(matches, key=lambda item: (item[1] not in LOCAL_ASSETS, item[1].lower()))
 log(f"Found {len(matches)} emoji references in emoji.py")
 if not matches:
     sys.exit(0)
@@ -72,12 +82,16 @@ def api(method, url, data=None):
 
 
 def fallback_for(name):
-    """Return a readable Unicode icon when a legacy asset is unavailable."""
+    """Return a core app emoji or a readable fallback for an unavailable asset."""
     key = name.lower()
+    def core_emoji(core_name, placeholder):
+        current = re.search(rf"<a:{core_name}:\d+>", content)
+        return current.group(0) if current else placeholder
+
     groups = (
-        (("tick", "check", "enable", "online", "success"), "✅"),
-        (("cross", "delete", "denied", "disable", "offline", "error"), "❌"),
-        (("warn", "alert"), "⚠️"),
+        (("tick", "check", "enable", "online", "success"), core_emoji("mv_success", "<a:mv_success:900000000000000002>")),
+        (("cross", "delete", "denied", "disable", "offline", "error"), core_emoji("mv_error", "<a:mv_error:900000000000000001>")),
+        (("warn", "alert"), core_emoji("mv_warning", "<a:mv_warning:900000000000000003>")),
         (("lock",), "🔒"),
         (("unlock",), "🔓"),
         (("music", "play", "pause", "skip", "rewind"), "🎵"),
@@ -89,7 +103,7 @@ def fallback_for(name):
         (("user", "human", "people", "staff", "manager", "mod"), "👤"),
         (("channel", "message", "mention"), "💬"),
         (("ban", "sword", "hammer"), "🛡️"),
-        (("loading",), "⏳"),
+        (("loading",), core_emoji("mv_loading", "<a:mv_loading:900000000000000004>")),
         (("arrow", "next", "forward", "back"), "➡️"),
     )
     for words, icon in groups:
@@ -154,23 +168,33 @@ for animated_str, name, old_id in matches:
             skipped += 1
         continue
 
-    # Not found — download and upload
+    # Not found — load a bundled MidVox asset or copy the legacy CDN asset.
     log(f"Uploading: {name}")
-    ext = "gif" if animated else "webp"
-    img_url = f"https://cdn.discordapp.com/emojis/{old_id}.{ext}"
-    try:
-        req = urllib.request.Request(img_url)
-        with urllib.request.urlopen(req, timeout=15) as r:
-            img_data = r.read()
-    except Exception as e:
-        log(f"Failed to download {name}: {e}")
-        failed += 1
-        old_str = f"<{animated_str}:{name}:{old_id}>"
-        content = content.replace(old_str, fallback_for(name))
-        persist_content(content)
-        fallback_count += 1
-        updated = True
-        continue
+    local_asset = LOCAL_ASSETS.get(name)
+    if local_asset:
+        try:
+            with open(local_asset, "rb") as source:
+                img_data = source.read()
+        except Exception as e:
+            log(f"Bundled asset missing for {name}: {e}")
+            failed += 1
+            continue
+    else:
+        ext = "gif" if animated else "webp"
+        img_url = f"https://cdn.discordapp.com/emojis/{old_id}.{ext}"
+        try:
+            req = urllib.request.Request(img_url)
+            with urllib.request.urlopen(req, timeout=15) as r:
+                img_data = r.read()
+        except Exception as e:
+            log(f"Failed to download {name}: {e}")
+            failed += 1
+            old_str = f"<{animated_str}:{name}:{old_id}>"
+            content = content.replace(old_str, fallback_for(name))
+            persist_content(content)
+            fallback_count += 1
+            updated = True
+            continue
 
     mime = "image/gif" if animated else "image/webp"
     b64 = base64.b64encode(img_data).decode("utf-8")
@@ -190,6 +214,10 @@ for animated_str, name, old_id in matches:
     else:
         log(f"Upload failed for {name}")
         failed += 1
+        if local_asset:
+            # Keep the application-emoji placeholder for the next startup
+            # retry. Core MidVox status icons must stay animated.
+            continue
         old_str = f"<{animated_str}:{name}:{old_id}>"
         content = content.replace(old_str, fallback_for(name))
         persist_content(content)

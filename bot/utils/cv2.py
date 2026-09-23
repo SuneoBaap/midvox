@@ -22,9 +22,15 @@ added via .add_item().
 import discord
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 from utils.theme import PRIMARY
+from utils.emoji import CROSS, TICK, WARNING
 
 
 BOT_THEME_COLOR = PRIMARY
+
+
+def animate_status_icons(value):
+    """Upgrade legacy status characters in CV2 text to application emojis."""
+    return str(value).replace("❌", CROSS).replace("✅", TICK).replace("⚠️", WARNING).replace("⚠", WARNING)
 
 
 def build_container(*items, accent_color=BOT_THEME_COLOR):
@@ -40,8 +46,8 @@ class CV2(LayoutView):
     def __init__(self, title, *sections):
         super().__init__(timeout=None)
         container = build_container(
-            TextDisplay(f"**{title}**"),
-            *[item for s in sections for item in (Separator(visible=True), TextDisplay(str(s)))]
+            TextDisplay(f"**{animate_status_icons(title)}**"),
+            *[item for s in sections for item in (Separator(visible=True), TextDisplay(animate_status_icons(s)))]
         )
         self.add_item(container)
 
@@ -83,8 +89,8 @@ class CV2Embed(CV2):
             sections.append(f"*{self._footer}*")
             
         container = build_container(
-            TextDisplay(f"**{self._title}**"),
-            *[item for s in sections for item in (Separator(visible=True), TextDisplay(str(s)))],
+            TextDisplay(f"**{animate_status_icons(self._title)}**"),
+            *[item for s in sections for item in (Separator(visible=True), TextDisplay(animate_status_icons(s)))],
             accent_color=self.color,
         )
         self.add_item(container)

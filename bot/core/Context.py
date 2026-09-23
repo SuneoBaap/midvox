@@ -19,8 +19,15 @@ import discord
 import functools
 from typing import Optional, Any
 import asyncio
+from utils.emoji import CROSS, TICK, WARNING
 
 __all__ = ("Context", )
+
+
+def _animate_status_icons(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.replace("❌", CROSS).replace("✅", TICK).replace("⚠️", WARNING).replace("⚠", WARNING)
 
 
 class Context(commands.Context):
@@ -71,7 +78,7 @@ class Context(commands.Context):
             except discord.Forbidden:  
                 pass
             return
-        return await super().send(content, **kwargs)
+        return await super().send(_animate_status_icons(content), **kwargs)
 
     async def reply(self,
                     content: Optional[str] = None,
@@ -83,7 +90,7 @@ class Context(commands.Context):
             except discord.Forbidden:  
                 pass
             return
-        return await super().reply(content, **kwargs)
+        return await super().reply(_animate_status_icons(content), **kwargs)
 
     async def release(self, delay: Optional[int] = None) -> None:
         delay = delay or 0
