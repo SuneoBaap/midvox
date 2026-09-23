@@ -564,11 +564,35 @@ async def loop():
             await asyncio.sleep(INTERVAL)
 
 
+async def supervise(name, coroutine_factory):
+    """Restart one sidecar component without stopping the other components."""
+    while True:
+        try:
+            await coroutine_factory()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            print(f"[{name}] crashed: {error}", flush=True)
+        print(f"[{name}] restarting in 5s", flush=True)
+        await asyncio.sleep(5)
+
+
 if __name__ == "__main__":
-    if not TOKEN or not CHANNEL_ID:
-        raise SystemExit("USER_TOKEN and BUMP_CHANNEL_ID required")
+    if not TOKEN:
+        raise SystemExit("USER_TOKEN required")
 
     async def main():
-        await asyncio.gather(loop(), connect_presence(), discord_desktop_client())
+        print(
+            "[presence] enabled; bump="
+            + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
+            flush=True,
+        )
+        tasks = [
+            supervise("presence", connect_presence),
+            supervise("discord-desktop", discord_desktop_client),
+        ]
+        if CHANNEL_ID:
+            tasks.append(supervise("bump", loop))
+        await asyncio.gather(*tasks)
 
     asyncio.run(main())

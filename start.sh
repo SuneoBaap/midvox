@@ -188,8 +188,10 @@ fi
 ) &
 BOT_PID=$!
 
-# User-token /bump sidecar. Separate from TOKEN (bot). Skipped if unset.
-if [ -n "${USER_TOKEN:-}" ] && [ -n "${BUMP_CHANNEL_ID:-}" ]; then
+# User presence, Discord desktop and optional /bump sidecar. USER_TOKEN keeps
+# presence alive even when BUMP_CHANNEL_ID is absent or the desktop bootstrap
+# needs to restart.
+if [ -n "${USER_TOKEN:-}" ]; then
   (
     while true; do
       cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
@@ -202,7 +204,7 @@ if [ -n "${USER_TOKEN:-}" ] && [ -n "${BUMP_CHANNEL_ID:-}" ]; then
   ) &
   BUMP_PID=$!
 else
-  echo "Bump sidecar skipped (set USER_TOKEN and BUMP_CHANNEL_ID to enable)."
+  echo "User presence sidecar skipped (set USER_TOKEN to enable)."
   BUMP_PID=""
 fi
 
