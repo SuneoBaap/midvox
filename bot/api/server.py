@@ -129,6 +129,15 @@ def create_app() -> FastAPI:
             "bot_name": bot.user.name,
             "guild_count": len(bot.guilds),
             "user_count": sum(g.member_count or 0 for g in bot.guilds),
+            "database": {
+                "status": getattr(bot, "mongo_status", "unknown"),
+                "error_type": getattr(bot, "mongo_error_type", None),
+                "last_sync_at": (
+                    getattr(getattr(bot, "mongo", None), "last_state_sync_at", None).isoformat()
+                    if getattr(getattr(bot, "mongo", None), "last_state_sync_at", None)
+                    else None
+                ),
+            },
         }
 
     return app

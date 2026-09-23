@@ -67,6 +67,8 @@ LOG_CHANNEL_ID = 1396794297386532978 # Replace with the channel ID for join/leav
 
 
 client = midvox()
+client.mongo_status = "not_configured"
+client.mongo_error_type = None
 tree = client.tree
 
 # --- Background Task for Stats ---
@@ -397,6 +399,8 @@ async def main():
                 mongo = MongoManager()
                 await mongo.connect(mongo_uri)
                 client.mongo = mongo
+                client.mongo_status = "connected"
+                client.mongo_error_type = None
                 print("\033[32m◈ MongoDB: Connected\033[0m")
 
                 # MongoDB is canonical. Restore the temporary runtime files
@@ -407,9 +411,12 @@ async def main():
                 except Exception as e:
                     print(f"\033[33m◈ Online settings restore failed (first deploy?): {e}\033[0m")
             except Exception as e:
+                client.mongo_status = "connection_failed"
+                client.mongo_error_type = type(e).__name__
                 print(f"\033[33m◈ MongoDB: Failed to connect — {e}\033[0m")
                 print("\033[33m◈ Online settings persistence is unavailable\033[0m")
         else:
+            client.mongo_status = "not_configured"
             print("\033[33m◈ MONGO_URI is not set — online settings persistence is disabled\033[0m")
 
         max_retries = 5

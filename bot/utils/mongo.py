@@ -103,6 +103,7 @@ class MongoManager:
         # keep one client per loop and hand each caller its own.
         self._clients = {}
         self._state_hashes = {}
+        self.last_state_sync_at = None
 
     def _get_client(self):
         try:
@@ -245,6 +246,7 @@ class MongoManager:
                 changed += 1
             except Exception as exc:
                 print(f"[MongoState] backup failed for {_state_key(path)}: {exc}")
+        self.last_state_sync_at = datetime.now(timezone.utc)
         return changed
 
     async def restore_state(self):
