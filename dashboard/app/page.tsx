@@ -25,7 +25,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "MidVox";
-const BOT_INVITE = "/dashboard";
+const BOT_INVITE = "/api/invite";
 
 const DISCOVERY_ITEMS = [
   { icon: ShieldCheck, title: "Protect", description: "Keep bad actors out before they become a problem.", tint: "sage" },
@@ -228,6 +228,11 @@ export default function HomePage() {
     : isAuthenticated
       ? "Open Dashboard"
       : "Log in";
+  const headerPanelLabel = isSigningIn
+    ? "Connecting…"
+    : isAuthenticated
+      ? "Dashboard"
+      : "Log in";
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -278,7 +283,7 @@ export default function HomePage() {
           </div>
           <div className="mob-nav-actions">
             <ThemeToggle darkMode={darkMode} onToggle={() => setDarkMode((value) => !value)} />
-            <button type="button" className="mob-login" onClick={openPanel} disabled={isSigningIn || status === "loading"}>{panelLabel}</button>
+            <button type="button" className="mob-login" onClick={openPanel} disabled={isSigningIn || status === "loading"}>{headerPanelLabel}</button>
             <a href={BOT_INVITE} target="_blank" rel="noopener noreferrer" className="mob-button small">Join for free</a>
           </div>
         </nav>

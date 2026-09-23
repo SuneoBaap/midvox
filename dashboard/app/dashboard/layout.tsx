@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Sparkles, LogOut,
-  LifeBuoy, ChevronDown, Shield, Download, Zap, Moon, Sun
+  LifeBuoy, ChevronDown, Shield, Download, Zap, Moon, Sun, MessageSquare,
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -100,6 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           items: [
             { name: "Anti-Nuke", href: `/dashboard/guild/${currentGuildId}/antinuke`, icon: ShieldCheck },
             { name: "Automod", href: `/dashboard/guild/${currentGuildId}/automod`, icon: ShieldCheck },
+            { name: "Message Deleter", href: `/dashboard/guild/${currentGuildId}/antispamplus`, icon: MessageSquare },
             { name: "Verification", href: `/dashboard/guild/${currentGuildId}/verification`, icon: User },
           ],
         },
