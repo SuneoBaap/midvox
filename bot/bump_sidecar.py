@@ -130,6 +130,34 @@ async def heartbeat(ws, interval, sequence):
         await asyncio.sleep(interval)
 
 
+def listening_activities(sessions, current_session_id):
+    """Return unique listening activities reported by another user session."""
+    mirrored = []
+    seen = set()
+    for session in sessions if isinstance(sessions, list) else []:
+        if not isinstance(session, dict):
+            continue
+        session_id = str(session.get("session_id") or "")
+        for activity in session.get("activities") or []:
+            if not isinstance(activity, dict) or int(activity.get("type") or 0) != 2:
+                continue
+
+            source_session = str(activity.get("session_id") or session_id)
+            if source_session == current_session_id:
+                continue
+
+            outgoing = {
+                key: value
+                for key, value in activity.items()
+                if key not in {"id", "session_id"} and value is not None
+            }
+            signature = json.dumps(outgoing, sort_keys=True, separators=(",", ":"))
+            if signature not in seen:
+                seen.add(signature)
+                mirrored.append(outgoing)
+    return mirrored
+
+
 async def connect_presence():
     """Maintain a Discord gateway session so the account appears online."""
     global SESSION_ID
@@ -168,6 +196,7 @@ async def connect_presence():
                     heartbeat_task = asyncio.create_task(
                         heartbeat(ws, interval, sequence)
                     )
+                    mirrored_signature = None
                     print("[bump] gateway identified; waiting for READY", flush=True)
                     try:
                         async for message in ws:
@@ -180,6 +209,29 @@ async def connect_presence():
                                     if SESSION_ID:
                                         SESSION_READY.set()
                                         print("[bump] user presence online and session ready", flush=True)
+                                elif payload.get("op") == 0 and payload.get("t") == "SESSIONS_REPLACE":
+                                    activities = listening_activities(payload.get("d"), SESSION_ID)
+                                    signature = json.dumps(
+                                        activities, sort_keys=True, separators=(",", ":")
+                                    )
+                                    if signature != mirrored_signature:
+                                        await ws.send_json(
+                                            {
+                                                "op": 3,
+                                                "d": {
+                                                    "since": 0,
+                                                    "activities": activities,
+                                                    "status": "online",
+                                                    "afk": False,
+                                                },
+                                            }
+                                        )
+                                        mirrored_signature = signature
+                                        if activities:
+                                            song = activities[0].get("details") or activities[0].get("name")
+                                            print(f"[bump] mirrored listening activity: {song}", flush=True)
+                                        else:
+                                            print("[bump] no external listening activity", flush=True)
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):
