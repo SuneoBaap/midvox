@@ -176,6 +176,78 @@ TIMER_ALT1 = "<a:timer:1531958992337768551>"
 _37496ALERT = "<a:37496alert:1531959273834414210>"
 
 # ============================================================================
+# MIDVOX ANIMATED THEME PACK
+# ============================================================================
+# Commands keep importing their existing semantic names (TICK, MUSIC, LOCK,
+# etc.). This one mapping upgrades the complete bot without editing hundreds
+# of response strings and component definitions.
+MV_ERROR = "<a:mv_error:900000000000000001>"
+MV_SUCCESS = "<a:mv_success:900000000000000002>"
+MV_WARNING = "<a:mv_warning:900000000000000003>"
+MV_LOADING = "<a:mv_loading:900000000000000004>"
+MV_INFO = "<a:mv_info:900000000000000005>"
+MV_SETTINGS = "<a:mv_settings:900000000000000006>"
+MV_SHIELD = "<a:mv_shield:900000000000000007>"
+MV_HAMMER = "<a:mv_hammer:900000000000000008>"
+MV_MUSIC = "<a:mv_music:900000000000000009>"
+MV_GAME = "<a:mv_game:900000000000000010>"
+MV_TICKET = "<a:mv_ticket:900000000000000011>"
+MV_USER = "<a:mv_user:900000000000000012>"
+MV_CHANNEL = "<a:mv_channel:900000000000000013>"
+MV_MESSAGE = "<a:mv_message:900000000000000014>"
+MV_LOCK = "<a:mv_lock:900000000000000015>"
+MV_UNLOCK = "<a:mv_unlock:900000000000000016>"
+MV_STAR = "<a:mv_star:900000000000000017>"
+MV_HEART = "<a:mv_heart:900000000000000018>"
+MV_ROCKET = "<a:mv_rocket:900000000000000019>"
+MV_ARROW = "<a:mv_arrow:900000000000000020>"
+MV_HOME = "<a:mv_home:900000000000000021>"
+MV_CLOCK = "<a:mv_clock:900000000000000022>"
+MV_BOT = "<a:mv_bot:900000000000000023>"
+
+
+def _midvox_theme_icon(symbol_name):
+    name = symbol_name.lower()
+    groups = (
+        (("cross", "error", "delete", "denied", "disable", "offline", "untrust"), MV_ERROR),
+        (("ticket",), MV_TICKET),
+        (("tick", "success", "enable", "online", "check"), MV_SUCCESS),
+        (("warning", "alert", "reddot", "red_button"), MV_WARNING),
+        (("loading", "iconload"), MV_LOADING),
+        (("unlock",), MV_UNLOCK),
+        (("lock",), MV_LOCK),
+        (("music", "pause", "play", "skip", "rewind", "shuffle", "mute", "unmute"), MV_MUSIC),
+        (("game", "minecraft", "counting", "racecar"), MV_GAME),
+        (("timer", "time", "uptime", "clock", "idle", "dnd", "mobile", "pc", "wifi"), MV_CLOCK),
+        (("channel", "voice", "cast", "pin", "connection"), MV_CHANNEL),
+        (("message", "mention", "browser", "link", "search", "msg"), MV_MESSAGE),
+        (("shield", "safe", "ban", "sword", "certified", "moderator", "rulesbook"), MV_SHIELD),
+        (("hammer",), MV_HAMMER),
+        (("settings", "wrench", "system", "code", "module", "command"), MV_SETTINGS),
+        (("human", "people", "staff", "manager", "admin", "owner", "king", "headmod", "badge", "hypesquad", "supporter", "developer"), MV_USER),
+        (("heart", "cute", "heeriye"), MV_HEART),
+        (("boost", "premium", "star", "tada", "emote", "mingle", "blob"), MV_STAR),
+        (("rocket", "thunder", "cloud", "seed", "level", "new"), MV_ROCKET),
+        (("arrow", "next", "back", "forward", "previous", "index"), MV_ARROW),
+        (("home",), MV_HOME),
+        (("bot", "zai", " ai"), MV_BOT),
+    )
+    for words, icon in groups:
+        if any(word in name for word in words):
+            return icon
+    return MV_INFO
+
+
+# Replace every legacy custom emoji value with the corresponding animated
+# MidVox theme icon. Unicode used by games and reactions remains untouched.
+for _emoji_name, _emoji_value in list(globals().items()):
+    if _emoji_name.startswith("MV_"):
+        continue
+    if isinstance(_emoji_value, str) and _emoji_value.startswith("<") and _emoji_value.endswith(">"):
+        globals()[_emoji_name] = _midvox_theme_icon(_emoji_name)
+del _emoji_name, _emoji_value
+
+# ============================================================================
 # DISCORD BADGE EMOJIS MAPPING (Dictionary)
 # ============================================================================
 DISCORD_BADGE_EMOJIS = {

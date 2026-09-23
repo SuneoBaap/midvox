@@ -5,11 +5,11 @@ Uses only stdlib (urllib, re, base64) — no aiohttp, no dotenv needed.
 import os, re, sys, json, base64, urllib.request, urllib.error, time
 
 EMOJI_PY = os.path.join(os.path.dirname(__file__), "utils", "emoji.py")
+ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets", "emojis")
 LOCAL_ASSETS = {
-    "mv_error": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_error.gif"),
-    "mv_success": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_success.gif"),
-    "mv_warning": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_warning.gif"),
-    "mv_loading": os.path.join(os.path.dirname(__file__), "assets", "emojis", "mv_loading.gif"),
+    os.path.splitext(filename)[0]: os.path.join(ASSET_DIR, filename)
+    for filename in os.listdir(ASSET_DIR)
+    if filename.startswith("mv_") and filename.endswith(".gif")
 }
 
 def log(msg):
@@ -39,12 +39,12 @@ except Exception as e:
     log(f"Failed to read emoji.py: {e}")
     sys.exit(1)
 
-matches = set(re.findall(r"<(a?):(\w+):(\d+)>", content))
-# Ship MidVox's core animated status icons with the bot and upload them first.
-# This guarantees that a missing legacy Discord CDN asset can never turn an
-# error/success/warning response back into a keyboard emoji.
-matches = sorted(matches, key=lambda item: (item[1] not in LOCAL_ASSETS, item[1].lower()))
-log(f"Found {len(matches)} emoji references in emoji.py")
+matches = {
+    match for match in re.findall(r"<(a?):(\w+):(\d+)>", content)
+    if match[1] in LOCAL_ASSETS
+}
+matches = sorted(matches, key=lambda item: item[1].lower())
+log(f"Found {len(matches)} bundled MidVox emoji references")
 if not matches:
     sys.exit(0)
 
