@@ -1,5 +1,20 @@
 FROM node:24-bookworm-slim AS node
 
+FROM debian:bookworm-slim AS warp_tools
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl tar \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL --retry 3 \
+        -o /usr/local/bin/wgcf \
+        https://github.com/ViRb3/wgcf/releases/download/v2.2.30/wgcf_2.2.30_linux_amd64 \
+    && echo 'fc443008fe29a6f0b05b45d27436b7ce89e87a6836718597ccb39e41da418304  /usr/local/bin/wgcf' | sha256sum -c - \
+    && curl -fsSL --retry 3 \
+        -o /tmp/wireproxy.tar.gz \
+        https://github.com/windtf/wireproxy/releases/download/v1.1.3/wireproxy_linux_amd64.tar.gz \
+    && echo 'e88c1d090740373fc606c1bafd81d9a5eadc642cce5667616e20e9d7a444f51c  /tmp/wireproxy.tar.gz' | sha256sum -c - \
+    && tar -xzf /tmp/wireproxy.tar.gz -C /usr/local/bin wireproxy \
+    && chmod 0755 /usr/local/bin/wgcf /usr/local/bin/wireproxy
+
 # Cobalt 11.7.1 is pinned to youtubei.js 17.0.1, which is no longer reliable
 # against YouTube's current player API. Keep Cobalt itself stable while using
 # the current extractor in an isolated dependency tree.
@@ -18,6 +33,8 @@ FROM python:3.12-slim-bookworm
 # runtime handles YouTube Shorts inside the same container.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=warp_tools /usr/local/bin/wgcf /usr/local/bin/wgcf
+COPY --from=warp_tools /usr/local/bin/wireproxy /usr/local/bin/wireproxy
 COPY --from=cobalt /app /opt/cobalt
 COPY --from=youtube_extractor /opt/youtube-extractor/node_modules /opt/youtube-extractor/node_modules
 # Point Cobalt's two extractor imports at the updated isolated package. Using

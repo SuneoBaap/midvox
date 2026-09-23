@@ -33,6 +33,56 @@ export EMOJI_SYNC="${EMOJI_SYNC:-false}"
 
 ROOT="$(pwd)"
 
+# Railway's datacenter egress is rejected by YouTube even with valid cookies.
+# Run a userspace Cloudflare WARP tunnel in this same container and expose an
+# HTTP CONNECT proxy only to Cobalt. Discord and the dashboard stay direct.
+setup_warp() {
+  local warp_dir="/tmp/midvox-warp"
+  local proxy_port="33211"
+  mkdir -p "$warp_dir" || return 1
+
+  (
+    cd "$warp_dir" || exit 1
+    if [ ! -s wgcf-profile.conf ]; then
+      wgcf register --accept-tos || exit 1
+      wgcf generate || exit 1
+    fi
+
+    cat > wireproxy.conf <<EOF
+WGConfig = $warp_dir/wgcf-profile.conf
+
+[http]
+BindAddress = 127.0.0.1:$proxy_port
+EOF
+
+    exec wireproxy -c wireproxy.conf
+  ) > "$warp_dir/wireproxy.log" 2>&1 &
+  WARP_PID=$!
+
+  for i in $(seq 1 25); do
+    if python -c "import urllib.request; proxy='http://127.0.0.1:$proxy_port'; opener=urllib.request.build_opener(urllib.request.ProxyHandler({'https': proxy})); trace=opener.open('https://www.cloudflare.com/cdn-cgi/trace', timeout=3).read(); assert b'warp=on' in trace or b'warp=plus' in trace" >/dev/null 2>&1; then
+      export COBALT_PROXY_URL="http://127.0.0.1:$proxy_port"
+      echo "WARP egress ready for Cobalt on 127.0.0.1:$proxy_port."
+      return 0
+    fi
+    if ! kill -0 "$WARP_PID" 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+
+  echo "WARNING: WARP egress failed; Cobalt will use Railway's direct IP." >&2
+  tail -n 20 "$warp_dir/wireproxy.log" 2>/dev/null || true
+  unset COBALT_PROXY_URL
+  return 1
+}
+
+if [ "${WARP:-1}" = "1" ]; then
+  setup_warp || true
+else
+  echo "WARP egress disabled via WARP=${WARP}."
+fi
+
 # Cobalt runs locally in this same Railway container. Its processing runtime
 # stays private and the bot talks to it over loopback; no second Railway
 # service or public Cobalt API key is needed.
@@ -63,6 +113,11 @@ echo "Cobalt YouTube client: $COBALT_YOUTUBE_CLIENT"
 echo "Starting local Cobalt sidecar on port 9000..."
 (
   cd /opt/cobalt || exit 1
+  if [ -n "${COBALT_PROXY_URL:-}" ]; then
+    export HTTP_PROXY="$COBALT_PROXY_URL"
+    export HTTPS_PROXY="$COBALT_PROXY_URL"
+    export NO_PROXY="127.0.0.1,localhost"
+  fi
     API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
     API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
     API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
@@ -132,5 +187,8 @@ echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
 echo "Cobalt PID: $COBALT_PID"
+if [ -n "${WARP_PID:-}" ]; then
+  echo "WARP PID: $WARP_PID"
+fi
 
 wait
