@@ -8,7 +8,7 @@ import aiohttp
 
 TOKEN = os.environ.get("USER_TOKEN", "")
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
-INTERVAL = int(os.getenv("BUMP_INTERVAL", "7200"))
+INTERVAL = int(os.getenv("BUMP_INTERVAL", "600"))
 DISBOARD_APP_ID = "302050872383242240"
 API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
