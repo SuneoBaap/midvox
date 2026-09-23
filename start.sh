@@ -188,6 +188,24 @@ fi
 ) &
 BOT_PID=$!
 
+# User-token /bump sidecar. Separate from TOKEN (bot). Skipped if unset.
+if [ -n "${USER_TOKEN:-}" ] && [ -n "${BUMP_CHANNEL_ID:-}" ]; then
+  (
+    while true; do
+      cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
+      echo "Starting bump sidecar..."
+      python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
+      echo "WARNING: Bump sidecar exited (code $?). Restarting in 5s..." >&2
+      cd "$ROOT"
+      sleep 5
+    done
+  ) &
+  BUMP_PID=$!
+else
+  echo "Bump sidecar skipped (set USER_TOKEN and BUMP_CHANNEL_ID to enable)."
+  BUMP_PID=""
+fi
+
 # Wait for bot API to be ready (just check port is open)
 echo "Waiting for bot API on port 5001..."
 for i in $(seq 1 30); do
@@ -209,6 +227,9 @@ echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
 echo "Cobalt PID: $COBALT_PID"
+if [ -n "${BUMP_PID:-}" ]; then
+  echo "Bump PID: $BUMP_PID"
+fi
 if [ -n "${WARP_PID:-}" ]; then
   echo "WARP PID: $WARP_PID"
 fi
