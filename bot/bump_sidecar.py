@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import random
-import shutil
 import string
 
 import aiohttp
@@ -15,7 +14,7 @@ API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
-CHROMIUM = shutil.which("chromium") or shutil.which("chromium-browser")
+DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN", "/opt/Discord/Discord")
 
 
 def nonce() -> str:
@@ -141,7 +140,7 @@ async def cdp_call(ws, request_id, method, params=None):
     while True:
         message = await ws.receive()
         if message.type != aiohttp.WSMsgType.TEXT:
-            raise RuntimeError("Discord web DevTools connection closed")
+            raise RuntimeError("Discord desktop DevTools connection closed")
         response = json.loads(message.data)
         if response.get("id") != request_id:
             continue
@@ -150,18 +149,37 @@ async def cdp_call(ws, request_id, method, params=None):
         return response.get("result") or {}
 
 
-async def discord_web_client():
-    """Keep the real Discord web application open in headless Chromium."""
-    if not CHROMIUM:
-        raise RuntimeError("Chromium is missing from the container")
+async def discord_desktop_client():
+    """Keep Discord's official desktop client open on a virtual display."""
+    if not os.path.isfile(DISCORD_DESKTOP):
+        raise RuntimeError("Discord desktop is missing from the container")
 
     debug_port = 9222
     while True:
-        process = None
+        display_process = None
+        discord_process = None
         try:
-            process = await asyncio.create_subprocess_exec(
-                CHROMIUM,
-                "--headless=new",
+            display_process = await asyncio.create_subprocess_exec(
+                "Xvfb",
+                ":99",
+                "-screen",
+                "0",
+                "1280x720x24",
+                "-nolisten",
+                "tcp",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.sleep(1)
+            if display_process.returncode is not None:
+                raise RuntimeError(
+                    f"Xvfb exited with code {display_process.returncode}"
+                )
+
+            desktop_environment = os.environ.copy()
+            desktop_environment["DISPLAY"] = ":99"
+            discord_process = await asyncio.create_subprocess_exec(
+                DISCORD_DESKTOP,
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
@@ -169,13 +187,11 @@ async def discord_web_client():
                 "--disable-background-timer-throttling",
                 "--disable-backgrounding-occluded-windows",
                 "--disable-renderer-backgrounding",
-                "--no-first-run",
-                "--no-default-browser-check",
                 "--mute-audio",
                 "--renderer-process-limit=2",
                 f"--remote-debugging-port={debug_port}",
-                "--user-data-dir=/tmp/midvox-discord-web",
-                "about:blank",
+                "--user-data-dir=/tmp/midvox-discord-desktop",
+                env=desktop_environment,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
@@ -183,23 +199,29 @@ async def discord_web_client():
             async with aiohttp.ClientSession() as session:
                 target = None
                 for _ in range(60):
-                    if process.returncode is not None:
+                    if discord_process.returncode is not None:
                         raise RuntimeError(
-                            f"Chromium exited with code {process.returncode}"
+                            "Discord desktop exited with code "
+                            f"{discord_process.returncode}"
                         )
                     try:
                         async with session.get(
                             f"http://127.0.0.1:{debug_port}/json/list"
                         ) as response:
                             targets = await response.json()
+                        pages = [
+                            item
+                            for item in targets
+                            if item.get("type") == "page"
+                            and item.get("webSocketDebuggerUrl")
+                        ]
                         target = next(
                             (
                                 item
-                                for item in targets
-                                if item.get("type") == "page"
-                                and item.get("webSocketDebuggerUrl")
+                                for item in pages
+                                if "discord.com" in str(item.get("url") or "")
                             ),
-                            None,
+                            pages[0] if pages else None,
                         )
                         if target:
                             break
@@ -207,27 +229,13 @@ async def discord_web_client():
                         pass
                     await asyncio.sleep(0.5)
                 if not target:
-                    raise RuntimeError("Chromium DevTools did not become ready")
+                    raise RuntimeError("Discord desktop DevTools did not become ready")
 
                 async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
                     await cdp_call(ws, 1, "Page.enable")
                     await cdp_call(
                         ws,
                         2,
-                        "Network.setUserAgentOverride",
-                        {
-                            "userAgent": (
-                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                "Chrome/124.0.0.0 Safari/537.36"
-                            ),
-                            "acceptLanguage": "en-US,en;q=0.9",
-                            "platform": "Windows",
-                        },
-                    )
-                    await cdp_call(
-                        ws,
-                        3,
                         "Page.addScriptToEvaluateOnNewDocument",
                         {
                             "source": (
@@ -238,7 +246,7 @@ async def discord_web_client():
                     )
                     await cdp_call(
                         ws,
-                        4,
+                        3,
                         "Page.navigate",
                         {"url": "https://discord.com/login"},
                     )
@@ -247,7 +255,7 @@ async def discord_web_client():
                     token_literal = json.dumps(TOKEN)
                     await cdp_call(
                         ws,
-                        5,
+                        4,
                         "Runtime.evaluate",
                         {
                             "expression": (
@@ -273,7 +281,7 @@ async def discord_web_client():
                     await asyncio.sleep(3)
                     stored = await cdp_call(
                         ws,
-                        6,
+                        5,
                         "Runtime.evaluate",
                         {
                             "expression": (
@@ -291,11 +299,11 @@ async def discord_web_client():
                         },
                     )
                     if not stored.get("result", {}).get("value"):
-                        raise RuntimeError("Discord token was not stored in Chromium")
+                        raise RuntimeError("Discord token was not stored by desktop")
 
                     auth_check = await cdp_call(
                         ws,
-                        7,
+                        6,
                         "Runtime.evaluate",
                         {
                             "expression": (
@@ -310,17 +318,17 @@ async def discord_web_client():
                     auth_status = auth_check.get("result", {}).get("value")
                     if auth_status != 200:
                         raise RuntimeError(
-                            f"Discord web authentication HTTP {auth_status}"
+                            f"Discord desktop authentication HTTP {auth_status}"
                         )
 
                     await cdp_call(
                         ws,
-                        8,
+                        7,
                         "Page.navigate",
                         {"url": "https://discord.com/channels/@me"},
                     )
 
-                    request_id = 9
+                    request_id = 8
                     browser_url = ""
                     for _ in range(9):
                         await asyncio.sleep(5)
@@ -347,15 +355,15 @@ async def discord_web_client():
 
                     if not browser_url or "/login" in browser_url:
                         raise RuntimeError(
-                            "Discord web client stayed on the login page"
+                            "Discord desktop stayed on the login page"
                         )
                     print(
-                        "[discord-web] client running at "
+                        "[discord-desktop] client running at "
                         f"{browser_url or 'https://discord.com/app'}",
                         flush=True,
                     )
 
-                    while process.returncode is None:
+                    while discord_process.returncode is None:
                         await asyncio.sleep(60)
                         await cdp_call(
                             ws,
@@ -370,17 +378,24 @@ async def discord_web_client():
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            print(f"[discord-web] error: {error}", flush=True)
+            print(f"[discord-desktop] error: {error}", flush=True)
         finally:
-            if process and process.returncode is None:
-                process.terminate()
+            if discord_process and discord_process.returncode is None:
+                discord_process.terminate()
                 try:
-                    await asyncio.wait_for(process.wait(), timeout=5)
+                    await asyncio.wait_for(discord_process.wait(), timeout=5)
                 except TimeoutError:
-                    process.kill()
-                    await process.wait()
+                    discord_process.kill()
+                    await discord_process.wait()
+            if display_process and display_process.returncode is None:
+                display_process.terminate()
+                try:
+                    await asyncio.wait_for(display_process.wait(), timeout=5)
+                except TimeoutError:
+                    display_process.kill()
+                    await display_process.wait()
 
-        print("[discord-web] restarting Chromium in 5s", flush=True)
+        print("[discord-desktop] restarting client in 5s", flush=True)
         await asyncio.sleep(5)
 
 
@@ -495,6 +510,6 @@ if __name__ == "__main__":
         raise SystemExit("USER_TOKEN and BUMP_CHANNEL_ID required")
 
     async def main():
-        await asyncio.gather(loop(), connect_presence(), discord_web_client())
+        await asyncio.gather(loop(), connect_presence(), discord_desktop_client())
 
     asyncio.run(main())

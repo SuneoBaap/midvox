@@ -15,6 +15,19 @@ RUN apt-get update \
     && tar -xzf /tmp/wireproxy.tar.gz -C /usr/local/bin wireproxy \
     && chmod 0755 /usr/local/bin/wgcf /usr/local/bin/wireproxy
 
+# Use Discord's official Linux desktop client so linked account activities are
+# handled by Discord itself. The tar package avoids running an installer in the
+# final image and is refreshed whenever Railway rebuilds the image.
+FROM debian:bookworm-slim AS discord_desktop
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl tar \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fL --retry 3 \
+        -o /tmp/discord.tar.gz \
+        'https://discord.com/api/download?platform=linux&format=tar.gz' \
+    && tar -xzf /tmp/discord.tar.gz -C /opt \
+    && test -x /opt/Discord/Discord
+
 # Cobalt 11.7.1 is pinned to youtubei.js 17.0.1, which is no longer reliable
 # against YouTube's current player API. Keep Cobalt itself stable while using
 # the current extractor in an isolated dependency tree.
@@ -35,6 +48,7 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=warp_tools /usr/local/bin/wgcf /usr/local/bin/wgcf
 COPY --from=warp_tools /usr/local/bin/wireproxy /usr/local/bin/wireproxy
+COPY --from=discord_desktop /opt/Discord /opt/Discord
 COPY --from=cobalt /app /opt/cobalt
 COPY --from=youtube_extractor /opt/youtube-extractor/node_modules /opt/youtube-extractor/node_modules
 # Point Cobalt's two extractor imports at the updated isolated package. Using
@@ -57,8 +71,16 @@ RUN test -e /opt/cobalt/src/cobalt.js \
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && apt-get update \
-    && apt-get install -y --no-install-recommends bash ca-certificates chromium \
-    && command -v chromium \
+    && apt-get install -y --no-install-recommends \
+        bash ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
+        libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
+        libatomic1 libnotify4 libnspr4 libnss3 libstdc++6 libx11-6 \
+        libxcb1 libxcomposite1 libxdamage1 \
+        libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
+        xdg-utils xvfb \
+    && test -x /opt/Discord/Discord \
+    && command -v Xvfb \
+    && if ldd /opt/Discord/Discord | grep 'not found'; then exit 1; fi \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
