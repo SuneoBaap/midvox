@@ -30,8 +30,10 @@ from utils.config import serverLink
 from utils.Tools import *
 from utils.cv2 import CV2, CV2Embed
 from utils.config import *
+from utils.emoji import LOADING, ONLINE, TADAA, ZSAFE
+from utils.theme import PRIMARY
 
-color = 0x8A9A5B
+color = PRIMARY
 client = midvox()
 
 from utils.config import BotName
@@ -94,7 +96,7 @@ class HelpCommand(commands.HelpCommand):
       await self.send_ignore_message(ctx, "command")
       return
 
-    loading_embed = CV2("◌ Loading help menu…")
+    loading_embed = CV2(f"{LOADING} Loading help menu…")
     loading_msg = await ctx.reply(view=loading_embed)
 
     await asyncio.sleep(2)
@@ -106,7 +108,7 @@ class HelpCommand(commands.HelpCommand):
     prefix = data["prefix"]
 
     embed = CV2Embed(
-        title=f"{BotName} control center",
+        title=f"{ZSAFE} {BotName} control center",
         description=(
             "**Start protecting your server today**\n"
             f"`{prefix}antinuke enable`\n\n"
@@ -116,7 +118,7 @@ class HelpCommand(commands.HelpCommand):
     )
 
     embed.add_field(
-        name="◆  Main features",
+        name=f"{ONLINE}  Main features",
         value=(
             "▸ Security\n"
             "▸ Automoderation\n"
@@ -136,7 +138,7 @@ class HelpCommand(commands.HelpCommand):
     )
 
     embed.add_field(
-        name="◇  Extra features",
+        name=f"{TADAA}  Extra features",
         value=(
             "▸ Advanced logging\n"
             "▸ Vanity roles\n"

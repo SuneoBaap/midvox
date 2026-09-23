@@ -43,7 +43,6 @@ from core.midvox import midvox
 from utils.Tools import *
 from utils.config import *
 from utils.emoji import SUCCESS, ERROR, TICK, CROSS, REACTION_TEST_EMOJIS
-from utils.sync_emojis import run_sync
 from utils.mongo import MongoManager
 
 import jishaku
@@ -119,16 +118,6 @@ async def on_ready():
     print(f"Logged in as: {client.user}")
     print(f"Connected to: {len(client.guilds)} guilds")
     print(f"Connected to: {len(client.users)} users")
-
-    # Sync application emojis — returns True if emoji.py was patched (needs restart)
-    try:
-        if await run_sync(TOKEN):
-            print("\033[33m◈ Emoji sync updated emoji.py — restarting for new values...\033[0m")
-            os._exit(0)
-    except Exception as e:
-        print(f"\033[33m◈ Emoji sync failed: {e}\033[0m")
-
-    # Emoji overrides file is NOT applied here — editing emoji.py directly is the source of truth.
 
     # Sync runtime settings to the online MongoDB store. SQLite/JSON files in
     # this container are only compatibility caches for the existing cogs.

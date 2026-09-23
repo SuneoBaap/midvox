@@ -21,9 +21,10 @@ added via .add_item().
 
 import discord
 from discord.ui import LayoutView, TextDisplay, Separator, Container
+from utils.theme import PRIMARY
 
 
-BOT_THEME_COLOR = 0x8A9A5B
+BOT_THEME_COLOR = PRIMARY
 
 
 def build_container(*items, accent_color=BOT_THEME_COLOR):

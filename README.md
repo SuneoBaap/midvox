@@ -184,9 +184,6 @@ LAVALINK_PASSWORD  = "your_password"
 LAVALINK_SECURE    = "true"
 LAVALINK_PORT      = ""
 
-# ── Emoji Sync ────────────────────────────────────────────────────
-EMOJI_SYNC         = "true"
-
 # ── API / Dashboard Backend ───────────────────────────────────────
 API_ENABLED        = "true"
 API_PORT           = "8000"
@@ -260,7 +257,6 @@ Open [http://localhost:3000](http://localhost:3000)
 | `LAVALINK_PASSWORD` | — | Lavalink password |
 | `LAVALINK_SECURE` | `true` | `true` = HTTPS, `false` = HTTP |
 | `LAVALINK_PORT` | _(empty)_ | Port — only needed when `LAVALINK_SECURE=false` |
-| `EMOJI_SYNC` | `true` | Run application emoji sync on startup |
 | `API_ENABLED` | `true` | Start the FastAPI dashboard backend |
 | `API_PORT` | `8000` | Port the backend listens on |
 | `DASHBOARD_API_KEY` | — | Shared secret between bot API and dashboard |
@@ -349,15 +345,15 @@ On every startup the console prints:
 
 ## ✦ Emoji Sync
 
-Runs automatically on startup when `EMOJI_SYNC=true`:
+Runs automatically before the bot imports its commands:
 
 ```
-★ Starting Application Emoji Sync — 144 unique emojis found in emoji.py
-◈ Found 144 templates | Application hosts 202 emojis
+★ Starting Application Emoji Sync — 147 unique emojis found in emoji.py
+◈ Found 147 templates | Application hosts 147 emojis
 ↑ Uploading: ztick  (not in application emojis)
 ✔ Uploaded: ztick  [saved as ID: 1234567890]
 ✔ emoji.py patched in-place to reflect current API state.
-★ Restarting bot to load updated emoji IDs...
+✔ Emoji sync complete — starting bot with current application IDs
 ```
 
 | Event | Action |
@@ -365,7 +361,7 @@ Runs automatically on startup when `EMOJI_SYNC=true`:
 | New emoji found | Uploaded to application, ID written to `emoji.py` |
 | Stale ID detected | `emoji.py` patched automatically |
 | No changes | Sync completes instantly, no restart |
-| After any patch | Bot restarts itself so fresh IDs are live |
+| Missing legacy asset | Uses a readable Unicode fallback |
 
 ---
 
@@ -377,7 +373,7 @@ Runs automatically on startup when `EMOJI_SYNC=true`:
 | Music not working | Verify `LAVALINK_HOST`, `LAVALINK_SECURE`, and `LAVALINK_PORT` |
 | Dashboard auth error | Check Discord OAuth client ID/secret and redirect URI |
 | Dashboard can't load data | Confirm `API_ENABLED=true`, bot is running, `NEXT_PUBLIC_API_URL` is correct |
-| Emojis showing as plain text | Run with `EMOJI_SYNC=true` once to upload and patch IDs |
+| Emojis showing as plain text | Check the startup log for `[EmojiSync]`; synchronization is automatic |
 | CORS errors from dashboard | Add your Vercel URL to `CORS_ORIGINS` in `bot/.env` |
 | Tunnel not starting | Check `CF_TUNNEL_TOKEN` is valid and `pycloudflared` is installed |
 | Tunnel URL changed | Set `CF_TUNNEL_URL` — named tunnels always produce the same URL |

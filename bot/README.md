@@ -189,9 +189,6 @@ LAVALINK_PASSWORD  = "your_password"
 LAVALINK_SECURE    = "true"
 LAVALINK_PORT      = ""
 
-# ── Emoji Sync ────────────────────────────────────────────────────
-EMOJI_SYNC         = "true"
-
 # ── API / Dashboard Backend ───────────────────────────────────────
 API_ENABLED        = "true"
 API_PORT           = "8000"
@@ -225,7 +222,6 @@ python CodeX.py
 | `LAVALINK_PASSWORD` | — | Lavalink password |
 | `LAVALINK_SECURE` | `true` | `true` = HTTPS, `false` = HTTP |
 | `LAVALINK_PORT` | _(empty)_ | Port — only when `LAVALINK_SECURE=false` |
-| `EMOJI_SYNC` | `true` | Auto-sync application emojis on startup |
 | `API_ENABLED` | `true` | Start the FastAPI dashboard backend |
 | `API_PORT` | `8000` | Port the backend listens on |
 | `DASHBOARD_API_KEY` | — | Shared secret between bot API and dashboard |
@@ -280,14 +276,14 @@ Set `TUNNEL_ENABLED=false` to disable.
 
 ## ✦ Emoji Sync
 
-When `EMOJI_SYNC=true`, the bot syncs application emojis on every startup:
+The Railway/Docker startup script syncs application emojis before commands load:
 
 | Event | Action |
 |---|---|
 | New emoji found | Uploaded to application, ID written to `emoji.py` |
 | Stale ID detected | `emoji.py` patched automatically |
 | No changes | Sync completes instantly, no restart |
-| After any patch | Bot restarts so fresh IDs are live |
+| Missing legacy asset | Uses a readable Unicode fallback |
 
 ---
 
@@ -315,7 +311,7 @@ python CodeX.py
 | Music not working | Verify `LAVALINK_HOST`, `LAVALINK_SECURE`, `LAVALINK_PORT` |
 | Dashboard can't reach API | Check `API_ENABLED=true` and `NEXT_PUBLIC_API_URL` in dashboard |
 | CORS errors | Add your Vercel URL to `CORS_ORIGINS` in `.env` |
-| Emojis showing as plain text | Run once with `EMOJI_SYNC=true` to upload and patch IDs |
+| Emojis showing as plain text | Check the startup log for `[EmojiSync]`; synchronization is automatic |
 | Tunnel not starting | Check `CF_TUNNEL_TOKEN` is valid and `pycloudflared` is installed |
 | Want to add an owner | Add their ID to `OWNER_IDS` in `.env` — no code changes needed |
 

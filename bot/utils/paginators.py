@@ -25,6 +25,7 @@ except ModuleNotFoundError:
 from .paginator import Paginator as EmbedPaginator
 from discord.ext.commands import Context, Paginator as CmdPaginator
 from typing import Any, List
+from utils.theme import PRIMARY
 
 
 class FieldPagePaginator(menus.ListPageSource):
@@ -39,7 +40,7 @@ class FieldPagePaginator(menus.ListPageSource):
         self.embed: discord.Embed = discord.Embed(
             title=kwargs.get('title'),
             description=kwargs.get('description'),
-            color=0x8A9A5B)
+            color=PRIMARY)
         self.inline: bool = inline
 
     async def format_page(self, menu: EmbedPaginator,
@@ -89,7 +90,7 @@ class DescriptionEmbedPaginator(menus.ListPageSource):
         super().__init__(entries, per_page=per_page)
         self.embed: discord.Embed = discord.Embed(
             title=kwargs.get('title'),
-            color=0x8A9A5B,
+            color=PRIMARY,
         )
 
     async def format_page(self, menu: EmbedPaginator,

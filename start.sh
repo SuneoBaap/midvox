@@ -28,8 +28,6 @@ export PYTHONUNBUFFERED=1
 export API_ENABLED=true
 export API_PORT=5001
 export TUNNEL_ENABLED=false
-# Copying emojis from another application is optional and may fail with 403s.
-export EMOJI_SYNC="${EMOJI_SYNC:-false}"
 
 ROOT="$(pwd)"
 
@@ -143,13 +141,16 @@ if ! python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:
   exit 1
 fi
 
-# ── One-time emoji sync (before bot starts, patches emoji.py) ─
-if [ "${EMOJI_SYNC,,}" = "true" ]; then
-  echo "Running one-time emoji sync..."
-  (cd "$ROOT/bot" && timeout 120 python sync_emojis_once.py)
-  echo "--- Emoji sync exit code: $? ---"
-else
-  echo "Emoji sync disabled; continuing to bot startup."
+# ── Application emoji sync ──────────────────────────────────────────
+# Every Discord application owns its emoji IDs. Sync before importing cogs so
+# commands work immediately when TOKEN changes to a newly-created bot account.
+echo "Syncing MidVox application emojis..."
+(cd "$ROOT/bot" && timeout 180 python sync_emojis_once.py)
+EMOJI_SYNC_EXIT=$?
+if [ "$EMOJI_SYNC_EXIT" -eq 124 ]; then
+  echo "WARNING: Emoji sync timed out; commands will use any icons synced so far." >&2
+elif [ "$EMOJI_SYNC_EXIT" -ne 0 ]; then
+  echo "WARNING: Emoji sync failed (code $EMOJI_SYNC_EXIT); bot startup will continue." >&2
 fi
 
 # Run bot in a restart loop so if it crashes the API stays up

@@ -9,6 +9,16 @@ EMOJI_PY = os.path.join(os.path.dirname(__file__), "utils", "emoji.py")
 def log(msg):
     print(f"[EmojiSync] {msg}")
 
+
+def persist_content(value):
+    """Atomically persist progress so a startup timeout cannot lose synced IDs."""
+    temp_path = f"{EMOJI_PY}.sync-{os.getpid()}"
+    with open(temp_path, "w", encoding="utf-8", newline="") as target:
+        target.write(value)
+        target.flush()
+        os.fsync(target.fileno())
+    os.replace(temp_path, EMOJI_PY)
+
 # Read bot token
 token = os.environ.get("BOT_TOKEN") or os.environ.get("TOKEN")
 if not token:
@@ -35,13 +45,57 @@ headers = {
 }
 
 def api(method, url, data=None):
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        log(f"HTTP {e.code}: {e.read().decode()[:200]}")
-        return None
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                payload = r.read()
+                return json.loads(payload) if payload else {}
+        except urllib.error.HTTPError as e:
+            response_text = e.read().decode(errors="replace")
+            if e.code == 429 and attempt < 3:
+                try:
+                    retry_after = float(json.loads(response_text).get("retry_after", 1))
+                except Exception:
+                    retry_after = 1
+                log(f"Rate limited; retrying in {retry_after:.1f}s")
+                time.sleep(max(0.25, min(retry_after, 15)))
+                continue
+            log(f"HTTP {e.code}: {response_text[:200]}")
+            return None
+        except Exception as e:
+            if attempt < 3:
+                time.sleep(attempt + 1)
+                continue
+            log(f"Request failed: {e}")
+            return None
+
+
+def fallback_for(name):
+    """Return a readable Unicode icon when a legacy asset is unavailable."""
+    key = name.lower()
+    groups = (
+        (("tick", "check", "enable", "online", "success"), "✅"),
+        (("cross", "delete", "denied", "disable", "offline", "error"), "❌"),
+        (("warn", "alert"), "⚠️"),
+        (("lock",), "🔒"),
+        (("unlock",), "🔓"),
+        (("music", "play", "pause", "skip", "rewind"), "🎵"),
+        (("time", "timer", "clock", "uptime"), "⏱️"),
+        (("ticket",), "🎟️"),
+        (("star", "premium", "boost"), "✨"),
+        (("home",), "🏠"),
+        (("settings", "wrench", "system"), "⚙️"),
+        (("user", "human", "people", "staff", "manager", "mod"), "👤"),
+        (("channel", "message", "mention"), "💬"),
+        (("ban", "sword", "hammer"), "🛡️"),
+        (("loading",), "⏳"),
+        (("arrow", "next", "forward", "back"), "➡️"),
+    )
+    for words, icon in groups:
+        if any(word in key for word in words):
+            return icon
+    return "◆"
 
 # Get bot user info to find app ID
 bot_info = api("GET", "https://discord.com/api/v10/users/@me")
@@ -70,7 +124,7 @@ except Exception:
     pass
 
 updated = False
-uploaded = fixed = skipped = failed = 0
+uploaded = fixed = skipped = failed = fallback_count = 0
 
 for animated_str, name, old_id in matches:
     animated = animated_str == "a"
@@ -92,6 +146,7 @@ for animated_str, name, old_id in matches:
             old_str = f"<{animated_str}:{name}:{old_id}>"
             new_str = f"<{animated_str}:{existing['name']}:{new_id}>"
             content = content.replace(old_str, new_str)
+            persist_content(content)
             updated = True
             fixed += 1
             log(f"Fixed ID: {name} {old_id} -> {new_id}")
@@ -110,6 +165,11 @@ for animated_str, name, old_id in matches:
     except Exception as e:
         log(f"Failed to download {name}: {e}")
         failed += 1
+        old_str = f"<{animated_str}:{name}:{old_id}>"
+        content = content.replace(old_str, fallback_for(name))
+        persist_content(content)
+        fallback_count += 1
+        updated = True
         continue
 
     mime = "image/gif" if animated else "image/webp"
@@ -122,6 +182,7 @@ for animated_str, name, old_id in matches:
         old_str = f"<{animated_str}:{name}:{old_id}>"
         new_str = f"<{animated_str}:{result['name']}:{new_id}>"
         content = content.replace(old_str, new_str)
+        persist_content(content)
         app_emojis.append(result)
         updated = True
         uploaded += 1
@@ -129,15 +190,22 @@ for animated_str, name, old_id in matches:
     else:
         log(f"Upload failed for {name}")
         failed += 1
+        old_str = f"<{animated_str}:{name}:{old_id}>"
+        content = content.replace(old_str, fallback_for(name))
+        persist_content(content)
+        fallback_count += 1
+        updated = True
 
     time.sleep(0.5)
 
 # Write patched file
 if updated:
     try:
-        with open(EMOJI_PY, "w", encoding="utf-8") as f:
-            f.write(content)
-        log(f"emoji.py patched: {uploaded} uploaded, {fixed} fixed, {failed} failed")
+        persist_content(content)
+        log(
+            f"emoji.py patched: {uploaded} uploaded, {fixed} fixed, "
+            f"{fallback_count} fallbacks, {failed} failed"
+        )
     except Exception as e:
         log(f"Failed to write emoji.py: {e}")
 else:
