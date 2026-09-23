@@ -172,7 +172,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <>
       {/* Logo header */}
       <div className="panel-sidebar-header flex h-16 shrink-0 items-center px-4">
-        <div className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5" aria-label={`${BRAND} homepage`}>
           <div className="panel-brand-mark">m</div>
           <div>
             <p className="panel-brand-name text-[14px] font-extrabold leading-none">
@@ -182,7 +182,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               Control panel
             </p>
           </div>
-        </div>
+        </Link>
         <button
           className="panel-icon-button ml-auto lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
