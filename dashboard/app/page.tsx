@@ -20,6 +20,7 @@ import {
   Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import Lenis from "lenis";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -225,8 +226,23 @@ export default function HomePage() {
   const panelLabel = isSigningIn
     ? "Connecting…"
     : isAuthenticated
-      ? "Dashboard"
+      ? "Open Dashboard"
       : "Log in";
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const lenis = new Lenis({
+      autoRaf: true,
+      anchors: true,
+      duration: 1.05,
+      smoothWheel: true,
+      syncTouch: false,
+      wheelMultiplier: 0.82,
+    });
+
+    return () => lenis.destroy();
+  }, []);
 
   useEffect(() => {
     setDarkMode(window.localStorage.getItem("midvox-theme") === "dark");
