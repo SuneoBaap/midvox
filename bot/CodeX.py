@@ -128,22 +128,25 @@ async def on_ready():
 
     # Emoji overrides file is NOT applied here — editing emoji.py directly is the source of truth.
 
-    # Backup SQLite databases to MongoDB
+    # Sync runtime settings to the online MongoDB store. SQLite/JSON files in
+    # this container are only compatibility caches for the existing cogs.
     if hasattr(client, "mongo") and client.mongo:
         try:
-            await client.mongo.backup_sqlite()
-            print("\033[32m◈ SQLite databases backed up to MongoDB\033[0m")
+            changed = await client.mongo.backup_state()
+            print(f"\033[32m◈ Online settings synced ({changed} changed files)\033[0m")
         except Exception as e:
-            print(f"\033[33m◈ SQLite backup failed: {e}\033[0m")
+            print(f"\033[33m◈ Online settings sync failed: {e}\033[0m")
 
     async def periodic_backup():
         while True:
-            await asyncio.sleep(300)
+            await asyncio.sleep(5)
             if hasattr(client, "mongo") and client.mongo:
                 try:
-                    await client.mongo.backup_sqlite()
-                except:
-                    pass
+                    changed = await client.mongo.backup_state()
+                    if changed:
+                        print(f"\033[32m◈ Online settings synced ({changed} changed files)\033[0m")
+                except Exception as e:
+                    print(f"\033[33m◈ Online settings sync failed: {e}\033[0m")
 
     client.loop.create_task(periodic_backup())
 
@@ -396,15 +399,18 @@ async def main():
                 client.mongo = mongo
                 print("\033[32m◈ MongoDB: Connected\033[0m")
 
-                # Restore SQLite databases from MongoDB backup
+                # MongoDB is canonical. Restore the temporary runtime files
+                # before loading cogs so every guild keeps its own settings.
                 try:
-                    await mongo.restore_sqlite()
-                    print("\033[32m◈ SQLite databases restored from MongoDB\033[0m")
+                    restored = await mongo.restore_state()
+                    print(f"\033[32m◈ Online settings restored ({restored} files)\033[0m")
                 except Exception as e:
-                    print(f"\033[33m◈ SQLite restore failed (first deploy?): {e}\033[0m")
+                    print(f"\033[33m◈ Online settings restore failed (first deploy?): {e}\033[0m")
             except Exception as e:
                 print(f"\033[33m◈ MongoDB: Failed to connect — {e}\033[0m")
-                print("\033[33m◈ AntiSpamPlus will use SQLite fallback\033[0m")
+                print("\033[33m◈ Online settings persistence is unavailable\033[0m")
+        else:
+            print("\033[33m◈ MONGO_URI is not set — online settings persistence is disabled\033[0m")
 
         max_retries = 5
         for attempt in range(max_retries):
@@ -421,12 +427,12 @@ async def main():
         else:
             raise Exception("Bot failed to start after multiple retries due to rate limiting.")
 
-        # Backup SQLite on shutdown
+        # Final online sync on graceful shutdown.
         if hasattr(client, "mongo") and client.mongo:
             try:
-                await client.mongo.backup_sqlite()
-            except:
-                pass
+                await client.mongo.backup_state()
+            except Exception as e:
+                print(f"\033[33m◈ Final online settings sync failed: {e}\033[0m")
 
 if __name__ == "__main__":
     asyncio.run(main())

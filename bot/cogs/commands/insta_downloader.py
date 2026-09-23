@@ -50,13 +50,6 @@ CONFIG_DEFAULTS = {
     "delete_original": True,
 }
 
-# Temporary rollout switch: keep the downloader active in every text channel
-# so each deployment does not require repeating channel setup in the dashboard.
-# Set INSTA_DL_ALL_CHANNELS=false later to return to per-channel configuration.
-ALL_CHANNELS_ENABLED = os.getenv("INSTA_DL_ALL_CHANNELS", "true").strip().lower() in {
-    "1", "true", "yes", "on"
-}
-
 # Discord's upload limit varies by plan/server. Keep a safety margin below the
 # common 10 MB limit unless the deployment explicitly raises it.
 UPLOAD_LIMIT_BYTES = int(os.getenv("DISCORD_UPLOAD_LIMIT", "9500000"))
@@ -333,9 +326,9 @@ class InstaDownloader(commands.Cog):
                 return
 
             config = await self.get_config(message.guild.id)
-            if not ALL_CHANNELS_ENABLED and not config.get("enabled"):
+            if not config.get("enabled"):
                 return
-            if not ALL_CHANNELS_ENABLED and str(message.channel.id) not in config.get("channels", []):
+            if str(message.channel.id) not in config.get("channels", []):
                 return
 
             content = message.content or ""
@@ -376,9 +369,9 @@ class InstaDownloader(commands.Cog):
             if not message.guild or not isinstance(message.channel, discord.TextChannel):
                 return
             config = await self.get_config(message.guild.id)
-            if not ALL_CHANNELS_ENABLED and not config.get("enabled"):
+            if not config.get("enabled"):
                 return
-            if not ALL_CHANNELS_ENABLED and str(message.channel.id) not in config.get("channels", []):
+            if str(message.channel.id) not in config.get("channels", []):
                 return
             if message.attachments or (message.embeds and not message.content):
                 return
@@ -587,7 +580,7 @@ class InstaDownloader(commands.Cog):
         # Remove the source immediately before any network download starts.
         # This prevents the original link from remaining visible while Cobalt
         # or yt-dlp is working, including when the download later fails.
-        if ALL_CHANNELS_ENABLED or config.get("delete_original"):
+        if config.get("delete_original"):
             try:
                 await message.delete()
             except Exception as e:

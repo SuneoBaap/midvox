@@ -6,6 +6,7 @@ httpx
 requests
 pymongo
 motor
+dnspython
 aiosqlite
 python-dotenv
 PyYAML
