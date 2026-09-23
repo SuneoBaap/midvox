@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Instagram, Save, RefreshCcw, Trash2, Info, Plus, Download, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -17,6 +17,8 @@ interface InstaDLFormProps {
 export function InstaDLForm({ initialConfig, channels, guildId }: InstaDLFormProps) {
   const [config, setConfig] = useState<any>(initialConfig);
   const [saving, setSaving] = useState(false);
+  const [channelUpdating, setChannelUpdating] = useState(false);
+  const channelMutationPending = useRef(false);
 
   useEffect(() => {
     setConfig(initialConfig);
@@ -56,20 +58,65 @@ export function InstaDLForm({ initialConfig, channels, guildId }: InstaDLFormPro
   };
 
   const addChannel = async (channelId: string) => {
-    if (!channelId) return;
+    channelId = String(channelId);
+    if (!channelId || channelMutationPending.current) return;
+
+    channelMutationPending.current = true;
+    setChannelUpdating(true);
+    setConfig((prev: any) => ({
+      ...prev,
+      channels: Array.from(new Set([...(prev.channels || []).map(String), channelId])),
+    }));
+
     try {
       const result = await api.updateInstaDL(guildId, { add_channel: channelId });
-      setConfig((prev: any) => ({ ...prev, channels: result.channels }));
+      setConfig((prev: any) => ({
+        ...prev,
+        ...result,
+        channels: Array.from(new Set([...(result.channels || []).map(String), channelId])),
+      }));
       toast.success("Channel added");
-    } catch { toast.error("Failed to add channel"); }
+    } catch {
+      setConfig((prev: any) => ({
+        ...prev,
+        channels: (prev.channels || []).map(String).filter((id: string) => id !== channelId),
+      }));
+      toast.error("Failed to add channel");
+    } finally {
+      channelMutationPending.current = false;
+      setChannelUpdating(false);
+    }
   };
 
   const removeChannel = async (channelId: string) => {
+    channelId = String(channelId);
+    if (channelMutationPending.current) return;
+
+    channelMutationPending.current = true;
+    setChannelUpdating(true);
+    setConfig((prev: any) => ({
+      ...prev,
+      channels: (prev.channels || []).map(String).filter((id: string) => id !== channelId),
+    }));
+
     try {
       const result = await api.updateInstaDL(guildId, { remove_channel: channelId });
-      setConfig((prev: any) => ({ ...prev, channels: result.channels }));
+      setConfig((prev: any) => ({
+        ...prev,
+        ...result,
+        channels: (result.channels || []).map(String).filter((id: string) => id !== channelId),
+      }));
       toast.success("Channel removed");
-    } catch { toast.error("Failed to remove channel"); }
+    } catch {
+      setConfig((prev: any) => ({
+        ...prev,
+        channels: Array.from(new Set([...(prev.channels || []).map(String), channelId])),
+      }));
+      toast.error("Failed to remove channel");
+    } finally {
+      channelMutationPending.current = false;
+      setChannelUpdating(false);
+    }
   };
 
   return (
@@ -109,9 +156,9 @@ export function InstaDLForm({ initialConfig, channels, guildId }: InstaDLFormPro
                   <div className="p-2 rounded-lg bg-primary/10 text-primary"><Hash className="h-4 w-4" /></div>
                   <h4 className="font-bold text-slate-50 text-sm">Monitored Channels</h4>
                 </div>
-                <Select value="" onValueChange={addChannel}>
-                  <SelectTrigger className="w-full h-10 bg-[#0F0F0F] border-[#1A1A1A]">
-                    <SelectValue placeholder="Add channel to monitor..." />
+                <Select value="" onValueChange={addChannel} disabled={channelUpdating}>
+                  <SelectTrigger disabled={channelUpdating} className="w-full h-10 bg-[#0F0F0F] border-[#1A1A1A]">
+                    <SelectValue placeholder={channelUpdating ? "Updating channels..." : "Add channel to monitor..."} />
                   </SelectTrigger>
                   <SelectContent className="bg-[#111111] border-[#1A1A1A] max-h-[300px]">
                     {channels.filter((c: any) => !(config.channels || []).includes(c.id)).map((c: any) => (
@@ -128,7 +175,7 @@ export function InstaDLForm({ initialConfig, channels, guildId }: InstaDLFormPro
                       return (
                         <div key={chId} className="flex items-center gap-2 bg-[#1A1A1A] border border-neutral-700/50 px-3 py-1.5 rounded-lg text-sm">
                           <span className="text-neutral-200">#{ch?.name || chId}</span>
-                          <button onClick={() => removeChannel(chId)} className="text-neutral-500 hover:text-red-400 transition-colors"><Trash2 className="h-3 w-3" /></button>
+                          <button disabled={channelUpdating} onClick={() => removeChannel(chId)} className="text-neutral-500 hover:text-red-400 transition-colors disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3 w-3" /></button>
                         </div>
                       );
                     })
