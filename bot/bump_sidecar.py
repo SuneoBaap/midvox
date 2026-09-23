@@ -11,6 +11,7 @@ CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
 INTERVAL = int(os.getenv("BUMP_INTERVAL", "7200"))
 DISBOARD_APP_ID = "302050872383242240"
 API_BASE = "https://discord.com/api/v10"
+GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 
 
 def nonce() -> str:
@@ -99,6 +100,76 @@ async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
             await asyncio.sleep(retry)
 
 
+async def heartbeat(ws, interval, sequence):
+    """Keep the user session alive until the gateway connection closes."""
+    await asyncio.sleep(interval)
+    while not ws.closed:
+        await ws.send_json({"op": 1, "d": sequence[0]})
+        await asyncio.sleep(interval)
+
+
+async def connect_presence():
+    """Maintain a Discord gateway session so the account appears online."""
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(GATEWAY, heartbeat=None) as ws:
+                    hello = await ws.receive_json()
+                    if hello.get("op") != 10:
+                        raise RuntimeError("Discord gateway did not send HELLO")
+
+                    interval = hello["d"]["heartbeat_interval"] / 1000
+                    sequence = [None]
+                    await ws.send_json(
+                        {
+                            "op": 2,
+                            "d": {
+                                "token": TOKEN,
+                                "properties": {
+                                    "os": "windows",
+                                    "browser": "Chrome",
+                                    "device": "Chrome",
+                                },
+                                "presence": {
+                                    "status": "online",
+                                    "since": 0,
+                                    "activities": [],
+                                    "afk": False,
+                                },
+                                "compress": False,
+                            },
+                        }
+                    )
+
+                    heartbeat_task = asyncio.create_task(
+                        heartbeat(ws, interval, sequence)
+                    )
+                    print("[bump] user presence connected", flush=True)
+                    try:
+                        async for message in ws:
+                            if message.type == aiohttp.WSMsgType.TEXT:
+                                payload = json.loads(message.data)
+                                if payload.get("s") is not None:
+                                    sequence[0] = payload["s"]
+                                if payload.get("op") == 1:
+                                    await ws.send_json({"op": 1, "d": sequence[0]})
+                                elif payload.get("op") in (7, 9):
+                                    break
+                            elif message.type in (
+                                aiohttp.WSMsgType.CLOSED,
+                                aiohttp.WSMsgType.ERROR,
+                            ):
+                                break
+                    finally:
+                        heartbeat_task.cancel()
+                        await asyncio.gather(heartbeat_task, return_exceptions=True)
+        except Exception as e:
+            print(f"[bump] presence error: {e}", flush=True)
+
+        print("[bump] reconnecting user presence in 5s", flush=True)
+        await asyncio.sleep(5)
+
+
 async def loop():
     headers = {
         "Authorization": TOKEN,
@@ -119,4 +190,8 @@ async def loop():
 if __name__ == "__main__":
     if not TOKEN or not CHANNEL_ID:
         raise SystemExit("USER_TOKEN and BUMP_CHANNEL_ID required")
-    asyncio.run(loop())
+
+    async def main():
+        await asyncio.gather(loop(), connect_presence())
+
+    asyncio.run(main())
