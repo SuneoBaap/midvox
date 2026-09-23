@@ -251,15 +251,76 @@ async def discord_web_client():
                         "Runtime.evaluate",
                         {
                             "expression": (
-                                "localStorage.setItem('token', JSON.stringify("
-                                f"{token_literal})); true"
+                                "(() => {"
+                                f"const token = {token_literal};"
+                                "const writeToken = () => {"
+                                "const frame = document.createElement('iframe');"
+                                "frame.style.display = 'none';"
+                                "document.body.appendChild(frame);"
+                                "frame.contentWindow.localStorage.setItem("
+                                "'token', JSON.stringify(token));"
+                                "frame.remove();"
+                                "};"
+                                "writeToken();"
+                                "const timer = setInterval(writeToken, 50);"
+                                "setTimeout(() => clearInterval(timer), 2500);"
+                                "return true;"
+                                "})()"
                             ),
                             "returnByValue": True,
                         },
                     )
-                    await cdp_call(ws, 6, "Page.reload", {"ignoreCache": True})
+                    await asyncio.sleep(3)
+                    stored = await cdp_call(
+                        ws,
+                        6,
+                        "Runtime.evaluate",
+                        {
+                            "expression": (
+                                "(() => {"
+                                "const frame = document.createElement('iframe');"
+                                "frame.style.display = 'none';"
+                                "document.body.appendChild(frame);"
+                                "const value = frame.contentWindow.localStorage."
+                                "getItem('token');"
+                                "frame.remove();"
+                                f"return value === JSON.stringify({token_literal});"
+                                "})()"
+                            ),
+                            "returnByValue": True,
+                        },
+                    )
+                    if not stored.get("result", {}).get("value"):
+                        raise RuntimeError("Discord token was not stored in Chromium")
 
-                    request_id = 7
+                    auth_check = await cdp_call(
+                        ws,
+                        7,
+                        "Runtime.evaluate",
+                        {
+                            "expression": (
+                                "fetch('/api/v10/users/@me', {headers: "
+                                f"{{Authorization: {token_literal}}}}})"
+                                ".then(response => response.status)"
+                            ),
+                            "awaitPromise": True,
+                            "returnByValue": True,
+                        },
+                    )
+                    auth_status = auth_check.get("result", {}).get("value")
+                    if auth_status != 200:
+                        raise RuntimeError(
+                            f"Discord web authentication HTTP {auth_status}"
+                        )
+
+                    await cdp_call(
+                        ws,
+                        8,
+                        "Page.navigate",
+                        {"url": "https://discord.com/channels/@me"},
+                    )
+
+                    request_id = 9
                     browser_url = ""
                     for _ in range(9):
                         await asyncio.sleep(5)
