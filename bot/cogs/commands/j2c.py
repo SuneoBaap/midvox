@@ -20,6 +20,7 @@ import aiosqlite
 import asyncio
 from typing import Dict, List, Optional
 from utils.cv2 import CV2, build_container
+from utils.emoji import LOADING, LOCK, MESSAGE, CROSS, MIDVOXHAMMER, CHANNEL, UNLOCK, STAR, MV_DELETE, ZSAFE
 
 class JoinToCreate(commands.Cog):
     def __init__(self, bot):
@@ -379,29 +380,29 @@ class ControlPanelView(LayoutView):
         )
         self.add_item(container)
 
-        b_limit = ui.Button(label="LIMIT", style=discord.ButtonStyle.blurple, custom_id="j2c:limit", emoji="⏳")
+        b_limit = ui.Button(label="LIMIT", style=discord.ButtonStyle.blurple, custom_id="j2c:limit", emoji=LOADING)
         b_limit.callback = self.set_limit
-        b_privacy = ui.Button(label="PRIVACY", style=discord.ButtonStyle.blurple, custom_id="j2c:privacy", emoji="🔒")
+        b_privacy = ui.Button(label="PRIVACY", style=discord.ButtonStyle.blurple, custom_id="j2c:privacy", emoji=LOCK)
         b_privacy.callback = self.toggle_privacy
-        b_thread = ui.Button(label="THREAD", style=discord.ButtonStyle.blurple, custom_id="j2c:thread", emoji="💬")
+        b_thread = ui.Button(label="THREAD", style=discord.ButtonStyle.blurple, custom_id="j2c:thread", emoji=MESSAGE)
         b_thread.callback = self.create_thread
-        b_untrust = ui.Button(label="UNTRUST", style=discord.ButtonStyle.green, custom_id="j2c:untrust", emoji="❌")
+        b_untrust = ui.Button(label="UNTRUST", style=discord.ButtonStyle.green, custom_id="j2c:untrust", emoji=CROSS)
         b_untrust.callback = self.untrust
-        b_invite = ui.Button(label="INVITE", style=discord.ButtonStyle.green, custom_id="j2c:invite", emoji="✉️")
+        b_invite = ui.Button(label="INVITE", style=discord.ButtonStyle.green, custom_id="j2c:invite", emoji=MESSAGE)
         b_invite.callback = self.invite_user
-        b_kick = ui.Button(label="KICK", style=discord.ButtonStyle.green, custom_id="j2c:kick", emoji="👢")
+        b_kick = ui.Button(label="KICK", style=discord.ButtonStyle.green, custom_id="j2c:kick", emoji=MIDVOXHAMMER)
         b_kick.callback = self.kick_user
-        b_region = ui.Button(label="REGION", style=discord.ButtonStyle.green, custom_id="j2c:region", emoji="🌍")
+        b_region = ui.Button(label="REGION", style=discord.ButtonStyle.green, custom_id="j2c:region", emoji=CHANNEL)
         b_region.callback = self.set_region
-        b_unblock = ui.Button(label="UNBLOCK", style=discord.ButtonStyle.red, custom_id="j2c:unblock", emoji="🔓")
+        b_unblock = ui.Button(label="UNBLOCK", style=discord.ButtonStyle.red, custom_id="j2c:unblock", emoji=UNLOCK)
         b_unblock.callback = self.unblock
-        b_claim = ui.Button(label="CLAIM", style=discord.ButtonStyle.red, custom_id="j2c:claim", emoji="⭐")
+        b_claim = ui.Button(label="CLAIM", style=discord.ButtonStyle.red, custom_id="j2c:claim", emoji=STAR)
         b_claim.callback = self.claim
-        b_transfer = ui.Button(label="TRANSFER", style=discord.ButtonStyle.red, custom_id="j2c:transfer", emoji="🔄")
+        b_transfer = ui.Button(label="TRANSFER", style=discord.ButtonStyle.red, custom_id="j2c:transfer", emoji=LOADING)
         b_transfer.callback = self.transfer
-        b_delete = ui.Button(label="DELETE", style=discord.ButtonStyle.red, custom_id="j2c:delete", emoji="🗑️")
+        b_delete = ui.Button(label="DELETE", style=discord.ButtonStyle.red, custom_id="j2c:delete", emoji=MV_DELETE)
         b_delete.callback = self.delete_vc
-        b_block = ui.Button(label="BLOCK", style=discord.ButtonStyle.danger, custom_id="j2c:block", emoji="🚫")
+        b_block = ui.Button(label="BLOCK", style=discord.ButtonStyle.danger, custom_id="j2c:block", emoji=ZSAFE)
         b_block.callback = self.block
 
         self.add_item(ActionRow(b_limit, b_privacy, b_thread))

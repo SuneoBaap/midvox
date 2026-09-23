@@ -16,6 +16,7 @@ import discord
 from discord.ui import LayoutView, TextDisplay, Separator, ActionRow
 from utils.Tools import *
 from utils.cv2 import build_container
+from utils.emoji import MV_FIRST, MV_PREVIOUS, MV_DELETE, MV_NEXT, MV_LAST
 
 
 class Dropdown(discord.ui.Select):
@@ -73,11 +74,11 @@ class View(LayoutView):
         is_first = self.index == 0
         is_last = self.index >= len(self.pages) - 1
 
-        homeB = discord.ui.Button(label="", emoji="⏮️", style=discord.ButtonStyle.secondary, disabled=is_first)
-        backB = discord.ui.Button(label="", emoji="◀️", style=discord.ButtonStyle.secondary, disabled=is_first)
-        quitB = discord.ui.Button(label="", emoji="🗑️", style=discord.ButtonStyle.danger)
-        nextB = discord.ui.Button(label="", emoji="▶️", style=discord.ButtonStyle.secondary, disabled=is_last)
-        lastB = discord.ui.Button(label="", emoji="⏭️", style=discord.ButtonStyle.secondary, disabled=is_last)
+        homeB = discord.ui.Button(label="", emoji=MV_FIRST, style=discord.ButtonStyle.secondary, disabled=is_first)
+        backB = discord.ui.Button(label="", emoji=MV_PREVIOUS, style=discord.ButtonStyle.secondary, disabled=is_first)
+        quitB = discord.ui.Button(label="", emoji=MV_DELETE, style=discord.ButtonStyle.danger)
+        nextB = discord.ui.Button(label="", emoji=MV_NEXT, style=discord.ButtonStyle.secondary, disabled=is_last)
+        lastB = discord.ui.Button(label="", emoji=MV_LAST, style=discord.ButtonStyle.secondary, disabled=is_last)
 
         homeB.callback = self._home_cb
         backB.callback = self._back_cb

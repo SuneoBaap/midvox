@@ -204,10 +204,32 @@ MV_ARROW = "<a:mv_arrow:900000000000000020>"
 MV_HOME = "<a:mv_home:900000000000000021>"
 MV_CLOCK = "<a:mv_clock:900000000000000022>"
 MV_BOT = "<a:mv_bot:900000000000000023>"
+MV_FIRST = "<a:mv_first:900000000000000024>"
+MV_PREVIOUS = "<a:mv_previous:900000000000000025>"
+MV_DELETE = "<a:mv_delete:900000000000000026>"
+MV_NEXT = "<a:mv_next:900000000000000027>"
+MV_LAST = "<a:mv_last:900000000000000028>"
+MV_UP = "<a:mv_up:900000000000000029>"
+MV_DOWN = "<a:mv_down:900000000000000030>"
 
 
 def _midvox_theme_icon(symbol_name):
     name = symbol_name.lower()
+    exact = {
+        "rewind": MV_FIRST,
+        "rewind_alt1": MV_PREVIOUS,
+        "previous": MV_PREVIOUS,
+        "zback": MV_PREVIOUS,
+        "delete": MV_DELETE,
+        "delete_alt1": MV_DELETE,
+        "next": MV_NEXT,
+        "next_alt1": MV_NEXT,
+        "zarrow": MV_NEXT,
+        "arrowred": MV_NEXT,
+        "forward": MV_LAST,
+    }
+    if name in exact:
+        return exact[name]
     groups = (
         (("cross", "error", "delete", "denied", "disable", "offline", "untrust"), MV_ERROR),
         (("ticket",), MV_TICKET),
@@ -273,7 +295,7 @@ ARROW_DOWN = "⬇️"
 ARROW_LEFT = "⬅️"
 ARROW_RIGHT = "➡️"
 ARROW_UP = "⬆️"
-BLOCK = "🚫"
+BLOCK = MV_SHIELD
 BUBBLE_TEA = "🧋"
 CELEBRATE = "🎉"
 CHERRIES = "🍒"
@@ -288,13 +310,13 @@ JAVA_COFFEE = "☕"
 LAUGH1 = "😂"
 LAUGH2 = "🤣"
 LAUGH3 = "😆"
-LOCK_UNICODE = "🔒"
+LOCK_UNICODE = MV_LOCK
 MONEY = "💸"
 MOON = "🌙"
-NOTE = "📝"
+NOTE = MV_MESSAGE
 PAPER = "\U0001f4f0"
 PEACH = "🍑"
-REFRESH = "🔄"
+REFRESH = MV_LOADING
 ROCK = "\U0001faa8"
 SCISSORS = "\U00002702"
 SHOCKED = "😳"

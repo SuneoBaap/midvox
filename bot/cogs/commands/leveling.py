@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord 
-from utils.emoji import CROSS, TICK, ZWARNING
+from utils.emoji import CROSS, TICK, ZWARNING, MESSAGE
 from discord import app_commands 
 from discord .ext import commands 
 import aiosqlite 
@@ -90,7 +90,7 @@ class PlaceholdersView (discord .ui .View ):
     def __init__ (self ):
         super ().__init__ (timeout =60 )
 
-    @discord .ui .button (label ="Show Placeholders",style =discord .ButtonStyle .secondary ,emoji ="📝")
+    @discord .ui .button (label ="Show Placeholders",style =discord .ButtonStyle .secondary ,emoji =MESSAGE)
     async def show_placeholders (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         embed =discord .Embed (
         title ="📝 Available Placeholders",

@@ -22,18 +22,28 @@ from discord.ext import commands
 
 from ..twenty_48 import Twenty48
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.emoji import MV_PREVIOUS, MV_NEXT, MV_UP, MV_DOWN, MV_DELETE
 
 
 class Twenty48_Button(discord.ui.Button["BaseView"]):
     def __init__(self, game: BetaTwenty48, emoji: str) -> None:
         self.game = game
+        self.control = emoji
+
+        themed_emoji = {
+            "⬅️": MV_PREVIOUS,
+            "➡️": MV_NEXT,
+            "⬆️": MV_UP,
+            "⬇️": MV_DOWN,
+            "⏹️": MV_DELETE,
+        }.get(emoji, emoji)
 
         style = (
             discord.ButtonStyle.red if emoji == "⏹️" else discord.ButtonStyle.blurple
         )
 
         super().__init__(
-            style=style, emoji=discord.PartialEmoji(name=emoji), label="\u200b"
+            style=style, emoji=discord.PartialEmoji.from_str(themed_emoji), label="\u200b"
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -43,7 +53,7 @@ class Twenty48_Button(discord.ui.Button["BaseView"]):
                 "This isn't your game!", ephemeral=True
             )
 
-        emoji = str(self.emoji)
+        emoji = self.control
 
         if emoji == "⏹️":
             self.view.stop()
