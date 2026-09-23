@@ -1119,8 +1119,16 @@ async def get_guild_channels(guild_id: int, bot: "midvox" = Depends(get_bot)):
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")
         
+    # Match Discord's sidebar order. Channel positions are scoped by category,
+    # so sorting the flat guild.channels list cannot reproduce the hierarchy.
+    ordered_channels = []
+    for category, category_channels in guild.by_category():
+        if category is not None:
+            ordered_channels.append(category)
+        ordered_channels.extend(category_channels)
+
     channels = []
-    for canal in guild.channels:
+    for canal in ordered_channels:
         try:
             # Handle both discord.ChannelType enum and literal ints
             c_type = canal.type.value if hasattr(canal.type, 'value') else int(canal.type)
