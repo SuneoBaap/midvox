@@ -27,6 +27,9 @@ DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
 DISCORD_CONFIG_HOME = os.getenv(
     "DISCORD_CONFIG_HOME", "/var/lib/midvox/discord-home"
 )
+USER_PRESENCE_READY_FILE = os.getenv(
+    "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
+)
 
 
 def nonce() -> str:
@@ -543,6 +546,13 @@ async def connect_presence():
                                     SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
                                     if SESSION_ID:
                                         SESSION_READY.set()
+                                        with contextlib.suppress(OSError):
+                                            with open(
+                                                USER_PRESENCE_READY_FILE,
+                                                "w",
+                                                encoding="utf-8",
+                                            ) as ready_file:
+                                                ready_file.write(SESSION_ID)
                                         print(
                                             "[user-presence] ONLINE as Linux Desktop; "
                                             "Gateway session ready",
@@ -560,6 +570,8 @@ async def connect_presence():
                     finally:
                         SESSION_ID = ""
                         SESSION_READY.clear()
+                        with contextlib.suppress(OSError):
+                            os.remove(USER_PRESENCE_READY_FILE)
                         heartbeat_task.cancel()
                         await asyncio.gather(heartbeat_task, return_exceptions=True)
         except Exception as e:
@@ -609,10 +621,24 @@ if __name__ == "__main__":
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
+        # Start and verify the user-account presence before launching the desktop
+        # client, /bump, or any application services.
+        presence_task = asyncio.create_task(
+            supervise("user-presence", connect_presence)
+        )
+        try:
+            await asyncio.wait_for(SESSION_READY.wait(), timeout=60)
+        except TimeoutError:
+            presence_task.cancel()
+            await asyncio.gather(presence_task, return_exceptions=True)
+            raise RuntimeError("User account presence did not become ready")
+
+        print(
+            "[user-presence] ready; starting desktop and remaining sidecars",
+            flush=True,
+        )
         tasks = [
-            # Maintain a deterministic user-account presence. The official
-            # desktop client runs alongside it for linked Spotify/activity.
-            supervise("user-presence", connect_presence),
+            presence_task,
             supervise("discord-desktop", discord_desktop_client),
         ]
         if CHANNEL_ID:
