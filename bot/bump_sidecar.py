@@ -363,6 +363,9 @@ async def discord_desktop_client():
                             1,
                             "Runtime.evaluate",
                             {
+                                # Reload exactly once so Discord's startup
+                                # authentication reads the token that was
+                                # injected after the app page had loaded.
                                 "expression": (
                                     "(() => {"
                                     f"const token = {token_literal};"
@@ -377,6 +380,7 @@ async def discord_desktop_client():
                                     "writeToken();"
                                     "const timer = setInterval(writeToken, 50);"
                                     "setTimeout(() => clearInterval(timer), 2500);"
+                                    "setTimeout(() => window.location.reload(), 500);"
                                     "return true;"
                                     "})()"
                                 ),
