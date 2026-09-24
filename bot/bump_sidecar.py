@@ -385,38 +385,47 @@ async def discord_desktop_client():
                 # authentication transition and makes the sidecar kill a healthy
                 # client whenever that target is replaced.
                 token_literal = json.dumps(TOKEN)
+                token_reused = False
                 try:
                     async with session.ws_connect(
                         target["webSocketDebuggerUrl"]
                     ) as ws:
-                        await cdp_call(
+                        handoff = await cdp_call(
                             ws,
                             1,
                             "Runtime.evaluate",
                             {
-                                # Reload exactly once so Discord's startup
-                                # authentication reads the token that was
-                                # injected after the app page had loaded.
+                                # Reload only when the expected token is absent
+                                # or changed. A normal sidecar restart must not
+                                # disconnect an already authenticated Gateway.
                                 "expression": (
                                     "(() => {"
                                     f"const token = {token_literal};"
+                                    "const expected = JSON.stringify(token);"
+                                    "const needsReload = "
+                                    "localStorage.getItem('token') !== expected;"
                                     "const writeToken = () => {"
                                     "const frame = document.createElement('iframe');"
                                     "frame.style.display = 'none';"
                                     "document.body.appendChild(frame);"
                                     "frame.contentWindow.localStorage.setItem("
-                                    "'token', JSON.stringify(token));"
+                                    "'token', expected);"
                                     "frame.remove();"
                                     "};"
+                                    "if (needsReload) {"
                                     "writeToken();"
                                     "const timer = setInterval(writeToken, 50);"
                                     "setTimeout(() => clearInterval(timer), 2500);"
                                     "setTimeout(() => window.location.reload(), 500);"
-                                    "return true;"
+                                    "}"
+                                    "return !needsReload;"
                                     "})()"
                                 ),
                                 "returnByValue": True,
                             },
+                        )
+                        token_reused = bool(
+                            handoff.get("result", {}).get("value")
                         )
                 except asyncio.CancelledError:
                     raise
@@ -429,11 +438,18 @@ async def discord_desktop_client():
                         f"during transition: {error}",
                         flush=True,
                     )
-                print(
-                    "[discord-desktop] token injected; leaving client attached "
-                    "to its own Gateway",
-                    flush=True,
-                )
+                if token_reused:
+                    print(
+                        "[discord-desktop] existing authentication reused; "
+                        "Gateway left uninterrupted",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        "[discord-desktop] token injected with one authentication "
+                        "reload; leaving client attached to its own Gateway",
+                        flush=True,
+                    )
 
                 # /bump needs the official client's Gateway session. Read it at
                 # most once after authentication, then stop all CDP activity.
