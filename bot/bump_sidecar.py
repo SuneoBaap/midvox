@@ -204,6 +204,8 @@ async def stop_desktop_process(process):
 
 async def discord_desktop_client():
     """Keep Discord's official desktop client open on a virtual display."""
+    global SESSION_ID
+
     if not os.path.isfile(DISCORD_DESKTOP):
         raise RuntimeError("Discord desktop is missing from the container")
 
@@ -233,15 +235,26 @@ async def discord_desktop_client():
             desktop_environment = os.environ.copy()
             desktop_environment["DISPLAY"] = ":99"
             desktop_environment["XDG_CONFIG_HOME"] = DISCORD_CONFIG_HOME
+            desktop_environment["XDG_RUNTIME_DIR"] = "/tmp/midvox-runtime"
+            desktop_environment["LIBGL_ALWAYS_SOFTWARE"] = "1"
+            os.makedirs(
+                desktop_environment["XDG_RUNTIME_DIR"],
+                mode=0o700,
+                exist_ok=True,
+            )
             print(
                 "[discord-desktop] starting official client on virtual display :99",
                 flush=True,
             )
             discord_process = await asyncio.create_subprocess_exec(
+                "dbus-run-session",
+                "--",
                 DISCORD_DESKTOP,
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                "--disable-gpu",
+                "--use-gl=angle",
+                "--use-angle=swiftshader",
+                "--enable-unsafe-swiftshader",
                 "--disable-extensions",
                 "--disable-background-timer-throttling",
                 "--disable-backgrounding-occluded-windows",
@@ -274,13 +287,23 @@ async def discord_desktop_client():
                             if item.get("type") == "page"
                             and item.get("webSocketDebuggerUrl")
                         ]
+                        # The official client first exposes a file:// updater
+                        # splash target. Injecting into that target tears down the
+                        # bootstrap and kills the browser. Wait for Discord's
+                        # stable main application target instead.
                         target = next(
                             (
                                 item
                                 for item in pages
-                                if "discord.com" in str(item.get("url") or "")
+                                if any(
+                                    origin in str(item.get("url") or "")
+                                    for origin in (
+                                        "discordapp.com/app",
+                                        "discord.com/app",
+                                    )
+                                )
                             ),
-                            pages[0] if pages else None,
+                            None,
                         )
                         if target:
                             break
@@ -295,8 +318,8 @@ async def discord_desktop_client():
                             )
                     if attempt in (60, 180, 360):
                         print(
-                            "[discord-desktop] still waiting for desktop modules "
-                            "to become ready",
+                            "[discord-desktop] still waiting for the main app "
+                            "window to become ready",
                             flush=True,
                         )
                     await asyncio.sleep(0.5)
@@ -316,13 +339,9 @@ async def discord_desktop_client():
                             )
                         },
                     )
-                    await cdp_call(
-                        ws,
-                        3,
-                        "Page.navigate",
-                        {"url": "https://discord.com/login"},
-                    )
-                    await asyncio.sleep(8)
+                    # Do not navigate yet: the stable app target owns the token
+                    # and should be allowed to finish its own initial boot.
+                    await asyncio.sleep(2)
 
                     token_literal = json.dumps(TOKEN)
                     await cdp_call(
@@ -393,11 +412,15 @@ async def discord_desktop_client():
                             f"Discord desktop authentication HTTP {auth_status}"
                         )
 
+                    # Keep the authenticated token on the same origin where it
+                    # was written. The official client currently uses
+                    # discordapp.com, while older builds use discord.com.
+                    app_origin = str(target.get("url") or "").split("/app", 1)[0]
                     await cdp_call(
                         ws,
                         7,
                         "Page.navigate",
-                        {"url": "https://discord.com/channels/@me"},
+                        {"url": f"{app_origin}/channels/@me"},
                     )
 
                     request_id = 8
@@ -431,9 +454,39 @@ async def discord_desktop_client():
                         )
                     print(
                         "[discord-desktop] client running at "
-                        f"{browser_url or 'https://discord.com/app'}",
+                        f"{browser_url or (app_origin + '/app')}",
                         flush=True,
                     )
+
+                    # Reuse the desktop client's own Gateway session for the
+                    # optional /bump interaction. A second raw Gateway login is
+                    # deliberately avoided because it can replace the desktop
+                    # platform/activity with an empty Windows presence.
+                    desktop_session = await cdp_call(
+                        ws,
+                        request_id,
+                        "Runtime.evaluate",
+                        {
+                            "expression": "localStorage.getItem('session_id') || ''",
+                            "returnByValue": True,
+                        },
+                    )
+                    request_id += 1
+                    SESSION_ID = str(
+                        desktop_session.get("result", {}).get("value") or ""
+                    )
+                    if SESSION_ID:
+                        SESSION_READY.set()
+                        print(
+                            "[discord-desktop] Gateway session available for /bump",
+                            flush=True,
+                        )
+                    elif CHANNEL_ID:
+                        print(
+                            "[discord-desktop] authenticated, but Discord did not "
+                            "expose its Gateway session; /bump will wait",
+                            flush=True,
+                        )
 
                     while True:
                         await asyncio.sleep(60)
@@ -452,6 +505,8 @@ async def discord_desktop_client():
         except Exception as error:
             print(f"[discord-desktop] error: {error}", flush=True)
         finally:
+            SESSION_ID = ""
+            SESSION_READY.clear()
             await stop_desktop_process(discord_process)
             if output_task:
                 output_task.cancel()
@@ -598,7 +653,8 @@ if __name__ == "__main__":
             flush=True,
         )
         tasks = [
-            supervise("presence", connect_presence),
+            # The official desktop client is the only user Gateway session.
+            # This preserves its Desktop platform and linked-account activity.
             supervise("discord-desktop", discord_desktop_client),
         ]
         if CHANNEL_ID:
