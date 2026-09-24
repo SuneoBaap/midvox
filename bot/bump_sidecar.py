@@ -16,7 +16,17 @@ API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
-DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN", "/opt/Discord/Discord")
+DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
+    (
+        path
+        for path in ("/opt/Discord/discord", "/opt/Discord/Discord")
+        if os.path.isfile(path)
+    ),
+    "/opt/Discord/discord",
+)
+DISCORD_CONFIG_HOME = os.getenv(
+    "DISCORD_CONFIG_HOME", "/var/lib/midvox/discord-home"
+)
 
 
 def nonce() -> str:
@@ -222,9 +232,9 @@ async def discord_desktop_client():
 
             desktop_environment = os.environ.copy()
             desktop_environment["DISPLAY"] = ":99"
+            desktop_environment["XDG_CONFIG_HOME"] = DISCORD_CONFIG_HOME
             print(
-                "[discord-desktop] starting official client; first launch may "
-                "install desktop modules",
+                "[discord-desktop] starting official client on virtual display :99",
                 flush=True,
             )
             discord_process = await asyncio.create_subprocess_exec(

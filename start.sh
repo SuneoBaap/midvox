@@ -28,6 +28,24 @@ if printf '%s' "$TOKEN_CLIENT_ID" | grep -Eq '^[0-9]+$'; then
   echo "Discord application ID: $DISCORD_CLIENT_ID"
 fi
 
+# Fail before starting long-lived sidecars when Railway is missing required
+# runtime configuration. NEXT_PUBLIC_DASHBOARD_API_KEY remains required until
+# the dashboard proxy is migrated fully to a private server-side credential.
+REQUIRED_ENV=(
+  TOKEN OWNER_IDS DASHBOARD_API_KEY NEXT_PUBLIC_DASHBOARD_API_KEY
+  NEXTAUTH_SECRET DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET
+)
+MISSING_ENV=()
+for variable in "${REQUIRED_ENV[@]}"; do
+  if [ -z "${!variable:-}" ]; then
+    MISSING_ENV+=("$variable")
+  fi
+done
+if [ "${#MISSING_ENV[@]}" -gt 0 ]; then
+  echo "FATAL: Missing required environment variables: ${MISSING_ENV[*]}" >&2
+  exit 1
+fi
+
 # Add Node.js binary to PATH (extracted during build into .node/)
 export PATH="$(dirname "$0")/.node/bin:$PATH"
 
@@ -190,8 +208,18 @@ BOT_PID=$!
 
 # User presence, Discord desktop and optional /bump sidecar. USER_TOKEN keeps
 # presence alive even when BUMP_CHANNEL_ID is absent or the desktop bootstrap
-# needs to restart.
+# needs to restart. The Docker image supplies Xvfb and Discord's official Linux
+# client; fail early on unsupported hosts instead of looping forever.
 if [ -n "${USER_TOKEN:-}" ]; then
+  DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
+  if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
+    DESKTOP_BIN=/opt/Discord/Discord
+  fi
+  if ! command -v Xvfb >/dev/null 2>&1 || [ ! -x "$DESKTOP_BIN" ]; then
+    echo "FATAL: USER_TOKEN requires the Docker image's Discord desktop and Xvfb." >&2
+    exit 1
+  fi
+  export DISCORD_DESKTOP_BIN="$DESKTOP_BIN"
   (
     while true; do
       cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
@@ -219,10 +247,10 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-# Start Next.js dashboard on Render's public PORT
+# Start Next.js dashboard on Railway/Render's public PORT.
 cd dashboard
 echo "Starting dashboard on port $PORT..."
-npx next start -p $PORT -H 0.0.0.0 &
+npx next start -p "$PORT" -H 0.0.0.0 &
 DASHBOARD_PID=$!
 
 echo "=== MidVox running ==="
@@ -236,4 +264,27 @@ if [ -n "${WARP_PID:-}" ]; then
   echo "WARP PID: $WARP_PID"
 fi
 
-wait
+# The container must exit when any top-level service exits. Railway can then
+# apply the restart policy instead of leaving a partially running deployment
+# behind. Forward termination to the remaining processes during a deploy.
+stop_services() {
+  for pid in \
+    "${COBALT_PID:-}" "${BOT_PID:-}" "${BUMP_PID:-}" \
+    "${DASHBOARD_PID:-}" "${WARP_PID:-}"; do
+    if [ -n "$pid" ]; then
+      kill -TERM "$pid" 2>/dev/null || true
+    fi
+  done
+  wait 2>/dev/null || true
+}
+trap 'stop_services; exit 0' TERM INT
+
+wait -n
+SERVICE_EXIT=$?
+if [ "$SERVICE_EXIT" -eq 0 ]; then
+  # An expected clean exit from any long-running service is still unexpected.
+  SERVICE_EXIT=1
+fi
+echo "FATAL: a MidVox service exited (status $SERVICE_EXIT); stopping the container." >&2
+stop_services
+exit "$SERVICE_EXIT"

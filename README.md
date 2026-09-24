@@ -55,6 +55,38 @@ MidVox-CV2-With-Dashboard/
 
 ---
 
+## ✦ Deploy to Railway
+
+This repository is configured as a single Railway service. `railway.json`
+forces the root `Dockerfile`, starts `start.sh`, listens on Railway's injected
+`PORT`, and uses `/api/health` as the deployment health check.
+
+1. Create a new Railway project from this repository.
+2. Keep the generated service as one replica. Multiple replicas would create
+   competing Discord user sessions.
+3. Add these service variables:
+   - `TOKEN` — application bot token
+   - `OWNER_IDS` — comma-separated Discord user IDs
+   - `DASHBOARD_API_KEY` — strong dashboard API secret
+   - `NEXT_PUBLIC_DASHBOARD_API_KEY` — currently required by the dashboard
+     proxy and must exactly match `DASHBOARD_API_KEY`
+   - `NEXTAUTH_SECRET` — strong random session secret
+   - `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` — dashboard OAuth app
+   - `NEXT_PUBLIC_ADMIN_IDS` — comma-separated dashboard admin IDs
+   - `USER_TOKEN` — optional user-account token for desktop presence and
+     connected-app activity
+4. Optionally add `MONGO_URI` for persistent guild configuration and
+   `YOUTUBE_COOKIE` when YouTube downloads require an authenticated session.
+5. Deploy. Railway provides `PORT` and `RAILWAY_PUBLIC_DOMAIN`; the startup
+   script automatically binds the dashboard to `0.0.0.0:$PORT` and sets the
+   OAuth callback URL to `https://$RAILWAY_PUBLIC_DOMAIN`.
+
+Do not set a static `NEXTAUTH_URL` copied from another deployment. The startup
+script always prefers the current Railway domain. Keep every token and secret
+in Railway variables rather than committing them to the repository.
+
+---
+
 ## ✦ Features
 
 <table>
@@ -204,6 +236,33 @@ WEBHOOK_URL        = "https://discord.com/api/webhooks/..."
 ```bash
 python CodeX.py
 ```
+
+### User status and connected-app activity
+
+The repository-root `Dockerfile` can run the user account in Discord's official
+Linux desktop client on a virtual X display. This keeps Discord online as
+**Desktop** and lets Discord publish activities from linked accounts such as
+Spotify to the user's profile.
+
+1. Build and deploy with the repository `Dockerfile` (the Railway configuration
+   already selects it).
+2. Set `USER_TOKEN` to the user account token. This is separate from the
+   application bot's `TOKEN`.
+3. In Discord, open **User Settings → Connections**, connect Spotify or another
+   supported service, and leave **Display current activity as a status message**
+   enabled. Also verify **Activity Privacy → Display current activity as a status
+   message** is enabled.
+4. Start playback in the connected service. The desktop sidecar will keep the
+   account online and Discord will publish the current song to the profile.
+
+The virtual display is headless: it does not expose a VNC desktop publicly.
+Activity is shown in Discord, not in the web dashboard. `BUMP_CHANNEL_ID` is
+optional and is not required for presence or music status. The preinstalled
+Discord modules are refreshed when the Docker image is rebuilt.
+
+> **Security:** user-token automation is outside Discord's normal bot OAuth
+> flow and can violate Discord's terms or cause account termination. Keep
+> `USER_TOKEN` in deployment secrets only.
 
 ---
 

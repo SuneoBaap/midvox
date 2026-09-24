@@ -19,6 +19,9 @@ RUN apt-get update \
 # handled by Discord itself. The tar package avoids running an installer in the
 # final image and is refreshed whenever Railway rebuilds the image.
 FROM debian:bookworm-slim AS discord_desktop
+# The public package contains only a small updater. Install its desktop modules
+# during the image build so the first deployment can authenticate and publish
+# linked-account activity without a five-minute startup wait.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl tar \
     && rm -rf /var/lib/apt/lists/* \
@@ -26,7 +29,16 @@ RUN apt-get update \
         -o /tmp/discord.tar.gz \
         'https://discord.com/api/download?platform=linux&format=tar.gz' \
     && tar -xzf /tmp/discord.tar.gz -C /opt \
-    && test -x /opt/Discord/Discord
+    && if [ -x /opt/Discord/discord ]; then \
+         ln -s discord /opt/Discord/Discord; \
+       elif [ ! -x /opt/Discord/Discord ]; then \
+         echo 'Discord launcher not found after extracting the Linux package' >&2; \
+         exit 1; \
+       fi \
+    && mkdir -p /discord-home/discord \
+    && /opt/Discord/updater_bootstrap --no-zenity \
+         /discord-home/discord stable https://updates.discord.com/ \
+    && test -n "$(find /discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)"
 
 # Cobalt 11.7.1 is pinned to youtubei.js 17.0.1, which is no longer reliable
 # against YouTube's current player API. Keep Cobalt itself stable while using
@@ -49,6 +61,7 @@ COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=warp_tools /usr/local/bin/wgcf /usr/local/bin/wgcf
 COPY --from=warp_tools /usr/local/bin/wireproxy /usr/local/bin/wireproxy
 COPY --from=discord_desktop /opt/Discord /opt/Discord
+COPY --from=discord_desktop /discord-home /var/lib/midvox/discord-home
 COPY --from=cobalt /app /opt/cobalt
 COPY --from=youtube_extractor /opt/youtube-extractor/node_modules /opt/youtube-extractor/node_modules
 # Point Cobalt's two extractor imports at the updated isolated package. Using
@@ -78,9 +91,11 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
         libxcb1 libxcomposite1 libxdamage1 \
         libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
         xdg-utils xvfb \
-    && test -x /opt/Discord/Discord \
+    && test -x /opt/Discord/discord \
+    && test -n "$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
     && command -v Xvfb \
-    && if ldd /opt/Discord/Discord | grep 'not found'; then exit 1; fi \
+    && DISCORD_RUNTIME="$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
+    && if ldd "$DISCORD_RUNTIME" | grep 'not found'; then exit 1; fi \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
