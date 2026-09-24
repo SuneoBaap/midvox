@@ -188,6 +188,84 @@ async def cdp_call(ws, request_id, method, params=None):
         return response.get("result") or {}
 
 
+async def authenticate_desktop(session, target, debug_port):
+    """Move the settled target to discord.com and hand it the user token."""
+    token_literal = json.dumps(TOKEN)
+    try:
+        async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
+            await cdp_call(
+                ws,
+                1,
+                "Page.navigate",
+                {"url": "https://discord.com/login"},
+            )
+    except (aiohttp.ClientError, RuntimeError) as error:
+        print(
+            "[discord-desktop] login-origin navigation transition: "
+            f"{error}",
+            flush=True,
+        )
+
+    await asyncio.sleep(5)
+    async with session.get(f"http://127.0.0.1:{debug_port}/json/list") as response:
+        targets = await response.json()
+    pages = [
+        item
+        for item in targets
+        if item.get("type") == "page" and item.get("webSocketDebuggerUrl")
+    ]
+    target = next(
+        (
+            item
+            for item in pages
+            if str(item.get("url") or "").startswith("https://discord.com/")
+        ),
+        None,
+    )
+    if not target:
+        raise RuntimeError("discord.com login target did not become available")
+
+    async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
+        handoff = await cdp_call(
+            ws,
+            2,
+            "Runtime.evaluate",
+            {
+                "expression": (
+                    "(() => {"
+                    f"const token = {token_literal};"
+                    "const expected = JSON.stringify(token);"
+                    "if (localStorage.getItem('token') !== expected) {"
+                    "const frame = document.createElement('iframe');"
+                    "frame.style.display = 'none';"
+                    "document.body.appendChild(frame);"
+                    "frame.contentWindow.localStorage.setItem("
+                    "'token', expected);"
+                    "frame.remove();"
+                    "return false;"
+                    "}"
+                    "return true;"
+                    "})()"
+                ),
+                "returnByValue": True,
+            },
+        )
+        token_reused = bool(handoff.get("result", {}).get("value"))
+        if not token_reused:
+            try:
+                await cdp_call(
+                    ws,
+                    3,
+                    "Page.navigate",
+                    {"url": "https://discord.com/channels/@me"},
+                )
+            except (aiohttp.ClientError, RuntimeError):
+                # Navigation commonly replaces the target before the command
+                # response arrives. The token write has already completed.
+                pass
+    return token_reused
+
+
 async def relay_desktop_output(stream):
     """Drain Discord output and retain useful startup diagnostics."""
     line_count = 0
@@ -375,103 +453,42 @@ async def discord_desktop_client():
 
                 # Let the initial login renderer finish before touching it.
                 # Reloading Electron while splash/main boot is still active causes
-                # Chromium exitCode=11. Reacquire the now-stable Discord target
-                # after the delay rather than reusing the early /app target.
+                # Chromium exitCode=11.
                 await asyncio.sleep(8)
-                try:
-                    async with session.get(
-                        f"http://127.0.0.1:{debug_port}/json/list"
-                    ) as response:
-                        targets = await response.json()
-                    target = next(
-                        (
-                            item
-                            for item in targets
-                            if item.get("type") == "page"
-                            and item.get("webSocketDebuggerUrl")
-                            and any(
-                                origin in str(item.get("url") or "")
-                                for origin in (
-                                    "discordapp.com/",
-                                    "discord.com/",
-                                )
-                            )
-                        ),
-                        target,
-                    )
-                except (aiohttp.ClientError, ValueError):
-                    pass
-
-                # Inject the user token once, then completely detach DevTools.
-                # Keeping a page-level CDP socket open interferes with Discord's
-                # authentication transition and makes the sidecar kill a healthy
-                # client whenever that target is replaced.
-                token_literal = json.dumps(TOKEN)
-                token_reused = False
-                try:
-                    async with session.ws_connect(
-                        target["webSocketDebuggerUrl"]
-                    ) as ws:
-                        handoff = await cdp_call(
-                            ws,
-                            1,
-                            "Runtime.evaluate",
-                            {
-                                # Reload only when the expected token is absent
-                                # or changed. A normal sidecar restart must not
-                                # disconnect an already authenticated Gateway.
-                                "expression": (
-                                    "(() => {"
-                                    f"const token = {token_literal};"
-                                    "const expected = JSON.stringify(token);"
-                                    "const needsReload = "
-                                    "localStorage.getItem('token') !== expected;"
-                                    "const writeToken = () => {"
-                                    "const frame = document.createElement('iframe');"
-                                    "frame.style.display = 'none';"
-                                    "document.body.appendChild(frame);"
-                                    "frame.contentWindow.localStorage.setItem("
-                                    "'token', expected);"
-                                    "frame.remove();"
-                                    "};"
-                                    "if (needsReload) {"
-                                    "writeToken();"
-                                    "const timer = setInterval(writeToken, 50);"
-                                    "setTimeout(() => clearInterval(timer), 2500);"
-                                    "setTimeout(() => window.location.reload(), 500);"
-                                    "}"
-                                    "return !needsReload;"
-                                    "})()"
-                                ),
-                                "returnByValue": True,
-                            },
-                        )
-                        token_reused = bool(
-                            handoff.get("result", {}).get("value")
-                        )
-                except asyncio.CancelledError:
-                    raise
-                except (aiohttp.ClientError, RuntimeError) as error:
-                    # The token write can itself trigger the target hand-off,
-                    # closing the socket before DevTools returns its response.
-                    # The token was validated over REST immediately beforehand.
+                if os.path.isfile(USER_DESKTOP_READY_FILE):
                     print(
-                        "[discord-desktop] token handoff closed DevTools "
-                        f"during transition: {error}",
-                        flush=True,
-                    )
-                if token_reused:
-                    print(
-                        "[discord-desktop] existing authentication reused; "
-                        "Gateway left uninterrupted",
+                        "[discord-desktop] authenticated Gateway already ready; "
+                        "authentication handoff skipped",
                         flush=True,
                     )
                 else:
-                    print(
-                        "[discord-desktop] token injected with one authentication "
-                        "reload; leaving client attached to its own Gateway",
-                        flush=True,
-                    )
+                    try:
+                        token_reused = await authenticate_desktop(
+                            session,
+                            target,
+                            debug_port,
+                        )
+                    except asyncio.CancelledError:
+                        raise
+                    except (aiohttp.ClientError, RuntimeError, ValueError) as error:
+                        print(
+                            "[discord-desktop] authentication handoff failed: "
+                            f"{error}",
+                            flush=True,
+                        )
+                        token_reused = False
+                    if token_reused:
+                        print(
+                            "[discord-desktop] existing discord.com authentication "
+                            "reused",
+                            flush=True,
+                        )
+                    else:
+                        print(
+                            "[discord-desktop] token written on discord.com; "
+                            "opening authenticated desktop",
+                            flush=True,
+                        )
 
                 # Do not attach to, navigate, or periodically probe the renderer.
                 # Discord owns its own reconnects; only restart if Electron exits.
