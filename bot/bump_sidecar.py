@@ -259,7 +259,6 @@ async def discord_desktop_client():
             desktop_environment["DISPLAY"] = ":99"
             desktop_environment["XDG_CONFIG_HOME"] = DISCORD_CONFIG_HOME
             desktop_environment["XDG_RUNTIME_DIR"] = "/tmp/midvox-runtime"
-            desktop_environment["LIBGL_ALWAYS_SOFTWARE"] = "1"
             os.makedirs(
                 desktop_environment["XDG_RUNTIME_DIR"],
                 mode=0o700,
@@ -275,9 +274,12 @@ async def discord_desktop_client():
                 DISCORD_DESKTOP,
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                "--use-gl=angle",
-                "--use-angle=swiftshader",
-                "--enable-unsafe-swiftshader",
+                # SwiftShader creates an additional memory-heavy GPU process on
+                # Railway. Discord's UI renders correctly with GPU composition
+                # disabled, and this avoids short-lived renderer/GPU exits.
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--disable-gpu-compositing",
                 "--disable-extensions",
                 "--disable-background-timer-throttling",
                 "--disable-backgrounding-occluded-windows",
