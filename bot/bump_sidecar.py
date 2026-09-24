@@ -33,6 +33,25 @@ def nonce() -> str:
     return "".join(random.choices(string.digits, k=18))
 
 
+async def validate_user_token(session: aiohttp.ClientSession) -> None:
+    """Validate the token outside the Electron renderer.
+
+    Renderer reloads can make an in-page fetch return an unrelated 400 even
+    though the same token authenticated the desktop Gateway. A direct API
+    check provides a stable startup signal instead.
+    """
+    async with session.get(
+        f"{API_BASE}/users/@me",
+        headers={"Authorization": TOKEN},
+    ) as response:
+        if response.status != 200:
+            body = await response.text()
+            raise RuntimeError(
+                f"Discord user token validation HTTP {response.status}: "
+                f"{body[:160]}"
+            )
+
+
 async def fetch_bump_command(session: aiohttp.ClientSession, headers: dict, guild_id: str):
     # Query DISBOARD directly first, then fall back to the complete guild index.
     # The channel index can contain unrelated user-installed applications.
@@ -208,6 +227,10 @@ async def discord_desktop_client():
 
     if not os.path.isfile(DISCORD_DESKTOP):
         raise RuntimeError("Discord desktop is missing from the container")
+
+    async with aiohttp.ClientSession() as validation_session:
+        await validate_user_token(validation_session)
+    print("[discord-desktop] user token validated", flush=True)
 
     debug_port = 9222
     while True:
@@ -392,40 +415,13 @@ async def discord_desktop_client():
                     if not stored.get("result", {}).get("value"):
                         raise RuntimeError("Discord token was not stored by desktop")
 
-                    auth_check = await cdp_call(
-                        ws,
-                        6,
-                        "Runtime.evaluate",
-                        {
-                            "expression": (
-                                "fetch('/api/v10/users/@me', {headers: "
-                                f"{{Authorization: {token_literal}}}}})"
-                                ".then(response => response.status)"
-                            ),
-                            "awaitPromise": True,
-                            "returnByValue": True,
-                        },
-                    )
-                    auth_status = auth_check.get("result", {}).get("value")
-                    if auth_status != 200:
-                        raise RuntimeError(
-                            f"Discord desktop authentication HTTP {auth_status}"
-                        )
-
-                    # Keep the authenticated token on the same origin where it
-                    # was written. The official client currently uses
-                    # discordapp.com, while older builds use discord.com.
+                    # The official app has already navigated to its main target
+                    # with the token available. Avoid another navigation: the
+                    # headless Linux renderer is sensitive to forced reloads.
                     app_origin = str(target.get("url") or "").split("/app", 1)[0]
-                    await cdp_call(
-                        ws,
-                        7,
-                        "Page.navigate",
-                        {"url": f"{app_origin}/channels/@me"},
-                    )
-
-                    request_id = 8
+                    request_id = 6
                     browser_url = ""
-                    for _ in range(9):
+                    for _ in range(12):
                         await asyncio.sleep(5)
                         status = await cdp_call(
                             ws,
