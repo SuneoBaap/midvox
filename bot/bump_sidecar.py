@@ -545,7 +545,21 @@ async def connect_presence():
                                 if payload.get("op") == 0 and payload.get("t") == "READY":
                                     SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
                                     if SESSION_ID:
-                                        SESSION_READY.set()
+                                        # Re-apply presence after READY. Some
+                                        # Discord routing paths ignore the
+                                        # presence embedded in Identify until a
+                                        # separate OP3 Presence Update arrives.
+                                        await ws.send_json(
+                                            {
+                                                "op": 3,
+                                                "d": {
+                                                    "status": "online",
+                                                    "since": 0,
+                                                    "activities": [],
+                                                    "afk": False,
+                                                },
+                                            }
+                                        )
                                         with contextlib.suppress(OSError):
                                             with open(
                                                 USER_PRESENCE_READY_FILE,
@@ -553,6 +567,7 @@ async def connect_presence():
                                                 encoding="utf-8",
                                             ) as ready_file:
                                                 ready_file.write(SESSION_ID)
+                                        SESSION_READY.set()
                                         print(
                                             "[user-presence] ONLINE as Linux Desktop; "
                                             "Gateway session ready",
