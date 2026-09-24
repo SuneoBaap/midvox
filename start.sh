@@ -264,9 +264,8 @@ if [ -n "${WARP_PID:-}" ]; then
   echo "WARP PID: $WARP_PID"
 fi
 
-# The container must exit when any top-level service exits. Railway can then
-# apply the restart policy instead of leaving a partially running deployment
-# behind. Forward termination to the remaining processes during a deploy.
+# Keep the container attached to all top-level services and forward Railway's
+# termination signal to the remaining processes during a deploy.
 stop_services() {
   for pid in \
     "${COBALT_PID:-}" "${BOT_PID:-}" "${BUMP_PID:-}" \
@@ -279,12 +278,8 @@ stop_services() {
 }
 trap 'stop_services; exit 0' TERM INT
 
-wait -n
-SERVICE_EXIT=$?
-if [ "$SERVICE_EXIT" -eq 0 ]; then
-  # An expected clean exit from any long-running service is still unexpected.
-  SERVICE_EXIT=1
-fi
-echo "FATAL: a MidVox service exited (status $SERVICE_EXIT); stopping the container." >&2
-stop_services
-exit "$SERVICE_EXIT"
+# Keep the container attached to all long-running services. Individual bot and
+# sidecar components already have their own restart loops; exiting on the first
+# completed background job can incorrectly terminate a healthy deployment
+# during process hand-off.
+wait
