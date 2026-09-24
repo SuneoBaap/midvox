@@ -70,11 +70,11 @@ export TUNNEL_ENABLED=false
 
 ROOT="$(pwd)"
 
-# Start the user-account sidecar before WARP, Cobalt, the application bot, and
-# the dashboard. The sidecar itself waits for the user Gateway READY event
-# before it starts the official desktop client.
-export USER_PRESENCE_READY_FILE=/tmp/midvox-user-presence-ready
-rm -f "$USER_PRESENCE_READY_FILE"
+# Start the official user-account desktop before WARP, Cobalt, the application
+# bot, and the dashboard. Wait for its authenticated Gateway READY event before
+# starting any other service.
+export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
+rm -f "$USER_DESKTOP_READY_FILE"
 if [ -n "${USER_TOKEN:-}" ]; then
   DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
   if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
@@ -85,23 +85,23 @@ if [ -n "${USER_TOKEN:-}" ]; then
     exit 1
   fi
   export DISCORD_DESKTOP_BIN="$DESKTOP_BIN"
-  echo "Starting user-account presence sidecar first..."
+  echo "Starting official user-account desktop first..."
   (
     while true; do
       cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
       python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
       echo "WARNING: User presence sidecar exited (code $?). Restarting in 5s..." >&2
       cd "$ROOT"
-      rm -f "$USER_PRESENCE_READY_FILE"
+      rm -f "$USER_DESKTOP_READY_FILE"
       sleep 5
     done
   ) &
   BUMP_PID=$!
 
-  echo "Waiting for user-account Gateway READY..."
-  for i in $(seq 1 60); do
-    if [ -f "$USER_PRESENCE_READY_FILE" ]; then
-      echo "User-account presence is online; starting remaining services."
+  echo "Waiting for official user desktop Gateway READY..."
+  for i in $(seq 1 90); do
+    if [ -f "$USER_DESKTOP_READY_FILE" ]; then
+      echo "Official user desktop is online; starting remaining services."
       break
     fi
     if ! kill -0 "$BUMP_PID" 2>/dev/null; then
@@ -110,8 +110,8 @@ if [ -n "${USER_TOKEN:-}" ]; then
     fi
     sleep 1
   done
-  if [ ! -f "$USER_PRESENCE_READY_FILE" ]; then
-    echo "FATAL: User-account Gateway did not become ready within 60 seconds." >&2
+  if [ ! -f "$USER_DESKTOP_READY_FILE" ]; then
+    echo "FATAL: Official user desktop Gateway did not become ready within 90 seconds." >&2
     tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
     exit 1
   fi

@@ -27,6 +27,11 @@ DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
 DISCORD_CONFIG_HOME = os.getenv(
     "DISCORD_CONFIG_HOME", "/var/lib/midvox/discord-home"
 )
+USER_DESKTOP_READY_FILE = os.getenv(
+    "USER_DESKTOP_READY_FILE", "/tmp/midvox-user-desktop-ready"
+)
+# Retained for the optional legacy Gateway helper; the main path uses the
+# official desktop Gateway exclusively.
 USER_PRESENCE_READY_FILE = os.getenv(
     "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
 )
@@ -207,6 +212,18 @@ async def relay_desktop_output(stream):
         )
         if text and (line_count <= 80 or important):
             print(f"[discord-desktop] {text}", flush=True)
+        if "[GatewaySocket] [READY]" in text:
+            with contextlib.suppress(OSError):
+                with open(
+                    USER_DESKTOP_READY_FILE,
+                    "w",
+                    encoding="utf-8",
+                ) as ready_file:
+                    ready_file.write("ready")
+            print(
+                "[user-desktop] ONLINE as Linux Desktop; official Gateway READY",
+                flush=True,
+            )
 
 
 async def stop_desktop_process(process):
@@ -237,6 +254,8 @@ async def discord_desktop_client():
 
     debug_port = 9222
     while True:
+        with contextlib.suppress(OSError):
+            os.remove(USER_DESKTOP_READY_FILE)
         display_process = None
         discord_process = None
         output_task = None
@@ -636,26 +655,28 @@ if __name__ == "__main__":
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
-        # Start and verify the user-account presence before launching the desktop
-        # client, /bump, or any application services.
-        presence_task = asyncio.create_task(
-            supervise("user-presence", connect_presence)
+        # Use the known-working official desktop client as the sole user
+        # Gateway. A second raw Gateway can override its Linux Desktop device
+        # and connected Spotify activity.
+        desktop_task = asyncio.create_task(
+            supervise("discord-desktop", discord_desktop_client)
         )
-        try:
-            await asyncio.wait_for(SESSION_READY.wait(), timeout=60)
-        except TimeoutError:
-            presence_task.cancel()
-            await asyncio.gather(presence_task, return_exceptions=True)
-            raise RuntimeError("User account presence did not become ready")
+        for _ in range(180):
+            if os.path.isfile(USER_DESKTOP_READY_FILE):
+                break
+            if desktop_task.done():
+                await desktop_task
+            await asyncio.sleep(0.5)
+        if not os.path.isfile(USER_DESKTOP_READY_FILE):
+            desktop_task.cancel()
+            await asyncio.gather(desktop_task, return_exceptions=True)
+            raise RuntimeError("Official Discord desktop did not become ready")
 
         print(
-            "[user-presence] ready; starting desktop and remaining sidecars",
+            "[user-desktop] ready; starting /bump and remaining services",
             flush=True,
         )
-        tasks = [
-            presence_task,
-            supervise("discord-desktop", discord_desktop_client),
-        ]
+        tasks = [desktop_task]
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         await asyncio.gather(*tasks)
