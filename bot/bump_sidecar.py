@@ -349,153 +349,125 @@ async def discord_desktop_client():
                 if not target:
                     raise RuntimeError("Discord desktop DevTools did not become ready")
 
-                async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
-                    await cdp_call(ws, 1, "Page.enable")
-                    await cdp_call(
-                        ws,
-                        2,
-                        "Page.addScriptToEvaluateOnNewDocument",
-                        {
-                            "source": (
-                                "Object.defineProperty(navigator, 'webdriver', "
-                                "{get: () => undefined});"
-                            )
-                        },
-                    )
-                    # Do not navigate yet: the stable app target owns the token
-                    # and should be allowed to finish its own initial boot.
-                    await asyncio.sleep(2)
-
-                    token_literal = json.dumps(TOKEN)
-                    await cdp_call(
-                        ws,
-                        4,
-                        "Runtime.evaluate",
-                        {
-                            "expression": (
-                                "(() => {"
-                                f"const token = {token_literal};"
-                                "const writeToken = () => {"
-                                "const frame = document.createElement('iframe');"
-                                "frame.style.display = 'none';"
-                                "document.body.appendChild(frame);"
-                                "frame.contentWindow.localStorage.setItem("
-                                "'token', JSON.stringify(token));"
-                                "frame.remove();"
-                                "};"
-                                "writeToken();"
-                                "const timer = setInterval(writeToken, 50);"
-                                "setTimeout(() => clearInterval(timer), 2500);"
-                                "return true;"
-                                "})()"
-                            ),
-                            "returnByValue": True,
-                        },
-                    )
-                    await asyncio.sleep(3)
-                    stored = await cdp_call(
-                        ws,
-                        5,
-                        "Runtime.evaluate",
-                        {
-                            "expression": (
-                                "(() => {"
-                                "const frame = document.createElement('iframe');"
-                                "frame.style.display = 'none';"
-                                "document.body.appendChild(frame);"
-                                "const value = frame.contentWindow.localStorage."
-                                "getItem('token');"
-                                "frame.remove();"
-                                f"return value === JSON.stringify({token_literal});"
-                                "})()"
-                            ),
-                            "returnByValue": True,
-                        },
-                    )
-                    if not stored.get("result", {}).get("value"):
-                        raise RuntimeError("Discord token was not stored by desktop")
-
-                    # The official app has already navigated to its main target
-                    # with the token available. Avoid another navigation: the
-                    # headless Linux renderer is sensitive to forced reloads.
-                    app_origin = str(target.get("url") or "").split("/app", 1)[0]
-                    request_id = 6
-                    browser_url = ""
-                    for _ in range(12):
-                        await asyncio.sleep(5)
-                        status = await cdp_call(
+                # Inject the user token once, then completely detach DevTools.
+                # Keeping a page-level CDP socket open interferes with Discord's
+                # authentication transition and makes the sidecar kill a healthy
+                # client whenever that target is replaced.
+                token_literal = json.dumps(TOKEN)
+                try:
+                    async with session.ws_connect(
+                        target["webSocketDebuggerUrl"]
+                    ) as ws:
+                        await cdp_call(
                             ws,
-                            request_id,
+                            1,
                             "Runtime.evaluate",
                             {
                                 "expression": (
-                                    "JSON.stringify({href: location.href, "
-                                    "ready: document.readyState})"
+                                    "(() => {"
+                                    f"const token = {token_literal};"
+                                    "const writeToken = () => {"
+                                    "const frame = document.createElement('iframe');"
+                                    "frame.style.display = 'none';"
+                                    "document.body.appendChild(frame);"
+                                    "frame.contentWindow.localStorage.setItem("
+                                    "'token', JSON.stringify(token));"
+                                    "frame.remove();"
+                                    "};"
+                                    "writeToken();"
+                                    "const timer = setInterval(writeToken, 50);"
+                                    "setTimeout(() => clearInterval(timer), 2500);"
+                                    "return true;"
+                                    "})()"
                                 ),
                                 "returnByValue": True,
                             },
                         )
-                        request_id += 1
-                        status_value = (
-                            status.get("result", {}).get("value") or "{}"
-                        )
-                        browser_state = json.loads(status_value)
-                        browser_url = browser_state.get("href") or ""
-                        if browser_url and "/login" not in browser_url:
-                            break
-
-                    if not browser_url or "/login" in browser_url:
-                        raise RuntimeError(
-                            "Discord desktop stayed on the login page"
-                        )
+                except asyncio.CancelledError:
+                    raise
+                except (aiohttp.ClientError, RuntimeError) as error:
+                    # The token write can itself trigger the target hand-off,
+                    # closing the socket before DevTools returns its response.
+                    # The token was validated over REST immediately beforehand.
                     print(
-                        "[discord-desktop] client running at "
-                        f"{browser_url or (app_origin + '/app')}",
+                        "[discord-desktop] token handoff closed DevTools "
+                        f"during transition: {error}",
                         flush=True,
                     )
+                print(
+                    "[discord-desktop] token injected; leaving client attached "
+                    "to its own Gateway",
+                    flush=True,
+                )
 
-                    # Reuse the desktop client's own Gateway session for the
-                    # optional /bump interaction. A second raw Gateway login is
-                    # deliberately avoided because it can replace the desktop
-                    # platform/activity with an empty Windows presence.
-                    desktop_session = await cdp_call(
-                        ws,
-                        request_id,
-                        "Runtime.evaluate",
-                        {
-                            "expression": "localStorage.getItem('session_id') || ''",
-                            "returnByValue": True,
-                        },
-                    )
-                    request_id += 1
-                    SESSION_ID = str(
-                        desktop_session.get("result", {}).get("value") or ""
-                    )
-                    if SESSION_ID:
-                        SESSION_READY.set()
+                # /bump needs the official client's Gateway session. Read it at
+                # most once after authentication, then stop all CDP activity.
+                if CHANNEL_ID:
+                    for _ in range(12):
+                        await asyncio.sleep(5)
+                        try:
+                            async with session.get(
+                                f"http://127.0.0.1:{debug_port}/json/list"
+                            ) as response:
+                                targets = await response.json()
+                            session_target = next(
+                                (
+                                    item
+                                    for item in targets
+                                    if item.get("type") == "page"
+                                    and item.get("webSocketDebuggerUrl")
+                                    and any(
+                                        origin in str(item.get("url") or "")
+                                        for origin in (
+                                            "discordapp.com/",
+                                            "discord.com/",
+                                        )
+                                    )
+                                    and "/login" not in str(item.get("url") or "")
+                                ),
+                                None,
+                            )
+                            if not session_target:
+                                continue
+                            async with session.ws_connect(
+                                session_target["webSocketDebuggerUrl"]
+                            ) as ws:
+                                desktop_session = await cdp_call(
+                                    ws,
+                                    1,
+                                    "Runtime.evaluate",
+                                    {
+                                        "expression": (
+                                            "localStorage.getItem('session_id') || ''"
+                                        ),
+                                        "returnByValue": True,
+                                    },
+                                )
+                            SESSION_ID = str(
+                                desktop_session.get("result", {}).get("value")
+                                or ""
+                            )
+                            if SESSION_ID:
+                                SESSION_READY.set()
+                                print(
+                                    "[discord-desktop] Gateway session captured "
+                                    "once for /bump",
+                                    flush=True,
+                                )
+                                break
+                        except (aiohttp.ClientError, RuntimeError, ValueError):
+                            continue
+                    if not SESSION_ID:
                         print(
-                            "[discord-desktop] Gateway session available for /bump",
+                            "[discord-desktop] Gateway session was not exposed; "
+                            "/bump will wait without disturbing presence",
                             flush=True,
                         )
-                    elif CHANNEL_ID:
-                        print(
-                            "[discord-desktop] authenticated, but Discord did not "
-                            "expose its Gateway session; /bump will wait",
-                            flush=True,
-                        )
 
-                    while True:
-                        await asyncio.sleep(60)
-                        await cdp_call(
-                            ws,
-                            request_id,
-                            "Runtime.evaluate",
-                            {
-                                "expression": "document.readyState",
-                                "returnByValue": True,
-                            },
-                        )
-                        request_id += 1
+                # Do not attach to, navigate, or periodically probe the renderer.
+                # Discord owns its own reconnects; only restart if Electron exits.
+                while discord_process.returncode is None:
+                    await asyncio.sleep(30)
         except asyncio.CancelledError:
             raise
         except Exception as error:
