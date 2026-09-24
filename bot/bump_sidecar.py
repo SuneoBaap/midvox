@@ -451,70 +451,6 @@ async def discord_desktop_client():
                         flush=True,
                     )
 
-                # /bump needs the official client's Gateway session. Read it at
-                # most once after authentication, then stop all CDP activity.
-                if CHANNEL_ID:
-                    for _ in range(12):
-                        await asyncio.sleep(5)
-                        try:
-                            async with session.get(
-                                f"http://127.0.0.1:{debug_port}/json/list"
-                            ) as response:
-                                targets = await response.json()
-                            session_target = next(
-                                (
-                                    item
-                                    for item in targets
-                                    if item.get("type") == "page"
-                                    and item.get("webSocketDebuggerUrl")
-                                    and any(
-                                        origin in str(item.get("url") or "")
-                                        for origin in (
-                                            "discordapp.com/",
-                                            "discord.com/",
-                                        )
-                                    )
-                                    and "/login" not in str(item.get("url") or "")
-                                ),
-                                None,
-                            )
-                            if not session_target:
-                                continue
-                            async with session.ws_connect(
-                                session_target["webSocketDebuggerUrl"]
-                            ) as ws:
-                                desktop_session = await cdp_call(
-                                    ws,
-                                    1,
-                                    "Runtime.evaluate",
-                                    {
-                                        "expression": (
-                                            "localStorage.getItem('session_id') || ''"
-                                        ),
-                                        "returnByValue": True,
-                                    },
-                                )
-                            SESSION_ID = str(
-                                desktop_session.get("result", {}).get("value")
-                                or ""
-                            )
-                            if SESSION_ID:
-                                SESSION_READY.set()
-                                print(
-                                    "[discord-desktop] Gateway session captured "
-                                    "once for /bump",
-                                    flush=True,
-                                )
-                                break
-                        except (aiohttp.ClientError, RuntimeError, ValueError):
-                            continue
-                    if not SESSION_ID:
-                        print(
-                            "[discord-desktop] Gateway session was not exposed; "
-                            "/bump will wait without disturbing presence",
-                            flush=True,
-                        )
-
                 # Do not attach to, navigate, or periodically probe the renderer.
                 # Discord owns its own reconnects; only restart if Electron exits.
                 while discord_process.returncode is None:
@@ -524,8 +460,6 @@ async def discord_desktop_client():
         except Exception as error:
             print(f"[discord-desktop] error: {error}", flush=True)
         finally:
-            SESSION_ID = ""
-            SESSION_READY.clear()
             await stop_desktop_process(discord_process)
             if output_task:
                 output_task.cancel()
@@ -563,17 +497,17 @@ async def connect_presence():
                                 "token": TOKEN,
                                 "capabilities": 4093,
                                 "properties": {
-                                    "os": "Windows",
+                                    "os": "Linux",
                                     "browser": "Discord Client",
                                     "device": "",
                                     "system_locale": "en-US",
                                     "browser_user_agent": (
-                                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                        "Mozilla/5.0 (X11; Linux x86_64) "
                                         "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                        "Chrome/124.0.0.0 Safari/537.36"
+                                        "Chrome/148.0.0.0 Safari/537.36"
                                     ),
-                                    "browser_version": "124.0.0.0",
-                                    "os_version": "10",
+                                    "browser_version": "148.0.0.0",
+                                    "os_version": "6",
                                     "referrer": "",
                                     "referring_domain": "",
                                 },
@@ -598,7 +532,7 @@ async def connect_presence():
                     )
 
                     heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
-                    print("[bump] gateway identified; waiting for READY", flush=True)
+                    print("[user-presence] Gateway identified; waiting for READY", flush=True)
                     try:
                         async for message in ws:
                             if message.type == aiohttp.WSMsgType.TEXT:
@@ -609,7 +543,11 @@ async def connect_presence():
                                     SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
                                     if SESSION_ID:
                                         SESSION_READY.set()
-                                        print("[bump] user presence online and session ready", flush=True)
+                                        print(
+                                            "[user-presence] ONLINE as Linux Desktop; "
+                                            "Gateway session ready",
+                                            flush=True,
+                                        )
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):
@@ -625,9 +563,9 @@ async def connect_presence():
                         heartbeat_task.cancel()
                         await asyncio.gather(heartbeat_task, return_exceptions=True)
         except Exception as e:
-            print(f"[bump] presence error: {e}", flush=True)
+            print(f"[user-presence] error: {e}", flush=True)
 
-        print("[bump] reconnecting user presence in 5s", flush=True)
+        print("[user-presence] reconnecting in 5s", flush=True)
         await asyncio.sleep(5)
 
 
@@ -672,8 +610,9 @@ if __name__ == "__main__":
             flush=True,
         )
         tasks = [
-            # The official desktop client is the only user Gateway session.
-            # This preserves its Desktop platform and linked-account activity.
+            # Maintain a deterministic user-account presence. The official
+            # desktop client runs alongside it for linked Spotify/activity.
+            supervise("user-presence", connect_presence),
             supervise("discord-desktop", discord_desktop_client),
         ]
         if CHANNEL_ID:
