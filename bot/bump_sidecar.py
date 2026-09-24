@@ -349,6 +349,35 @@ async def discord_desktop_client():
                 if not target:
                     raise RuntimeError("Discord desktop DevTools did not become ready")
 
+                # Let the initial login renderer finish before touching it.
+                # Reloading Electron while splash/main boot is still active causes
+                # Chromium exitCode=11. Reacquire the now-stable Discord target
+                # after the delay rather than reusing the early /app target.
+                await asyncio.sleep(8)
+                try:
+                    async with session.get(
+                        f"http://127.0.0.1:{debug_port}/json/list"
+                    ) as response:
+                        targets = await response.json()
+                    target = next(
+                        (
+                            item
+                            for item in targets
+                            if item.get("type") == "page"
+                            and item.get("webSocketDebuggerUrl")
+                            and any(
+                                origin in str(item.get("url") or "")
+                                for origin in (
+                                    "discordapp.com/",
+                                    "discord.com/",
+                                )
+                            )
+                        ),
+                        target,
+                    )
+                except (aiohttp.ClientError, ValueError):
+                    pass
+
                 # Inject the user token once, then completely detach DevTools.
                 # Keeping a page-level CDP socket open interferes with Discord's
                 # authentication transition and makes the sidecar kill a healthy
