@@ -655,28 +655,63 @@ if __name__ == "__main__":
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
-        # Use the known-working official desktop client as the sole user
-        # Gateway. A second raw Gateway can override its Linux Desktop device
-        # and connected Spotify activity.
+        # Prefer the known-working official desktop client because it carries
+        # connected Spotify activity. If its authentication does not reach READY,
+        # use the dedicated Linux Desktop Gateway so the user never stays
+        # offline.
         desktop_task = asyncio.create_task(
             supervise("discord-desktop", discord_desktop_client)
         )
-        for _ in range(180):
+        for _ in range(60):
             if os.path.isfile(USER_DESKTOP_READY_FILE):
                 break
             if desktop_task.done():
                 await desktop_task
             await asyncio.sleep(0.5)
-        if not os.path.isfile(USER_DESKTOP_READY_FILE):
-            desktop_task.cancel()
-            await asyncio.gather(desktop_task, return_exceptions=True)
-            raise RuntimeError("Official Discord desktop did not become ready")
 
-        print(
-            "[user-desktop] ready; starting /bump and remaining services",
-            flush=True,
-        )
+        fallback_task = None
+        if os.path.isfile(USER_DESKTOP_READY_FILE):
+            print(
+                "[user-desktop] official Gateway ready; starting /bump and "
+                "remaining services",
+                flush=True,
+            )
+        else:
+            print(
+                "[user-desktop] official authentication did not become ready; "
+                "starting Linux Desktop presence fallback",
+                flush=True,
+            )
+            fallback_task = asyncio.create_task(
+                supervise("user-presence-fallback", connect_presence)
+            )
+            try:
+                await asyncio.wait_for(SESSION_READY.wait(), timeout=45)
+            except TimeoutError:
+                fallback_task.cancel()
+                desktop_task.cancel()
+                await asyncio.gather(
+                    fallback_task,
+                    desktop_task,
+                    return_exceptions=True,
+                )
+                raise RuntimeError("User-account presence fallback failed")
+            with contextlib.suppress(OSError):
+                with open(
+                    USER_DESKTOP_READY_FILE,
+                    "w",
+                    encoding="utf-8",
+                ) as ready_file:
+                    ready_file.write("fallback")
+            print(
+                "[user-desktop] ONLINE through Linux Desktop fallback; "
+                "starting remaining services",
+                flush=True,
+            )
+
         tasks = [desktop_task]
+        if fallback_task:
+            tasks.append(fallback_task)
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         await asyncio.gather(*tasks)
