@@ -8,6 +8,11 @@ import string
 
 import aiohttp
 
+from presence_mirror import (
+    activities_signature,
+    mirrorable_session_activities,
+)
+
 TOKEN = os.environ.get("USER_TOKEN", "")
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
 INTERVAL = int(os.getenv("BUMP_INTERVAL", "600"))
@@ -30,8 +35,7 @@ DISCORD_CONFIG_HOME = os.getenv(
 USER_DESKTOP_READY_FILE = os.getenv(
     "USER_DESKTOP_READY_FILE", "/tmp/midvox-user-desktop-ready"
 )
-# Retained for the optional legacy Gateway helper; the main path uses the
-# official desktop Gateway exclusively.
+# Readiness marker for the Linux Desktop Gateway fallback.
 USER_PRESENCE_READY_FILE = os.getenv(
     "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
 )
@@ -551,7 +555,10 @@ async def connect_presence():
                                     "referring_domain": "",
                                 },
                                 "presence": {
-                                    "status": "online",
+                                    # Ask Discord to assign the initial presence,
+                                    # then publish online plus any local-PC
+                                    # activity after READY.
+                                    "status": "unknown",
                                     "since": 0,
                                     "activities": [],
                                     "afk": False,
@@ -571,7 +578,36 @@ async def connect_presence():
                     )
 
                     heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
+                    mirrored_signature = None
                     print("[user-presence] Gateway identified; waiting for READY", flush=True)
+
+                    async def publish_mirrored_presence(source, data):
+                        nonlocal mirrored_signature
+                        mirrored = mirrorable_session_activities(data, SESSION_ID)
+                        signature = activities_signature(mirrored)
+                        if mirrored_signature is not None and signature == mirrored_signature:
+                            return
+                        # Re-apply presence after READY. Some Discord routing
+                        # paths ignore the presence embedded in Identify until
+                        # a separate OP3 Presence Update arrives.
+                        await ws.send_json(
+                            {
+                                "op": 3,
+                                "d": {
+                                    "status": "online",
+                                    "since": 0,
+                                    "activities": mirrored,
+                                    "afk": False,
+                                },
+                            }
+                        )
+                        mirrored_signature = signature
+                        print(
+                            "[user-presence] ONLINE as Linux Desktop with "
+                            f"{len(mirrored)} mirrored activities from {source}",
+                            flush=True,
+                        )
+
                     try:
                         async for message in ws:
                             if message.type == aiohttp.WSMsgType.TEXT:
@@ -581,20 +617,8 @@ async def connect_presence():
                                 if payload.get("op") == 0 and payload.get("t") == "READY":
                                     SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
                                     if SESSION_ID:
-                                        # Re-apply presence after READY. Some
-                                        # Discord routing paths ignore the
-                                        # presence embedded in Identify until a
-                                        # separate OP3 Presence Update arrives.
-                                        await ws.send_json(
-                                            {
-                                                "op": 3,
-                                                "d": {
-                                                    "status": "online",
-                                                    "since": 0,
-                                                    "activities": [],
-                                                    "afk": False,
-                                                },
-                                            }
+                                        await publish_mirrored_presence(
+                                            "READY", payload.get("d", {})
                                         )
                                         with contextlib.suppress(OSError):
                                             with open(
@@ -604,11 +628,13 @@ async def connect_presence():
                                             ) as ready_file:
                                                 ready_file.write(SESSION_ID)
                                         SESSION_READY.set()
-                                        print(
-                                            "[user-presence] ONLINE as Linux Desktop; "
-                                            "Gateway session ready",
-                                            flush=True,
-                                        )
+                                elif (
+                                    payload.get("op") == 0
+                                    and payload.get("t") == "SESSIONS_REPLACE"
+                                ):
+                                    await publish_mirrored_presence(
+                                        "SESSIONS_REPLACE", payload.get("d", [])
+                                    )
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):

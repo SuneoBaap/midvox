@@ -254,6 +254,9 @@ Spotify to the user's profile.
    message** is enabled.
 4. Start playback in the connected service. The desktop sidecar will keep the
    account online and Discord will publish the current song to the profile.
+5. If music is playing on a local PC, the Linux Desktop fallback can republish
+   that PC session's visible Spotify activity. Keep the same Spotify account
+   connected and activity display enabled on the local client.
 
 The virtual display is headless: it does not expose a VNC desktop publicly.
 Activity is shown in Discord, not in the web dashboard. `BUMP_CHANNEL_ID` is
