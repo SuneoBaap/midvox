@@ -70,11 +70,23 @@ export TUNNEL_ENABLED=false
 
 ROOT="$(pwd)"
 
+echo "Deployment commit: ${RAILWAY_GIT_COMMIT_SHA:-unknown}"
+
 # Start the official user-account desktop before WARP, Cobalt, the application
 # bot, and the dashboard. Wait for its authenticated Gateway READY event before
 # starting any other service.
 export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
 rm -f "$USER_DESKTOP_READY_FILE"
+# Railway's variable editor can introduce a trailing newline. Discord tokens
+# do not contain whitespace, so normalize before use without logging the value.
+USER_TOKEN_TRIMMED="$(printf '%s' "${USER_TOKEN:-}" | tr -d '[:space:]')"
+if [ -n "$USER_TOKEN_TRIMMED" ]; then
+  if [ "${#USER_TOKEN}" -ne "${#USER_TOKEN_TRIMMED}" ]; then
+    echo "USER_TOKEN contained surrounding whitespace; trimmed it before use."
+  fi
+  export USER_TOKEN="$USER_TOKEN_TRIMMED"
+  echo "USER_TOKEN configured (${#USER_TOKEN_TRIMMED} characters)."
+fi
 if [ -n "${USER_TOKEN:-}" ]; then
   DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
   if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then

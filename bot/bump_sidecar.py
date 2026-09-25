@@ -13,8 +13,8 @@ from presence_mirror import (
     mirrorable_session_activities,
 )
 
-TOKEN = os.environ.get("USER_TOKEN", "")
-CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
+TOKEN = os.environ.get("USER_TOKEN", "").strip()
+CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "").strip()
 INTERVAL = int(os.getenv("BUMP_INTERVAL", "600"))
 DISBOARD_APP_ID = "302050872383242240"
 API_BASE = "https://discord.com/api/v10"
