@@ -84,3 +84,19 @@ def mirrorable_session_activities(
 def activities_signature(activities: list[dict[str, Any]]) -> str:
     """Return a stable fingerprint used to suppress duplicate presence writes."""
     return json.dumps(activities, sort_keys=True, separators=(",", ":"))
+
+
+def summarize_activities(activities: list[dict[str, Any]]) -> str:
+    """Describe mirrored activities without logging song details or artists."""
+    summary = set()
+    for activity in activities:
+        if not isinstance(activity, dict):
+            continue
+        try:
+            activity_type = int(activity.get("type"))
+        except (TypeError, ValueError):
+            continue
+        name = str(activity.get("name") or "").strip()
+        if name:
+            summary.add(f"{activity_type}:{name}")
+    return ",".join(sorted(summary))

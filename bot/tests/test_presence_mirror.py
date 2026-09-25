@@ -8,6 +8,7 @@ from presence_mirror import (
     activities_signature,
     extract_session_list,
     mirrorable_session_activities,
+    summarize_activities,
 )
 
 
@@ -79,6 +80,20 @@ class PresenceMirrorTests(unittest.TestCase):
         second = [{"type": 2, "name": "Spotify"}]
 
         self.assertEqual(activities_signature(first), activities_signature(second))
+
+    def test_summary_omits_song_details(self):
+        summary = summarize_activities(
+            [
+                {
+                    "name": "Spotify",
+                    "type": 2,
+                    "details": "Example Song",
+                    "state": "Example Artist",
+                }
+            ]
+        )
+
+        self.assertEqual(summary, "2:Spotify")
 
 
 if __name__ == "__main__":

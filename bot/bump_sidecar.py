@@ -11,6 +11,7 @@ import aiohttp
 from presence_mirror import (
     activities_signature,
     mirrorable_session_activities,
+    summarize_activities,
 )
 
 TOKEN = os.environ.get("USER_TOKEN", "").strip()
@@ -602,9 +603,11 @@ async def connect_presence():
                             }
                         )
                         mirrored_signature = signature
+                        summary = summarize_activities(mirrored)
                         print(
                             "[user-presence] ONLINE as Linux Desktop with "
-                            f"{len(mirrored)} mirrored activities from {source}",
+                            f"{len(mirrored)} mirrored activities "
+                            f"({summary or 'none'}) from {source}",
                             flush=True,
                         )
 
