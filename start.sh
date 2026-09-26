@@ -72,11 +72,13 @@ ROOT="$(pwd)"
 
 echo "Deployment commit: ${RAILWAY_GIT_COMMIT_SHA:-unknown}"
 
-# Start the official user-account desktop before WARP, Cobalt, the application
-# bot, and the dashboard. Wait for its authenticated Gateway READY event before
-# starting any other service.
+# Start the lightweight user-account gateway before WARP, Cobalt, the
+# application bot, and the dashboard. Wait for its Gateway READY event before
+# starting any other service. No desktop client is needed: the gateway holds
+# online presence, mirrors Spotify, and supplies the /bump session.
 export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
-rm -f "$USER_DESKTOP_READY_FILE"
+export USER_PRESENCE_READY_FILE=/tmp/midvox-user-presence-ready
+rm -f "$USER_DESKTOP_READY_FILE" "$USER_PRESENCE_READY_FILE"
 # Railway's variable editor can introduce a trailing newline. Discord tokens
 # do not contain whitespace, so normalize before use without logging the value.
 USER_TOKEN_TRIMMED="$(printf '%s' "${USER_TOKEN:-}" | tr -d '[:space:]')"
@@ -88,32 +90,23 @@ if [ -n "$USER_TOKEN_TRIMMED" ]; then
   echo "USER_TOKEN configured (${#USER_TOKEN_TRIMMED} characters)."
 fi
 if [ -n "${USER_TOKEN:-}" ]; then
-  DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
-  if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
-    DESKTOP_BIN=/opt/Discord/Discord
-  fi
-  if ! command -v Xvfb >/dev/null 2>&1 || [ ! -x "$DESKTOP_BIN" ]; then
-    echo "FATAL: USER_TOKEN requires the Docker image's Discord desktop and Xvfb." >&2
-    exit 1
-  fi
-  export DISCORD_DESKTOP_BIN="$DESKTOP_BIN"
-  echo "Starting official user-account desktop first..."
+  echo "Starting user presence + bump sidecar..."
   (
     while true; do
       cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
       python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
       echo "WARNING: User presence sidecar exited (code $?). Restarting in 5s..." >&2
       cd "$ROOT"
-      rm -f "$USER_DESKTOP_READY_FILE"
+      rm -f "$USER_DESKTOP_READY_FILE" "$USER_PRESENCE_READY_FILE"
       sleep 5
     done
   ) &
   BUMP_PID=$!
 
-  echo "Waiting for official user desktop Gateway READY..."
-  for i in $(seq 1 200); do
-    if [ -f "$USER_DESKTOP_READY_FILE" ]; then
-      echo "Official user desktop is online; starting remaining services."
+  echo "Waiting for user gateway READY..."
+  for i in $(seq 1 120); do
+    if [ -f "$USER_DESKTOP_READY_FILE" ] || [ -f "$USER_PRESENCE_READY_FILE" ]; then
+      echo "User account is online; starting remaining services."
       break
     fi
     if ! kill -0 "$BUMP_PID" 2>/dev/null; then
@@ -122,8 +115,8 @@ if [ -n "${USER_TOKEN:-}" ]; then
     fi
     sleep 1
   done
-  if [ ! -f "$USER_DESKTOP_READY_FILE" ]; then
-    echo "FATAL: User desktop or Linux Desktop fallback did not become ready within 200 seconds." >&2
+  if [ ! -f "$USER_DESKTOP_READY_FILE" ] && [ ! -f "$USER_PRESENCE_READY_FILE" ]; then
+    echo "FATAL: User gateway did not become ready within 120 seconds." >&2
     tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
     exit 1
   fi

@@ -44,10 +44,15 @@ DISCORD_CONFIG_HOME = os.getenv(
 USER_DESKTOP_READY_FILE = os.getenv(
     "USER_DESKTOP_READY_FILE", "/tmp/midvox-user-desktop-ready"
 )
-# Readiness marker for the Linux Desktop Gateway fallback.
+# Readiness marker for the lightweight user Gateway (sole presence path).
 USER_PRESENCE_READY_FILE = os.getenv(
     "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
 )
+# How long to hold the last published presence when a SESSIONS_REPLACE
+# transiently drops activities (e.g. Spotify flickers). Additions and song
+# changes publish immediately; only removals are held. Prevents music from
+# flickering off/on when Discord sends a partial session list.
+PRESENCE_HOLD_SECS = float(os.getenv("PRESENCE_HOLD_SECS", "45"))
 
 
 def nonce() -> str:
@@ -606,18 +611,11 @@ async def connect_presence():
                             )
 
                         mirrored_signature = None
+                        pending_removal = None
 
-                        async def publish_mirrored_presence(source, data, force=False):
-                            nonlocal mirrored_signature
+                        async def do_publish(source, mirrored, signature):
                             global LAST_MIRRORED, LAST_MIRRORED_SIGNATURE
-                            mirrored = mirrorable_session_activities(data, SESSION_ID)
-                            signature = activities_signature(mirrored)
-                            if (
-                                not force
-                                and mirrored_signature is not None
-                                and signature == mirrored_signature
-                            ):
-                                return
+                            nonlocal mirrored_signature
                             # Re-apply presence after READY. Some Discord routing
                             # paths ignore the presence embedded in Identify until
                             # a separate OP3 Presence Update arrives.
@@ -642,6 +640,50 @@ async def connect_presence():
                                 f"({summary or 'none'}) from {source}",
                                 flush=True,
                             )
+
+                        async def publish_mirrored_presence(source, data, force=False):
+                            nonlocal mirrored_signature, pending_removal
+                            mirrored = mirrorable_session_activities(data, SESSION_ID)
+                            signature = activities_signature(mirrored)
+                            if (
+                                not force
+                                and mirrored_signature is not None
+                                and signature == mirrored_signature
+                            ):
+                                return
+                            # Removal (fewer activities than last published) is
+                            # held briefly: Discord sometimes sends a partial
+                            # SESSIONS_REPLACE and the missing activity returns
+                            # on the next one. Holding avoids Spotify flicker.
+                            # Additions and song changes still publish at once.
+                            if (
+                                not force
+                                and mirrored_signature is not None
+                                and len(mirrored) < len(LAST_MIRRORED)
+                                and PRESENCE_HOLD_SECS > 0
+                            ):
+                                if pending_removal is None:
+                                    async def _held_removal():
+                                        await asyncio.sleep(PRESENCE_HOLD_SECS)
+                                        await do_publish(
+                                            source + " (held removal)",
+                                            mirrored,
+                                            signature,
+                                        )
+
+                                    pending_removal = asyncio.create_task(
+                                        _held_removal()
+                                    )
+                                    print(
+                                        "[user-presence] activity drop detected; "
+                                        f"holding last presence {PRESENCE_HOLD_SECS:g}s",
+                                        flush=True,
+                                    )
+                                return
+                            if pending_removal is not None:
+                                pending_removal.cancel()
+                                pending_removal = None
+                            await do_publish(source, mirrored, signature)
 
                         def mark_ready():
                             with contextlib.suppress(OSError):
@@ -686,11 +728,22 @@ async def connect_presence():
                                     SESSION_ID = RESUME_SESSION_ID
                                     if SESSION_ID:
                                         mark_ready()
-                                        print(
-                                            "[user-presence] resumed gateway "
-                                            "session; ONLINE as Linux Desktop",
-                                            flush=True,
-                                        )
+                                        # Re-announce the last mirrored presence:
+                                        # a resumed session keeps server state,
+                                        # but republishing guarantees the music
+                                        # display survives reconnects.
+                                        if LAST_MIRRORED:
+                                            await do_publish(
+                                                "RESUMED",
+                                                LAST_MIRRORED,
+                                                LAST_MIRRORED_SIGNATURE,
+                                            )
+                                        else:
+                                            print(
+                                                "[user-presence] resumed gateway "
+                                                "session; ONLINE as Linux Desktop",
+                                                flush=True,
+                                            )
                                         RECONNECT_DELAY = INITIAL_BACKOFF
                                 elif (
                                     op == 0
@@ -718,8 +771,16 @@ async def connect_presence():
                         SESSION_READY.clear()
                         with contextlib.suppress(OSError):
                             os.remove(USER_PRESENCE_READY_FILE)
+                        if pending_removal is not None:
+                            pending_removal.cancel()
+                            await asyncio.gather(
+                                pending_removal, return_exceptions=True
+                            )
+                            pending_removal = None
                         heartbeat_task.cancel()
-                        await asyncio.gather(heartbeat_task, return_exceptions=True)
+                        await asyncio.gather(
+                            heartbeat_task, return_exceptions=True
+                        )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -789,72 +850,39 @@ if __name__ == "__main__":
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
-        # Run the official desktop (carries Spotify activity) and the
-        # lightweight gateway (provides SESSION_ID for /bump) concurrently.
-        # The old sequential startup waited up to 120s for the desktop before
-        # even starting the gateway, and the desktop-only path never set
-        # SESSION_ID at all — so /bump always logged "gateway session not
-        # ready; delaying bump". Starting both together fixes bump and keeps
-        # the first bump fast (~gateway READY, a few seconds). The gateway
-        # mirrors the desktop's activities so Spotify display is preserved.
-        desktop_task = asyncio.create_task(
-            supervise("discord-desktop", discord_desktop_client)
+        # Gateway-only presence: one lightweight connection stays online
+        # permanently with resume + backoff, supplies SESSION_ID for normal
+        # /bump interactions, and mirrors other sessions' Spotify with a
+        # removal hold so music never flickers. No Electron desktop: it was
+        # slow to boot, restarted in loops, and its second session competed
+        # with the mirror and dropped songs. (discord_desktop_client remains
+        # in this file but is no longer started.)
+        presence_task = asyncio.create_task(
+            supervise("user-presence", connect_presence)
         )
-        fallback_task = asyncio.create_task(
-            supervise("user-presence-fallback", connect_presence)
-        )
-        # Wait for either signal: official desktop login or gateway READY.
-        ready_reason = ""
-        for _ in range(120):
-            if os.path.isfile(USER_DESKTOP_READY_FILE):
-                ready_reason = "official desktop"
-                break
-            if SESSION_READY.is_set():
-                ready_reason = "gateway"
-                break
-            if desktop_task.done() and fallback_task.done():
-                await asyncio.gather(desktop_task, fallback_task)
-            await asyncio.sleep(0.5)
-
-        if not os.path.isfile(USER_DESKTOP_READY_FILE) and not SESSION_READY.is_set():
-            fallback_task.cancel()
-            desktop_task.cancel()
-            await asyncio.gather(
-                fallback_task,
-                desktop_task,
-                return_exceptions=True,
-            )
-            raise RuntimeError("User-account presence failed (desktop + gateway)")
-
-        # start.sh waits on USER_DESKTOP_READY_FILE: bridge a gateway-only
-        # readiness so remaining services start without the old 120s stall.
-        if SESSION_READY.is_set() and not os.path.isfile(USER_DESKTOP_READY_FILE):
+        try:
+            await asyncio.wait_for(SESSION_READY.wait(), timeout=60)
+        except TimeoutError:
+            presence_task.cancel()
+            await asyncio.gather(presence_task, return_exceptions=True)
+            raise RuntimeError("User-account gateway did not become ready")
+        # start.sh waits on USER_DESKTOP_READY_FILE: bridge gateway readiness
+        # so remaining services start at once.
+        if not os.path.isfile(USER_DESKTOP_READY_FILE):
             with contextlib.suppress(OSError):
                 with open(
                     USER_DESKTOP_READY_FILE,
                     "w",
                     encoding="utf-8",
                 ) as ready_file:
-                    ready_file.write("fallback")
-        if ready_reason == "official desktop":
-            print(
-                "[user-desktop] official Gateway ready; starting /bump and "
-                "remaining services",
-                flush=True,
-            )
-        elif SESSION_ID:
-            print(
-                "[user-desktop] ONLINE through Linux Desktop gateway "
-                f"(session {SESSION_ID[:8]}…); starting remaining services",
-                flush=True,
-            )
-        else:
-            print(
-                "[user-desktop] ready; starting /bump and remaining services",
-                flush=True,
-            )
+                    ready_file.write(SESSION_ID or "gateway")
+        print(
+            "[user-presence] ONLINE permanent "
+            f"(session {SESSION_ID[:8]}…); starting /bump and remaining services",
+            flush=True,
+        )
 
-        tasks = [desktop_task, fallback_task]
+        tasks = [presence_task]
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         await asyncio.gather(*tasks)

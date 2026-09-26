@@ -187,19 +187,22 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(identify["d"]["presence"]["status"], "unknown")
 
-        # Exactly one presence update: the duplicate SESSIONS_REPLACE is
-        # suppressed, and heartbeats are not presence updates.
-        self.assertEqual(len(self.server.presence_updates), 1)
-        presence = self.server.presence_updates[0]["d"]
-        self.assertEqual(presence["status"], "online")
-        self.assertEqual(len(presence["activities"]), 1)
-        activity = presence["activities"][0]
-        self.assertEqual(activity["name"], "Spotify")
-        self.assertEqual(activity["type"], 2)
-        self.assertEqual(activity["details"], "Test Song")
-        self.assertEqual(activity["state"], "Test Artist")
-        self.assertEqual(activity["sync_id"], "track123")
-        self.assertNotIn("session_id", activity)
+        # Two presence updates: one after READY, one re-announced after
+        # RESUMED so the music display survives reconnects. The duplicate
+        # SESSIONS_REPLACE is still suppressed, and heartbeats are not
+        # presence updates.
+        self.assertEqual(len(self.server.presence_updates), 2)
+        for update in self.server.presence_updates:
+            presence = update["d"]
+            self.assertEqual(presence["status"], "online")
+            self.assertEqual(len(presence["activities"]), 1)
+            activity = presence["activities"][0]
+            self.assertEqual(activity["name"], "Spotify")
+            self.assertEqual(activity["type"], 2)
+            self.assertEqual(activity["details"], "Test Song")
+            self.assertEqual(activity["state"], "Test Artist")
+            self.assertEqual(activity["sync_id"], "track123")
+            self.assertNotIn("session_id", activity)
 
         resume = self.server.got_resume
         self.assertIsNotNone(resume)
