@@ -611,8 +611,38 @@ async def discord_desktop_client():
                     keep_desktop_active(session, debug_port)
                 )
                 try:
-                    while discord_process.returncode is None:
+                    # Discord's Linux executable forks the real Electron client
+                    # and then lets the dbus-run-session launcher exit cleanly.
+                    # Watching that launcher PID caused us to kill and restart a
+                    # healthy client every few seconds.  The DevTools endpoint is
+                    # owned by the real browser process, so use it as the client
+                    # health signal instead.
+                    consecutive_health_failures = 0
+                    while True:
                         await asyncio.sleep(30)
+                        try:
+                            async with session.get(
+                                f"http://127.0.0.1:{debug_port}/json/version",
+                                timeout=aiohttp.ClientTimeout(total=10),
+                            ) as response:
+                                if response.status != 200:
+                                    raise RuntimeError(
+                                        "Discord DevTools health check returned "
+                                        f"HTTP {response.status}"
+                                    )
+                                await response.read()
+                            consecutive_health_failures = 0
+                        except (aiohttp.ClientError, asyncio.TimeoutError, RuntimeError) as error:
+                            consecutive_health_failures += 1
+                            print(
+                                "[discord-desktop] health check failed "
+                                f"({consecutive_health_failures}/3): {error}",
+                                flush=True,
+                            )
+                            if consecutive_health_failures >= 3:
+                                raise RuntimeError(
+                                    "Discord desktop DevTools became unavailable"
+                                ) from error
                 finally:
                     activity_task.cancel()
                     await asyncio.gather(activity_task, return_exceptions=True)
