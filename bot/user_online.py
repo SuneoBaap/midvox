@@ -83,12 +83,36 @@ async def main():
                                     "op": 2,
                                     "d": {
                                         "token": TOKEN,
-                                        "properties": PROPERTIES,
+                                        # Full official-client shape: some
+                                        # routing paths ignore a bare identify.
+                                        "capabilities": 4093,
+                                        "properties": {
+                                            **PROPERTIES,
+                                            "browser_user_agent": (
+                                                "Mozilla/5.0 (X11; Linux x86_64) "
+                                                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                                "Chrome/148.0.0.0 Safari/537.36"
+                                            ),
+                                            "browser_version": "148.0.0.0",
+                                            "os_version": "6",
+                                            "referrer": "",
+                                            "referring_domain": "",
+                                        },
                                         "presence": {
                                             "status": "online",
                                             "since": int(time.time() * 1000),
                                             "activities": [],
                                             "afk": False,
+                                        },
+                                        "compress": False,
+                                        "client_state": {
+                                            "guild_versions": {},
+                                            "highest_last_message_id": "0",
+                                            "read_state_version": 0,
+                                            "user_guild_settings_version": -1,
+                                            "user_settings_version": -1,
+                                            "private_channels_version": "0",
+                                            "api_code_version": 0,
                                         },
                                     },
                                 }
@@ -109,6 +133,19 @@ async def main():
                                 SESSION = str(d.get("session_id") or "")
                                 URL = str(d.get("resume_gateway_url") or GATEWAY)
                                 BACKOFF = 1.0
+                                # One explicit announcement: some paths ignore
+                                # Identify presence until an OP3 arrives.
+                                await ws.send_json(
+                                    {
+                                        "op": 3,
+                                        "d": {
+                                            "status": "online",
+                                            "since": 0,
+                                            "activities": [],
+                                            "afk": False,
+                                        },
+                                    }
+                                )
                                 print(
                                     f"[online] ONLINE ({CLIENT}) session {SESSION[:8]}…",
                                     flush=True,
