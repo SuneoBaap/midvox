@@ -24,16 +24,18 @@ PROPERTIES = {
         "device": "OnePlus 7 Pro",
         "system_locale": "en-US",
     },
+    # Linux browser medium, matching the widely used GitHub token onliners
+    # (os=linux, browser=Brave, device=Desktop).
     "desktop": {
-        "os": "Linux",
-        "browser": "Discord Client",
-        "device": "",
+        "os": "linux",
+        "browser": "Brave",
+        "device": "Desktop",
         "system_locale": "en-US",
     },
 }.get(CLIENT, {
-    "os": "Linux",
-    "browser": "Discord Client",
-    "device": "",
+    "os": "linux",
+    "browser": "Brave",
+    "device": "Desktop",
     "system_locale": "en-US",
 })
 
@@ -84,7 +86,7 @@ async def main():
                                         "properties": PROPERTIES,
                                         "presence": {
                                             "status": "online",
-                                            "since": 0,
+                                            "since": int(time.time() * 1000),
                                             "activities": [],
                                             "afk": False,
                                         },
