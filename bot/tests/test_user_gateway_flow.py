@@ -1,7 +1,7 @@
 """End-to-end test of the user Gateway loop against a fake Discord server.
 
-Covers: Identify -> READY -> mirrored Spotify presence -> abnormal close ->
-Resume (op 6) -> RESUMED, without touching the real Discord API.
+Covers: Identify -> READY -> single online announcement -> abnormal close ->
+Resume (op 6) -> RESUMED with no republish, without touching Discord.
 """
 
 import asyncio
@@ -157,10 +157,6 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
         bump_sidecar.SESSION_ID = ""
         bump_sidecar.SESSION_READY.clear()
         bump_sidecar.RECONNECT_DELAY = 1.0
-        bump_sidecar.LAST_MIRRORED = []
-        from presence_mirror import activities_signature
-
-        bump_sidecar.LAST_MIRRORED_SIGNATURE = activities_signature([])
         self._tmp = tempfile.TemporaryDirectory()
         self.ready_file = os.path.join(self._tmp.name, "ready")
         bump_sidecar.USER_PRESENCE_READY_FILE = self.ready_file
@@ -187,22 +183,14 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(identify["d"]["presence"]["status"], "unknown")
 
-        # Two presence updates: one after READY, one re-announced after
-        # RESUMED so the music display survives reconnects. The duplicate
-        # SESSIONS_REPLACE is still suppressed, and heartbeats are not
-        # presence updates.
-        self.assertEqual(len(self.server.presence_updates), 2)
-        for update in self.server.presence_updates:
-            presence = update["d"]
-            self.assertEqual(presence["status"], "online")
-            self.assertEqual(len(presence["activities"]), 1)
-            activity = presence["activities"][0]
-            self.assertEqual(activity["name"], "Spotify")
-            self.assertEqual(activity["type"], 2)
-            self.assertEqual(activity["details"], "Test Song")
-            self.assertEqual(activity["state"], "Test Artist")
-            self.assertEqual(activity["sync_id"], "track123")
-            self.assertNotIn("session_id", activity)
+        # Exactly one presence update: a single online announcement after
+        # READY. SESSIONS_REPLACE is ignored and nothing is republished on
+        # RESUMED, so Discord's native per-session display is left alone.
+        # Heartbeats are not presence updates.
+        self.assertEqual(len(self.server.presence_updates), 1)
+        presence = self.server.presence_updates[0]["d"]
+        self.assertEqual(presence["status"], "online")
+        self.assertEqual(presence["activities"], [])
 
         resume = self.server.got_resume
         self.assertIsNotNone(resume)

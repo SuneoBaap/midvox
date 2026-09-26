@@ -9,11 +9,6 @@ import time
 
 import aiohttp
 
-from presence_mirror import (
-    activities_signature,
-    mirrorable_session_activities,
-    summarize_activities,
-)
 from gateway_resume import INITIAL_BACKOFF, next_backoff, should_resume
 
 TOKEN = os.environ.get("USER_TOKEN", "").strip()
@@ -27,8 +22,6 @@ SESSION_READY = asyncio.Event()
 RESUME_GATEWAY_URL = GATEWAY
 RESUME_SESSION_ID = ""
 RESUME_SEQ = None
-LAST_MIRRORED = []
-LAST_MIRRORED_SIGNATURE = activities_signature([])
 RECONNECT_DELAY = INITIAL_BACKOFF
 DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
     (
@@ -48,11 +41,6 @@ USER_DESKTOP_READY_FILE = os.getenv(
 USER_PRESENCE_READY_FILE = os.getenv(
     "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
 )
-# How long to hold the last published presence when a SESSIONS_REPLACE
-# transiently drops activities (e.g. Spotify flickers). Additions and song
-# changes publish immediately; only removals are held. Prevents music from
-# flickering off/on when Discord sends a partial session list.
-PRESENCE_HOLD_SECS = float(os.getenv("PRESENCE_HOLD_SECS", "45"))
 
 
 def nonce() -> str:
@@ -517,10 +505,17 @@ async def discord_desktop_client():
 
 
 async def connect_presence():
-    """Maintain a Discord gateway session so the account appears online."""
+    """Hold one Discord gateway session open forever, like a normal client.
+
+    Logs in, stays online, resumes across drops. Presence is announced once
+    (online, no activities) and never touched again — Discord natively shows
+    the union of activities across all of the account's sessions, so Spotify
+    from the PC/phone appears on its own. No mirroring, no fighting.
+    The session also supplies SESSION_ID for normal /bump interactions.
+    """
     global SESSION_ID
     global RESUME_GATEWAY_URL, RESUME_SESSION_ID, RESUME_SEQ
-    global LAST_MIRRORED, LAST_MIRRORED_SIGNATURE, RECONNECT_DELAY
+    global RECONNECT_DELAY
 
     identify_payload = {
         "op": 2,
@@ -610,80 +605,28 @@ async def connect_presence():
                                 flush=True,
                             )
 
-                        mirrored_signature = None
-                        pending_removal = None
-
-                        async def do_publish(source, mirrored, signature):
-                            global LAST_MIRRORED, LAST_MIRRORED_SIGNATURE
-                            nonlocal mirrored_signature
-                            # Re-apply presence after READY. Some Discord routing
-                            # paths ignore the presence embedded in Identify until
-                            # a separate OP3 Presence Update arrives.
+                        async def announce_online(source):
+                            # One announcement per connection: online with no
+                            # activities of our own. Other sessions' Spotify
+                            # shows through Discord's native aggregation.
+                            # (Some routing paths ignore Identify presence
+                            # until an OP3 arrives, hence this single send.)
                             await ws.send_json(
                                 {
                                     "op": 3,
                                     "d": {
                                         "status": "online",
                                         "since": 0,
-                                        "activities": mirrored,
+                                        "activities": [],
                                         "afk": False,
                                     },
                                 }
                             )
-                            mirrored_signature = signature
-                            LAST_MIRRORED = mirrored
-                            LAST_MIRRORED_SIGNATURE = signature
-                            summary = summarize_activities(mirrored)
                             print(
-                                "[user-presence] ONLINE as Linux Desktop with "
-                                f"{len(mirrored)} mirrored activities "
-                                f"({summary or 'none'}) from {source}",
+                                "[user-presence] ONLINE as Linux Desktop "
+                                f"({source}); holding connection open",
                                 flush=True,
                             )
-
-                        async def publish_mirrored_presence(source, data, force=False):
-                            nonlocal mirrored_signature, pending_removal
-                            mirrored = mirrorable_session_activities(data, SESSION_ID)
-                            signature = activities_signature(mirrored)
-                            if (
-                                not force
-                                and mirrored_signature is not None
-                                and signature == mirrored_signature
-                            ):
-                                return
-                            # Removal (fewer activities than last published) is
-                            # held briefly: Discord sometimes sends a partial
-                            # SESSIONS_REPLACE and the missing activity returns
-                            # on the next one. Holding avoids Spotify flicker.
-                            # Additions and song changes still publish at once.
-                            if (
-                                not force
-                                and mirrored_signature is not None
-                                and len(mirrored) < len(LAST_MIRRORED)
-                                and PRESENCE_HOLD_SECS > 0
-                            ):
-                                if pending_removal is None:
-                                    async def _held_removal():
-                                        await asyncio.sleep(PRESENCE_HOLD_SECS)
-                                        await do_publish(
-                                            source + " (held removal)",
-                                            mirrored,
-                                            signature,
-                                        )
-
-                                    pending_removal = asyncio.create_task(
-                                        _held_removal()
-                                    )
-                                    print(
-                                        "[user-presence] activity drop detected; "
-                                        f"holding last presence {PRESENCE_HOLD_SECS:g}s",
-                                        flush=True,
-                                    )
-                                return
-                            if pending_removal is not None:
-                                pending_removal.cancel()
-                                pending_removal = None
-                            await do_publish(source, mirrored, signature)
 
                         def mark_ready():
                             with contextlib.suppress(OSError):
@@ -719,39 +662,24 @@ async def connect_presence():
                                             data.get("resume_gateway_url") or GATEWAY
                                         )
                                         RESUME_SESSION_ID = SESSION_ID
-                                        await publish_mirrored_presence(
-                                            "READY", data, force=True
-                                        )
+                                        await announce_online("READY")
                                         mark_ready()
                                         RECONNECT_DELAY = INITIAL_BACKOFF
                                 elif op == 0 and payload.get("t") == "RESUMED":
                                     SESSION_ID = RESUME_SESSION_ID
                                     if SESSION_ID:
                                         mark_ready()
-                                        # Re-announce the last mirrored presence:
-                                        # a resumed session keeps server state,
-                                        # but republishing guarantees the music
-                                        # display survives reconnects.
-                                        if LAST_MIRRORED:
-                                            await do_publish(
-                                                "RESUMED",
-                                                LAST_MIRRORED,
-                                                LAST_MIRRORED_SIGNATURE,
-                                            )
-                                        else:
-                                            print(
-                                                "[user-presence] resumed gateway "
-                                                "session; ONLINE as Linux Desktop",
-                                                flush=True,
-                                            )
+                                        print(
+                                            "[user-presence] resumed gateway "
+                                            "session; still ONLINE, holding open",
+                                            flush=True,
+                                        )
                                         RECONNECT_DELAY = INITIAL_BACKOFF
-                                elif (
-                                    op == 0
-                                    and payload.get("t") == "SESSIONS_REPLACE"
-                                ):
-                                    await publish_mirrored_presence(
-                                        "SESSIONS_REPLACE", payload.get("d", [])
-                                    )
+                                # SESSIONS_REPLACE and all other dispatches are
+                                # deliberately ignored: seq above is all resume
+                                # needs, and presence is never republished so
+                                # Discord's native per-session display (Spotify
+                                # et al) is left alone.
                                 if op == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif op in (7, 9):
@@ -771,16 +699,8 @@ async def connect_presence():
                         SESSION_READY.clear()
                         with contextlib.suppress(OSError):
                             os.remove(USER_PRESENCE_READY_FILE)
-                        if pending_removal is not None:
-                            pending_removal.cancel()
-                            await asyncio.gather(
-                                pending_removal, return_exceptions=True
-                            )
-                            pending_removal = None
                         heartbeat_task.cancel()
-                        await asyncio.gather(
-                            heartbeat_task, return_exceptions=True
-                        )
+                        await asyncio.gather(heartbeat_task, return_exceptions=True)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -851,11 +771,12 @@ if __name__ == "__main__":
             flush=True,
         )
         # Gateway-only presence: one lightweight connection stays online
-        # permanently with resume + backoff, supplies SESSION_ID for normal
-        # /bump interactions, and mirrors other sessions' Spotify with a
-        # removal hold so music never flickers. No Electron desktop: it was
-        # slow to boot, restarted in loops, and its second session competed
-        # with the mirror and dropped songs. (discord_desktop_client remains
+        # permanently with resume + backoff and supplies SESSION_ID for
+        # normal /bump interactions. Presence is announced once and never
+        # republished, so Discord natively aggregates the account's other
+        # sessions (Spotify etc). No Electron desktop: it was slow to boot,
+        # restarted in loops, and any second publishing session fought the
+        # native display and dropped songs. (discord_desktop_client remains
         # in this file but is no longer started.)
         presence_task = asyncio.create_task(
             supervise("user-presence", connect_presence)
