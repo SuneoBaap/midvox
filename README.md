@@ -1,97 +1,122 @@
 <div align="center">
 
-# MidVox
+<img src=".github/assets/midvox-hero.webp" alt="MidVox — Discord management, beautifully controlled" width="100%" />
 
-**A full Discord management bot with a modern web dashboard.**
+<br />
 
-Made and maintained by **Suneo**.
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/atlas)
+[![Railway](https://img.shields.io/badge/Deploy-Railway-7B2BF9?style=for-the-badge&logo=railway&logoColor=white)](https://railway.com/)
+[![MIT License](https://img.shields.io/badge/License-MIT-B7D66B?style=for-the-badge)](LICENSE)
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
-[![Discord](https://img.shields.io/badge/Discord-Bot-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/developers/applications)
-[![License](https://img.shields.io/badge/License-MIT-84CC16?style=flat-square)](LICENSE)
+**One control center for moderation, automation, media, roles, logging, and community tools.**
+
+[Open MidVox](https://midvox-production-7517.up.railway.app/) · [Dashboard](https://midvox-production-7517.up.railway.app/dashboard) · [Documentation](https://midvox-production-7517.up.railway.app/docs)
 
 </div>
 
-MidVox combines moderation, server automation, media tools, persistent guild settings, and an OAuth protected dashboard in one deployable service. The production image includes the Python bot API, Next.js dashboard, and the local media components used by the bot.
+---
 
-## Features
+## Meet MidVox
 
-- Moderation, antinuke, automod, logging, tickets, welcome messages, and role tools
-- Per-server configuration through a responsive Next.js dashboard
-- MongoDB backed settings that survive redeployments and hosting-account changes
-- YouTube Shorts and supported media downloads through a private local Cobalt sidecar
-- Discord OAuth login with automatic bot-application ID detection
-- Optional official Discord desktop session for connected-account activity presence
-- Optional DISBOARD bump scheduler when a user session and channel are configured
-- Custom and animated Discord emoji support
+MidVox is a full Discord management platform built for communities that want powerful automation without a fragmented setup. It combines a feature-rich Python bot, a responsive web dashboard, persistent per-server configuration, and private media processing in one Railway-ready service.
 
-## Architecture
+Every guild keeps its own settings in MongoDB Atlas, so configuration survives redeployments and moves cleanly between hosting accounts.
 
-```text
-Discord
-  ├─ MidVox bot ───────── Python / discord.py
-  └─ Dashboard login ──── Discord OAuth
+## What it can do
 
-Railway container
-  ├─ Bot + internal API ─ 127.0.0.1:5001
-  ├─ Web dashboard ────── 0.0.0.0:8080
-  ├─ Cobalt sidecar ───── 127.0.0.1:9000
-  └─ Optional presence ── official Discord Linux client
+| Protect | Automate | Engage | Manage |
+| :--- | :--- | :--- | :--- |
+| Antinuke safeguards | Welcome flows | Games and activities | OAuth web dashboard |
+| Advanced automod | Autoroles and reactions | Tickets and counting | Per-guild settings |
+| Anti-spam controls | Logging and tracking | Media utilities | Persistent MongoDB storage |
+| Moderation commands | Invite and vanity roles | YouTube Shorts handling | Custom and animated emojis |
 
-MongoDB Atlas
-  └─ Persistent settings grouped by guild
+### Built for real communities
+
+- **Moderation suite** — bans, mutes, warnings, channel controls, message tools, and audit logging.
+- **Layered protection** — antinuke, anti-spam, anti-link, anti-invite, anti-caps, and mass-mention defenses.
+- **Server automation** — welcome messages, verification, autoroles, reaction roles, tickets, join-to-create, and custom roles.
+- **Modern dashboard** — Discord OAuth, guild-aware navigation, responsive forms, and immediate settings updates.
+- **Persistent configuration** — MongoDB-backed guild state survives restarts and Railway redeployments.
+- **Private media pipeline** — a local Cobalt sidecar processes supported media inside the same container.
+- **Community features** — games, counting, AI integrations, translation, QR tools, leveling, and leaderboards.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    U[Discord member] --> B[MidVox bot]
+    A[Server admin] --> D[Next.js dashboard]
+    D -->|Discord OAuth| O[Discord]
+    D -->|Private API| B
+    B --> M[(MongoDB Atlas)]
+    B --> C[Local Cobalt]
+
+    subgraph Railway container
+        B
+        D
+        C
+    end
 ```
+
+| Component | Runtime | Role |
+| :--- | :--- | :--- |
+| Discord bot | Python 3.12 + discord.py | Commands, events, moderation, and automation |
+| Internal API | Python on `127.0.0.1:5001` | Secure bridge between the dashboard and bot |
+| Web dashboard | Next.js 14 on `0.0.0.0:8080` | OAuth login and guild configuration |
+| Media service | Local Cobalt on `127.0.0.1:9000` | Private supported-media processing |
+| Database | MongoDB Atlas | Durable, isolated settings for every guild |
 
 ## Deploy on Railway
 
-1. Fork or import this repository into Railway.
+MidVox ships as one production Docker image. Railway should build the repository `Dockerfile`; no custom build or start command is required.
+
+1. Fork this repository and connect it to a Railway service.
 2. Keep the repository root as the service root.
-3. Use the detected root `Dockerfile` builder.
-4. Leave **Build Command** empty.
-5. Leave **Start Command** empty so Docker runs `bash start.sh`.
-6. Point the public domain to port `8080`.
-7. Add the required variables below and deploy.
+3. Confirm Railway detects the root `Dockerfile`.
+4. Leave **Build Command** and **Start Command** empty.
+5. Set the public domain target port to `8080`.
+6. Add the required variables below and deploy.
+7. Add `https://YOUR_DOMAIN/api/auth/callback/discord` as a redirect URL in the Discord Developer Portal.
 
-The dashboard health endpoint is `/api/health`. A single Railway replica is recommended because the bot, dashboard, Cobalt, and optional presence session share one container.
-
-## Configuration
-
-Copy [`.env.example`](.env.example) for local development. Store real credentials in Railway Variables; never commit them.
+> [!TIP]
+> Use one replica. The bot, dashboard, database synchronizer, and local media service are coordinated inside the same container.
 
 ### Required variables
 
 | Variable | Purpose |
-| --- | --- |
+| :--- | :--- |
 | `TOKEN` | Discord bot token |
-| `OWNER_IDS` | Comma-separated Discord user IDs with owner access |
-| `DASHBOARD_API_KEY` | Private key used by the dashboard API |
-| `NEXT_PUBLIC_DASHBOARD_API_KEY` | Matching dashboard client key used by the current dashboard proxy |
-| `NEXTAUTH_SECRET` | Random secret for dashboard sessions |
-| `DISCORD_CLIENT_ID` | Discord OAuth application ID; startup corrects it from `TOKEN` when needed |
+| `OWNER_IDS` | Comma-separated Discord IDs with owner access |
+| `DISCORD_CLIENT_ID` | Discord OAuth application ID |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth client secret |
+| `NEXTAUTH_SECRET` | Random secret used to sign dashboard sessions |
+| `DASHBOARD_API_KEY` | Private key for dashboard-to-bot API requests |
+| `NEXT_PUBLIC_DASHBOARD_API_KEY` | Matching key used by the dashboard proxy |
 | `MONGO_URI` | MongoDB connection string for persistent guild settings |
 
-Railway supplies the public hostname at runtime. `start.sh` derives `NEXTAUTH_URL` from `RAILWAY_PUBLIC_DOMAIN`, preventing copied deployments from redirecting to an old domain.
+`start.sh` derives `NEXTAUTH_URL` from Railway's public domain at runtime, which prevents OAuth redirects from pointing to an older deployment.
 
-### Optional variables
+<details>
+<summary><strong>Optional variables</strong></summary>
 
 | Variable | Default | Purpose |
-| --- | --- | --- |
+| :--- | :--- | :--- |
 | `PORT` | `8080` | Public dashboard port |
 | `API_PORT` | `5001` | Internal bot API port |
-| `YOUTUBE_COOKIE` | empty | YouTube cookie header used by local Cobalt when YouTube requires authentication |
-| `COBALT_PUBLIC_URL` | local URL | Public base URL generated by Cobalt when needed |
-| `WARP` | `1` | Enables the private WARP egress used by Cobalt on datacenter networks |
-| `USER_TOKEN` | empty | Enables the optional Discord desktop presence session |
-| `BUMP_CHANNEL_ID` | empty | Enables scheduled DISBOARD bumps in one channel |
-| `BUMP_INTERVAL` | `600` | Delay between bump attempts, in seconds |
+| `YOUTUBE_COOKIE` | empty | Authentication cookie used when YouTube requires a signed-in session |
+| `COBALT_PUBLIC_URL` | local URL | Public base URL generated for Cobalt when required |
+| `WARP` | `1` | Enables private WARP egress for datacenter media requests |
 | `EMOJI_SYNC` | `false` | Enables startup emoji synchronization |
-| `SUPPORT_URL` | repository URL | Link shown by commands that offer support |
+| `SUPPORT_URL` | repository URL | Support link shown by bot commands |
+
+</details>
 
 ## Local development
 
-The full production stack is designed for the Docker image. For focused development, run the bot and dashboard separately.
+Create a local environment from [`.env.example`](.env.example), then run the bot and dashboard separately.
 
 ```bash
 python -m venv .venv
@@ -109,29 +134,28 @@ npm install
 npm run dev
 ```
 
-On Windows PowerShell, activate the environment with `.venv\Scripts\Activate.ps1`.
+On Windows PowerShell, activate Python with `.venv\Scripts\Activate.ps1`.
 
-## Project layout
+## Repository map
 
 ```text
-bot/
-  api/                 Internal dashboard API
-  cogs/                Commands, events, moderation, and automation
-  core/                Bot framework extensions
-  tests/               Focused regression tests
-  midvox.py            Application entrypoint
-dashboard/
-  app/                 Next.js routes and pages
-  components/          Dashboard UI and settings forms
-  lib/                 Authentication and API helpers
-docker/                Build-time Cobalt compatibility patch
-Dockerfile             Production multi-stage image
-start.sh               Container process supervisor
+MidVox
+├── bot/
+│   ├── api/                 Internal dashboard API
+│   ├── cogs/                Commands, events, and automation
+│   ├── core/                Bot framework extensions
+│   ├── tests/               Focused regression tests
+│   └── midvox.py            Bot entrypoint
+├── dashboard/
+│   ├── app/                 Next.js routes and pages
+│   ├── components/          Dashboard interface and forms
+│   └── lib/                 Authentication and API helpers
+├── docker/                  Cobalt compatibility tooling
+├── Dockerfile               Production multi-stage image
+└── start.sh                 Container process supervisor
 ```
 
 ## Validation
-
-Before deploying a change:
 
 ```bash
 python -m unittest discover -s bot/tests -v
@@ -141,14 +165,16 @@ bash -n start.sh
 
 ## Security
 
-Keep bot tokens, OAuth secrets, user tokens, cookie headers, API keys, and MongoDB credentials only in the hosting provider's secret-variable store. Rotate a credential immediately if it appears in a commit, screenshot, log, or chat message.
+Keep bot tokens, OAuth secrets, cookie headers, API keys, and MongoDB credentials in Railway Variables or a local untracked `.env` file. Rotate any credential that appears in a commit, screenshot, log, or shared message.
 
 ## License
 
-MidVox is distributed under the [MIT License](LICENSE). The project preserves the copyright notices required by its upstream MIT-licensed source.
+MidVox is available under the [MIT License](LICENSE) and retains the notices required by its upstream MIT-licensed source.
 
 <div align="center">
 
-**MidVox · Made by Suneo**
+### Made with care by [Suneo](https://github.com/suneo779)
+
+**MidVox — safer servers, smoother communities.**
 
 </div>
