@@ -9,6 +9,11 @@ import time
 
 import aiohttp
 
+from presence_mirror import (
+    activities_signature,
+    mirrorable_session_activities,
+    summarize_activities,
+)
 from gateway_resume import INITIAL_BACKOFF, next_backoff, should_resume
 
 TOKEN = os.environ.get("USER_TOKEN", "").strip()
@@ -41,6 +46,66 @@ USER_DESKTOP_READY_FILE = os.getenv(
 USER_PRESENCE_READY_FILE = os.getenv(
     "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
 )
+# Latched presence (real Spotify details etc.) persisted across restarts so
+# music keeps showing permanently even if the sidecar reboots while the
+# source session is quiet.
+LATCH_FILE = os.getenv("LATCH_FILE", "/tmp/midvox-latched-presence.json")
+# How often the latched presence is re-announced (also advances the Spotify
+# progress bar so the track keeps looking live).
+REFRESH_SECS = float(os.getenv("PRESENCE_REFRESH_SECS", "60"))
+LATCHED: list = []
+LATCHED_AT = 0.0
+
+
+def load_latched() -> bool:
+    """Restore latched presence saved by a previous run."""
+    global LATCHED, LATCHED_AT
+    try:
+        with open(LATCH_FILE, encoding="utf-8") as handle:
+            data = json.load(handle)
+        activities = data.get("activities") or []
+        if isinstance(activities, list) and activities:
+            LATCHED = [a for a in activities if isinstance(a, dict)]
+            LATCHED_AT = float(data.get("latched_at") or 0.0) or time.time()
+            return True
+    except (OSError, ValueError):
+        pass
+    return False
+
+
+def save_latched() -> None:
+    with contextlib.suppress(OSError):
+        with open(LATCH_FILE, "w", encoding="utf-8") as handle:
+            json.dump({"activities": LATCHED, "latched_at": LATCHED_AT}, handle)
+
+
+def shifted_latched() -> list:
+    """Return latched activities with progress timestamps looped live.
+
+    The track keeps its real details (title, artist, album art); only the
+    progress bar is advanced so it never sits at 100%.
+    """
+    now_ms = int(time.time() * 1000)
+    elapsed_ms = max(0, int(time.time() - LATCHED_AT) * 1000)
+    outgoing = []
+    for activity in LATCHED:
+        activity = dict(activity)
+        stamps = activity.get("timestamps") or {}
+        try:
+            start = int(stamps.get("start") or 0)
+            end = int(stamps.get("end") or 0)
+        except (TypeError, ValueError):
+            start = end = 0
+        if start > 0 and end > start:
+            duration = end - start
+            position = elapsed_ms % duration
+            activity["timestamps"] = {
+                **stamps,
+                "start": now_ms - position,
+                "end": now_ms - position + duration,
+            }
+        outgoing.append(activity)
+    return outgoing
 
 
 def nonce() -> str:
@@ -507,15 +572,17 @@ async def discord_desktop_client():
 async def connect_presence():
     """Hold one Discord gateway session open forever, like a normal client.
 
-    Logs in, stays online, resumes across drops. Presence is announced once
-    (online, no activities) and never touched again — Discord natively shows
-    the union of activities across all of the account's sessions, so Spotify
-    from the PC/phone appears on its own. No mirroring, no fighting.
-    The session also supplies SESSION_ID for normal /bump interactions.
+    Logs in, stays online, resumes across drops. Presence rule is a latch:
+    whenever another session of the account shows real activities (Spotify
+    with full details, custom status, ...), those exact details are adopted
+    and then re-shown permanently — even after the source session goes
+    quiet. Nothing is ever cleared. The session also supplies SESSION_ID
+    for normal /bump interactions.
     """
     global SESSION_ID
     global RESUME_GATEWAY_URL, RESUME_SESSION_ID, RESUME_SEQ
     global RECONNECT_DELAY
+    global LATCHED, LATCHED_AT
 
     identify_payload = {
         "op": 2,
@@ -558,6 +625,8 @@ async def connect_presence():
             },
         },
     }
+
+    load_latched()
 
     while True:
         resume_attempt = bool(RESUME_SESSION_ID)
@@ -605,28 +674,54 @@ async def connect_presence():
                                 flush=True,
                             )
 
-                        async def announce_online(source):
-                            # One announcement per connection: online with no
-                            # activities of our own. Other sessions' Spotify
-                            # shows through Discord's native aggregation.
-                            # (Some routing paths ignore Identify presence
-                            # until an OP3 arrives, hence this single send.)
+                        async def show(activities, source):
+                            # Single OP3 writer: online with the given
+                            # activities. (Some routing paths ignore Identify
+                            # presence until an OP3 arrives.)
                             await ws.send_json(
                                 {
                                     "op": 3,
                                     "d": {
                                         "status": "online",
                                         "since": 0,
-                                        "activities": [],
+                                        "activities": activities,
                                         "afk": False,
                                     },
                                 }
                             )
+                            summary = summarize_activities(activities)
                             print(
-                                "[user-presence] ONLINE as Linux Desktop "
-                                f"({source}); holding connection open",
+                                "[user-presence] ONLINE as Linux Desktop with "
+                                f"{len(activities)} activities "
+                                f"({summary or 'none'}) from {source}",
                                 flush=True,
                             )
+
+                        async def adopt_latched(mirrored, source):
+                            global LATCHED, LATCHED_AT
+                            LATCHED = mirrored
+                            LATCHED_AT = time.time()
+                            save_latched()
+                            await show(shifted_latched(), f"{source} (adopted)")
+
+                        async def refresh_loop():
+                            # Keep the latched track alive with a moving
+                            # progress bar; silent to avoid log spam.
+                            while not ws.closed:
+                                await asyncio.sleep(REFRESH_SECS)
+                                if LATCHED and SESSION_ID and not ws.closed:
+                                    with contextlib.suppress(Exception):
+                                        await ws.send_json(
+                                            {
+                                                "op": 3,
+                                                "d": {
+                                                    "status": "online",
+                                                    "since": 0,
+                                                    "activities": shifted_latched(),
+                                                    "afk": False,
+                                                },
+                                            }
+                                        )
 
                         def mark_ready():
                             with contextlib.suppress(OSError):
@@ -639,6 +734,7 @@ async def connect_presence():
                             SESSION_READY.set()
 
                         receive_timeout = max(30.0, interval * 1.5)
+                        refresh_task = asyncio.create_task(refresh_loop())
                         while True:
                             try:
                                 message = await asyncio.wait_for(
@@ -662,24 +758,50 @@ async def connect_presence():
                                             data.get("resume_gateway_url") or GATEWAY
                                         )
                                         RESUME_SESSION_ID = SESSION_ID
-                                        await announce_online("READY")
+                                        mirrored = mirrorable_session_activities(
+                                            data, SESSION_ID
+                                        )
+                                        if mirrored:
+                                            await adopt_latched(mirrored, "READY")
+                                        elif LATCHED:
+                                            await show(
+                                                shifted_latched(),
+                                                "READY (latched)",
+                                            )
+                                        else:
+                                            await show([], "READY")
                                         mark_ready()
                                         RECONNECT_DELAY = INITIAL_BACKOFF
                                 elif op == 0 and payload.get("t") == "RESUMED":
                                     SESSION_ID = RESUME_SESSION_ID
                                     if SESSION_ID:
                                         mark_ready()
-                                        print(
-                                            "[user-presence] resumed gateway "
-                                            "session; still ONLINE, holding open",
-                                            flush=True,
-                                        )
+                                        if LATCHED:
+                                            await show(
+                                                shifted_latched(), "RESUMED"
+                                            )
+                                        else:
+                                            print(
+                                                "[user-presence] resumed gateway "
+                                                "session; still ONLINE",
+                                                flush=True,
+                                            )
                                         RECONNECT_DELAY = INITIAL_BACKOFF
-                                # SESSIONS_REPLACE and all other dispatches are
-                                # deliberately ignored: seq above is all resume
-                                # needs, and presence is never republished so
-                                # Discord's native per-session display (Spotify
-                                # et al) is left alone.
+                                elif (
+                                    op == 0
+                                    and payload.get("t") == "SESSIONS_REPLACE"
+                                ):
+                                    # Adopt real details when they appear;
+                                    # never clear when they go quiet.
+                                    mirrored = mirrorable_session_activities(
+                                        payload.get("d", []), SESSION_ID
+                                    )
+                                    if mirrored and activities_signature(
+                                        mirrored
+                                    ) != activities_signature(LATCHED):
+                                        await adopt_latched(
+                                            mirrored, "SESSIONS_REPLACE"
+                                        )
                                 if op == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif op in (7, 9):
@@ -700,7 +822,10 @@ async def connect_presence():
                         with contextlib.suppress(OSError):
                             os.remove(USER_PRESENCE_READY_FILE)
                         heartbeat_task.cancel()
-                        await asyncio.gather(heartbeat_task, return_exceptions=True)
+                        refresh_task.cancel()
+                        await asyncio.gather(
+                            heartbeat_task, refresh_task, return_exceptions=True
+                        )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -772,12 +897,12 @@ if __name__ == "__main__":
         )
         # Gateway-only presence: one lightweight connection stays online
         # permanently with resume + backoff and supplies SESSION_ID for
-        # normal /bump interactions. Presence is announced once and never
-        # republished, so Discord natively aggregates the account's other
-        # sessions (Spotify etc). No Electron desktop: it was slow to boot,
-        # restarted in loops, and any second publishing session fought the
-        # native display and dropped songs. (discord_desktop_client remains
-        # in this file but is no longer started.)
+        # normal /bump interactions. Presence is a latch: real details from
+        # the account's other sessions are adopted once, then re-shown
+        # forever (survives quiet sources, reconnects, restarts). No
+        # Electron desktop: it was slow to boot, restarted in loops, and any
+        # second publishing session fought the display and dropped songs.
+        # (discord_desktop_client remains in this file but is not started.)
         presence_task = asyncio.create_task(
             supervise("user-presence", connect_presence)
         )

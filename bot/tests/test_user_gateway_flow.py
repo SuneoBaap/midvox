@@ -116,6 +116,12 @@ class FakeDiscordGateway:
         # duplicate presence update.
         await ws.send_json({"op": 0, "s": 2, "t": "SESSIONS_REPLACE", "d": SESSIONS})
         await asyncio.sleep(1.5)
+        # Source goes quiet (Spotify gone from the session list): the latch
+        # must NOT publish a removal.
+        await ws.send_json(
+            {"op": 0, "s": 3, "t": "SESSIONS_REPLACE", "d": [SESSIONS[0]]}
+        )
+        await asyncio.sleep(1.5)
         reader.cancel()
         await asyncio.gather(reader, return_exceptions=True)
         await ws.close(code=1006)
@@ -129,7 +135,7 @@ class FakeDiscordGateway:
         resume = await asyncio.wait_for(ws.receive_json(), timeout=10)
         assert resume["op"] == 6, resume
         self.got_resume = resume
-        await ws.send_json({"op": 0, "s": 3, "t": "RESUMED", "d": {}})
+        await ws.send_json({"op": 0, "s": 4, "t": "RESUMED", "d": {}})
         stop = asyncio.Event()
         try:
             await self._serve_heartbeats(ws, stop)
@@ -157,9 +163,12 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
         bump_sidecar.SESSION_ID = ""
         bump_sidecar.SESSION_READY.clear()
         bump_sidecar.RECONNECT_DELAY = 1.0
+        bump_sidecar.LATCHED = []
+        bump_sidecar.LATCHED_AT = 0.0
         self._tmp = tempfile.TemporaryDirectory()
         self.ready_file = os.path.join(self._tmp.name, "ready")
         bump_sidecar.USER_PRESENCE_READY_FILE = self.ready_file
+        bump_sidecar.LATCH_FILE = os.path.join(self._tmp.name, "latch.json")
 
     async def asyncTearDown(self):
         await self.runner.cleanup()
@@ -172,6 +181,7 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
             # Snapshot before cancelling: shutdown clears readiness by design.
             snapshot_ready = bump_sidecar.SESSION_READY.is_set()
             snapshot_session = bump_sidecar.SESSION_ID
+            snapshot_latched = list(bump_sidecar.LATCHED)
         finally:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
@@ -183,20 +193,51 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(identify["d"]["presence"]["status"], "unknown")
 
-        # Exactly one presence update: a single online announcement after
-        # READY. SESSIONS_REPLACE is ignored and nothing is republished on
-        # RESUMED, so Discord's native per-session display is left alone.
+        # Two presence updates, both carrying the real latched Spotify:
+        # adopted from READY, then re-shown after RESUMED. The duplicate
+        # SESSIONS_REPLACE is suppressed and the quiet session list (no
+        # Spotify) publishes no removal — the latch is permanent.
         # Heartbeats are not presence updates.
-        self.assertEqual(len(self.server.presence_updates), 1)
-        presence = self.server.presence_updates[0]["d"]
-        self.assertEqual(presence["status"], "online")
-        self.assertEqual(presence["activities"], [])
+        self.assertEqual(len(self.server.presence_updates), 2)
+        for update in self.server.presence_updates:
+            presence = update["d"]
+            self.assertEqual(presence["status"], "online")
+            self.assertEqual(len(presence["activities"]), 1)
+            activity = presence["activities"][0]
+            self.assertEqual(activity["name"], "Spotify")
+            self.assertEqual(activity["type"], 2)
+            self.assertEqual(activity["details"], "Test Song")
+            self.assertEqual(activity["state"], "Test Artist")
+            self.assertEqual(activity["sync_id"], "track123")
+            self.assertNotIn("session_id", activity)
+
+        # Latch holds the track and persists it to disk for restarts.
+        self.assertEqual(len(snapshot_latched), 1)
+        self.assertEqual(snapshot_latched[0]["sync_id"], "track123")
+        with open(bump_sidecar.LATCH_FILE, encoding="utf-8") as handle:
+            saved = json.load(handle)
+        self.assertEqual(saved["activities"][0]["sync_id"], "track123")
 
         resume = self.server.got_resume
         self.assertIsNotNone(resume)
         self.assertEqual(resume["d"]["session_id"], "sess-1")
         self.assertTrue(snapshot_ready)
         self.assertEqual(snapshot_session, "sess-1")
+
+    def test_shifted_latch_loops_progress(self):
+        bump_sidecar.LATCHED = [
+            {
+                "name": "Spotify",
+                "type": 2,
+                "timestamps": {"start": 1000000, "end": 1180000},
+            }
+        ]
+        bump_sidecar.LATCHED_AT = __import__("time").time() - 10
+        shifted = bump_sidecar.shifted_latched()
+        stamps = shifted[0]["timestamps"]
+        # 180s track stays 180s long with the bar advanced, never stuck.
+        self.assertEqual(stamps["end"] - stamps["start"], 180000)
+        self.assertLessEqual(stamps["start"], stamps["end"])
 
     async def _wait_until_resumed(self):
         while self.server.got_resume is None or not (
