@@ -53,6 +53,8 @@ LATCH_FILE = os.getenv("LATCH_FILE", "/tmp/midvox-latched-presence.json")
 # How often the latched presence is re-announced (also advances the Spotify
 # progress bar so the track keeps looking live).
 REFRESH_SECS = float(os.getenv("PRESENCE_REFRESH_SECS", "60"))
+# Detail logging: every gateway event, session inventory, and OP3 payload.
+VERBOSE = os.getenv("PRESENCE_VERBOSE", "1") == "1"
 LATCHED: list = []
 LATCHED_AT = 0.0
 
@@ -80,16 +82,18 @@ def save_latched() -> None:
 
 
 def shifted_latched() -> list:
-    """Return latched activities with progress timestamps looped live.
+    """Return latched activities refreshed to look live right now.
 
-    The track keeps its real details (title, artist, album art); only the
-    progress bar is advanced so it never sits at 100%.
+    The track keeps its real details (title, artist, album art); the
+    progress bar is looped forward and created_at renewed so Discord never
+    treats the activity as stale/expired and drops it from the status.
     """
     now_ms = int(time.time() * 1000)
     elapsed_ms = max(0, int(time.time() - LATCHED_AT) * 1000)
     outgoing = []
     for activity in LATCHED:
         activity = dict(activity)
+        activity["created_at"] = now_ms
         stamps = activity.get("timestamps") or {}
         try:
             start = int(stamps.get("start") or 0)
@@ -106,6 +110,28 @@ def shifted_latched() -> list:
             }
         outgoing.append(activity)
     return outgoing
+
+
+def inventory_lines(data) -> list:
+    """One log line per session: device, status, activity types/names."""
+    from presence_mirror import extract_session_list
+
+    lines = []
+    for session in extract_session_list(data):
+        sid = str(session.get("session_id") or "?")[:8]
+        client = (session.get("client_info") or {}).get("client", "?")
+        status = session.get("status", "?")
+        acts = []
+        for activity in session.get("activities") or []:
+            if isinstance(activity, dict):
+                acts.append(
+                    f"{activity.get('type')}:{activity.get('name')}"
+                )
+        lines.append(
+            f"session {sid}… client={client} status={status} "
+            f"activities=[{','.join(acts) or 'none'}]"
+        )
+    return lines
 
 
 def nonce() -> str:
@@ -696,6 +722,12 @@ async def connect_presence():
                                 f"({summary or 'none'}) from {source}",
                                 flush=True,
                             )
+                            if VERBOSE:
+                                print(
+                                    "[user-presence] OP3 payload: "
+                                    f"{json.dumps(activities, separators=(',', ':'))[:2000]}",
+                                    flush=True,
+                                )
 
                         async def adopt_latched(mirrored, source):
                             global LATCHED, LATCHED_AT
@@ -753,6 +785,16 @@ async def connect_presence():
                                 elif op == 0 and payload.get("t") == "READY":
                                     data = payload.get("d", {})
                                     SESSION_ID = str(data.get("session_id") or "")
+                                    if VERBOSE:
+                                        print(
+                                            "[user-presence] READY inventory:",
+                                            flush=True,
+                                        )
+                                        for line in inventory_lines(data):
+                                            print(
+                                                f"[user-presence]   {line}",
+                                                flush=True,
+                                            )
                                     if SESSION_ID:
                                         RESUME_GATEWAY_URL = str(
                                             data.get("resume_gateway_url") or GATEWAY
@@ -793,6 +835,18 @@ async def connect_presence():
                                 ):
                                     # Adopt real details when they appear;
                                     # never clear when they go quiet.
+                                    if VERBOSE:
+                                        print(
+                                            "[user-presence] SESSIONS_REPLACE inventory:",
+                                            flush=True,
+                                        )
+                                        for line in inventory_lines(
+                                            payload.get("d", [])
+                                        ):
+                                            print(
+                                                f"[user-presence]   {line}",
+                                                flush=True,
+                                            )
                                     mirrored = mirrorable_session_activities(
                                         payload.get("d", []), SESSION_ID
                                     )
@@ -809,6 +863,12 @@ async def connect_presence():
                                         reconnect_requested = True
                                     else:
                                         invalid_resumable = bool(payload.get("d"))
+                                    print(
+                                        "[user-presence] gateway asked to "
+                                        f"{'reconnect' if op == 7 else 're-identify '
+                                        f"(resumable={bool(payload.get('d'))})"}",
+                                        flush=True,
+                                    )
                                     break
                             elif message.type in (
                                 aiohttp.WSMsgType.CLOSED,
@@ -842,7 +902,11 @@ async def connect_presence():
         delay = RECONNECT_DELAY
         RECONNECT_DELAY = next_backoff(RECONNECT_DELAY)
         action = "resuming" if resumable else "reconnecting"
-        print(f"[user-presence] {action} in {delay:g}s", flush=True)
+        print(
+            f"[user-presence] {action} in {delay:g}s "
+            f"(close_code={close_code} invalid_resumable={invalid_resumable})",
+            flush=True,
+        )
         await asyncio.sleep(delay)
 
 
