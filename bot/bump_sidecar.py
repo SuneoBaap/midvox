@@ -14,7 +14,12 @@ from presence_mirror import (
     mirrorable_session_activities,
     summarize_activities,
 )
-from gateway_resume import INITIAL_BACKOFF, next_backoff, should_resume
+from gateway_resume import (
+    AUTH_FAILED_CLOSE_CODES,
+    INITIAL_BACKOFF,
+    next_backoff,
+    should_resume,
+)
 
 TOKEN = os.environ.get("USER_TOKEN", "").strip()
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "").strip()
@@ -941,6 +946,14 @@ async def connect_presence():
             f"(close_code={close_code} invalid_resumable={invalid_resumable})",
             flush=True,
         )
+        if close_code in AUTH_FAILED_CLOSE_CODES:
+            print(
+                "[user-presence] Discord rejected USER_TOKEN (4004 "
+                "Authentication failed): wrong token, password changed, or "
+                "account locked/flagged. Fix the token or unlock the account; "
+                "retrying with backoff until then.",
+                flush=True,
+            )
         await asyncio.sleep(delay)
 
 
@@ -1001,6 +1014,20 @@ if __name__ == "__main__":
         # Electron desktop: it was slow to boot, restarted in loops, and any
         # second publishing session fought the display and dropped songs.
         # (discord_desktop_client remains in this file but is not started.)
+        # Fail fast with a clear message when Discord rejects the token over
+        # REST, instead of looping on gateway 4004s.
+        async with aiohttp.ClientSession() as validation_session:
+            try:
+                await validate_user_token(validation_session)
+            except RuntimeError as error:
+                print(
+                    f"[presence] FATAL: {error} — Discord rejected USER_TOKEN. "
+                    "Wrong token, password changed, or account locked/flagged. "
+                    "Fix the token or unlock the account and redeploy.",
+                    flush=True,
+                )
+                raise
+        print("[presence] USER_TOKEN accepted by Discord", flush=True)
         presence_task = asyncio.create_task(
             supervise("user-presence", connect_presence)
         )

@@ -21,6 +21,11 @@ class GatewayResumeTests(unittest.TestCase):
         self.assertFalse(should_resume(None, 1000, True))
         self.assertFalse(should_resume(None, 1001, True))
 
+    def test_fresh_session_on_auth_failure(self):
+        # 4004 = Discord rejected the token; resuming can never succeed.
+        self.assertFalse(should_resume(None, 4004, True))
+        self.assertFalse(should_resume(None, 4004, False))
+
     def test_fresh_session_on_non_resumable_invalid_session(self):
         self.assertFalse(should_resume(False, None, True))
 
