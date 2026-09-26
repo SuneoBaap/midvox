@@ -70,24 +70,54 @@ export TUNNEL_ENABLED=false
 
 ROOT="$(pwd)"
 
-echo "Deployment commit: ${RAILWAY_GIT_COMMIT_SHA:-unknown}"
-
-# Optional user-account online keep-alive: a tiny gateway login that only
-# holds the account online (ONLINE_CLIENT=desktop|android). Independent of
-# the bot and dashboard; nothing waits on it.
+# Start the official user-account desktop before WARP, Cobalt, the application
+# bot, and the dashboard. Wait for its authenticated Gateway READY event before
+# starting any other service.
+export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
+rm -f "$USER_DESKTOP_READY_FILE"
 if [ -n "${USER_TOKEN:-}" ]; then
-  echo "Starting user online keep-alive..."
+  DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
+  if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
+    DESKTOP_BIN=/opt/Discord/Discord
+  fi
+  if ! command -v Xvfb >/dev/null 2>&1 || [ ! -x "$DESKTOP_BIN" ]; then
+    echo "FATAL: USER_TOKEN requires the Docker image's Discord desktop and Xvfb." >&2
+    exit 1
+  fi
+  export DISCORD_DESKTOP_BIN="$DESKTOP_BIN"
+  echo "Starting official user-account desktop first..."
   (
     while true; do
       cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
-      python user_online.py 2>&1 | tee "$ROOT/user_online.log"
-      echo "WARNING: user_online exited (code $?). Restarting in 5s..." >&2
+      python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
+      echo "WARNING: User presence sidecar exited (code $?). Restarting in 5s..." >&2
       cd "$ROOT"
+      rm -f "$USER_DESKTOP_READY_FILE"
       sleep 5
     done
   ) &
+  BUMP_PID=$!
+
+  echo "Waiting for official user desktop Gateway READY..."
+  for i in $(seq 1 120); do
+    if [ -f "$USER_DESKTOP_READY_FILE" ]; then
+      echo "Official user desktop is online; starting remaining services."
+      break
+    fi
+    if ! kill -0 "$BUMP_PID" 2>/dev/null; then
+      echo "FATAL: User presence sidecar exited before becoming ready." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+  if [ ! -f "$USER_DESKTOP_READY_FILE" ]; then
+    echo "FATAL: User desktop or Linux Desktop fallback did not become ready within 120 seconds." >&2
+    tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
+    exit 1
+  fi
 else
-  echo "User online keep-alive skipped (set USER_TOKEN to enable)."
+  echo "User presence sidecar skipped (set USER_TOKEN to enable)."
+  BUMP_PID=""
 fi
 
 # Railway's datacenter egress is rejected by YouTube even with valid cookies.
@@ -247,6 +277,9 @@ echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
 echo "Cobalt PID: $COBALT_PID"
+if [ -n "${BUMP_PID:-}" ]; then
+  echo "User presence sidecar PID: $BUMP_PID"
+fi
 if [ -n "${WARP_PID:-}" ]; then
   echo "WARP PID: $WARP_PID"
 fi
@@ -255,7 +288,7 @@ fi
 # termination signal to the remaining processes during a deploy.
 stop_services() {
   for pid in \
-    "${COBALT_PID:-}" "${BOT_PID:-}" \
+    "${COBALT_PID:-}" "${BOT_PID:-}" "${BUMP_PID:-}" \
     "${DASHBOARD_PID:-}" "${WARP_PID:-}"; do
     if [ -n "$pid" ]; then
       kill -TERM "$pid" 2>/dev/null || true

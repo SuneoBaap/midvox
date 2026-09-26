@@ -73,8 +73,8 @@ forces the root `Dockerfile`, starts `start.sh`, listens on Railway's injected
    - `NEXTAUTH_SECRET` — strong random session secret
    - `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` — dashboard OAuth app
    - `NEXT_PUBLIC_ADMIN_IDS` — comma-separated dashboard admin IDs
-   - `USER_TOKEN` — optional user-account token, only used by the tiny online keep-alive
-     (`bot/user_online.py`); unset to disable it
+   - `USER_TOKEN` — optional user-account token for desktop presence and
+     connected-app activity
 4. Optionally add `MONGO_URI` for persistent guild configuration and
    `YOUTUBE_COOKIE` when YouTube downloads require an authenticated session.
 5. Deploy. Railway provides `PORT` and `RAILWAY_PUBLIC_DOMAIN`; the startup
@@ -237,14 +237,31 @@ WEBHOOK_URL        = "https://discord.com/api/webhooks/..."
 python CodeX.py
 ```
 
-### User online keep-alive
+### User status and connected-app activity
 
-`bot/user_online.py` holds a user account online with a minimal gateway
-login (identify + heartbeat + resume). It publishes nothing and edits no
-presence: Spotify and other activities from the account's own devices show
-through Discord itself, exactly like a normal logged-in client. Set
-`USER_TOKEN` to enable it, `ONLINE_CLIENT=android` for the mobile status
-icon (default `desktop`). The application bot's `TOKEN` is unaffected.
+The repository-root `Dockerfile` can run the user account in Discord's official
+Linux desktop client on a virtual X display. This keeps Discord online as
+**Desktop** and lets Discord publish activities from linked accounts such as
+Spotify to the user's profile.
+
+1. Build and deploy with the repository `Dockerfile` (the Railway configuration
+   already selects it).
+2. Set `USER_TOKEN` to the user account token. This is separate from the
+   application bot's `TOKEN`.
+3. In Discord, open **User Settings → Connections**, connect Spotify or another
+   supported service, and leave **Display current activity as a status message**
+   enabled. Also verify **Activity Privacy → Display current activity as a status
+   message** is enabled.
+4. Start playback in the connected service. The desktop sidecar will keep the
+   account online and Discord will publish the current song to the profile.
+5. If music is playing on a local PC, the Linux Desktop fallback can republish
+   that PC session's visible Spotify activity. Keep the same Spotify account
+   connected and activity display enabled on the local client.
+
+The virtual display is headless: it does not expose a VNC desktop publicly.
+Activity is shown in Discord, not in the web dashboard. `BUMP_CHANNEL_ID` is
+optional and is not required for presence or music status. The preinstalled
+Discord modules are refreshed when the Docker image is rebuilt.
 
 > **Security:** user-token automation is outside Discord's normal bot OAuth
 > flow and can violate Discord's terms or cause account termination. Keep

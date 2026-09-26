@@ -15,6 +15,31 @@ RUN apt-get update \
     && tar -xzf /tmp/wireproxy.tar.gz -C /usr/local/bin wireproxy \
     && chmod 0755 /usr/local/bin/wgcf /usr/local/bin/wireproxy
 
+# Use Discord's official Linux desktop client so linked account activities are
+# handled by Discord itself. The tar package avoids running an installer in the
+# final image and is refreshed whenever Railway rebuilds the image.
+FROM debian:bookworm-slim AS discord_desktop
+# The public package contains only a small updater. Install its desktop modules
+# during the image build so the first deployment can authenticate and publish
+# linked-account activity without a five-minute startup wait.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl tar \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fL --retry 3 \
+        -o /tmp/discord.tar.gz \
+        'https://discord.com/api/download?platform=linux&format=tar.gz' \
+    && tar -xzf /tmp/discord.tar.gz -C /opt \
+    && if [ -x /opt/Discord/discord ]; then \
+         ln -s discord /opt/Discord/Discord; \
+       elif [ ! -x /opt/Discord/Discord ]; then \
+         echo 'Discord launcher not found after extracting the Linux package' >&2; \
+         exit 1; \
+       fi \
+    && mkdir -p /discord-home/discord \
+    && /opt/Discord/updater_bootstrap --no-zenity \
+         /discord-home/discord stable https://updates.discord.com/ \
+    && test -n "$(find /discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)"
+
 # Cobalt 11.7.1 is pinned to youtubei.js 17.0.1, which is no longer reliable
 # against YouTube's current player API. Keep Cobalt itself stable while using
 # the current extractor in an isolated dependency tree.
@@ -35,6 +60,8 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=warp_tools /usr/local/bin/wgcf /usr/local/bin/wgcf
 COPY --from=warp_tools /usr/local/bin/wireproxy /usr/local/bin/wireproxy
+COPY --from=discord_desktop /opt/Discord /opt/Discord
+COPY --from=discord_desktop /discord-home /var/lib/midvox/discord-home
 COPY --from=cobalt /app /opt/cobalt
 COPY --from=youtube_extractor /opt/youtube-extractor/node_modules /opt/youtube-extractor/node_modules
 # Point Cobalt's two extractor imports at the updated isolated package. Using
@@ -58,7 +85,17 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        bash ca-certificates \
+        bash ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
+        libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
+        libatomic1 libnotify4 libnspr4 libnss3 libpulse0 libstdc++6 libx11-6 \
+        libxcb1 libxcomposite1 libxdamage1 \
+        libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
+        xdg-utils xvfb \
+    && test -x /opt/Discord/discord \
+    && test -n "$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
+    && command -v Xvfb \
+    && DISCORD_RUNTIME="$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
+    && if ldd "$DISCORD_RUNTIME" | grep 'not found'; then exit 1; fi \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
