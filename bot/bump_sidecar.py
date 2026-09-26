@@ -81,6 +81,35 @@ def save_latched() -> None:
             json.dump({"activities": LATCHED, "latched_at": LATCHED_AT}, handle)
 
 
+def has_spotify(activities) -> bool:
+    """True when the list carries a real Spotify activity."""
+    for activity in activities or []:
+        if not isinstance(activity, dict):
+            continue
+        try:
+            activity_type = int(activity.get("type"))
+        except (TypeError, ValueError):
+            continue
+        if activity_type == 2 and str(activity.get("name") or "").lower() == "spotify":
+            return True
+    return False
+
+
+def should_adopt(mirrored) -> bool:
+    """Adopt only sets that add or change details — never a quiet source.
+
+    A non-empty list that merely lost the latched Spotify (source went
+    quiet, status toggled, partial list) must not wipe the latch.
+    """
+    if not mirrored:
+        return False
+    if activities_signature(mirrored) == activities_signature(LATCHED):
+        return False
+    if has_spotify(LATCHED) and not has_spotify(mirrored):
+        return False
+    return True
+
+
 def shifted_latched() -> list:
     """Return latched activities refreshed to look live right now.
 
@@ -803,7 +832,7 @@ async def connect_presence():
                                         mirrored = mirrorable_session_activities(
                                             data, SESSION_ID
                                         )
-                                        if mirrored:
+                                        if should_adopt(mirrored):
                                             await adopt_latched(mirrored, "READY")
                                         elif LATCHED:
                                             await show(
@@ -834,7 +863,8 @@ async def connect_presence():
                                     and payload.get("t") == "SESSIONS_REPLACE"
                                 ):
                                     # Adopt real details when they appear;
-                                    # never clear when they go quiet.
+                                    # never adopt a quiet source over latched
+                                    # Spotify.
                                     if VERBOSE:
                                         print(
                                             "[user-presence] SESSIONS_REPLACE inventory:",
@@ -850,11 +880,15 @@ async def connect_presence():
                                     mirrored = mirrorable_session_activities(
                                         payload.get("d", []), SESSION_ID
                                     )
-                                    if mirrored and activities_signature(
-                                        mirrored
-                                    ) != activities_signature(LATCHED):
+                                    if should_adopt(mirrored):
                                         await adopt_latched(
                                             mirrored, "SESSIONS_REPLACE"
+                                        )
+                                    elif VERBOSE and mirrored:
+                                        print(
+                                            "[user-presence] source went quiet; "
+                                            "keeping latched Spotify",
+                                            flush=True,
                                         )
                                 if op == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})

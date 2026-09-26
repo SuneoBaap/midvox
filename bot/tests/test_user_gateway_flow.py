@@ -122,6 +122,28 @@ class FakeDiscordGateway:
             {"op": 0, "s": 3, "t": "SESSIONS_REPLACE", "d": [SESSIONS[0]]}
         )
         await asyncio.sleep(1.5)
+        # Source still has a non-empty list but only Custom Status (the exact
+        # wipe from production): adopting it would drop latched Spotify.
+        await ws.send_json(
+            {
+                "op": 0,
+                "s": 4,
+                "t": "SESSIONS_REPLACE",
+                "d": [
+                    {
+                        "session_id": "sess-1",
+                        "activities": [
+                            {
+                                "name": "Custom Status",
+                                "type": 4,
+                                "state": "hi",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+        await asyncio.sleep(1.5)
         reader.cancel()
         await asyncio.gather(reader, return_exceptions=True)
         await ws.close(code=1006)
@@ -135,7 +157,7 @@ class FakeDiscordGateway:
         resume = await asyncio.wait_for(ws.receive_json(), timeout=10)
         assert resume["op"] == 6, resume
         self.got_resume = resume
-        await ws.send_json({"op": 0, "s": 4, "t": "RESUMED", "d": {}})
+        await ws.send_json({"op": 0, "s": 5, "t": "RESUMED", "d": {}})
         stop = asyncio.Event()
         try:
             await self._serve_heartbeats(ws, stop)

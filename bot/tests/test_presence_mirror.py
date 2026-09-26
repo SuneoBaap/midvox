@@ -83,6 +83,35 @@ class PresenceMirrorTests(unittest.TestCase):
 
         self.assertEqual(activities_signature(first), activities_signature(second))
 
+    def test_dedupes_same_activity_across_sessions(self):
+        payload = [
+            {
+                "session_id": "s1",
+                "activities": [
+                    {
+                        "name": "Custom Status",
+                        "type": 4,
+                        "state": "hi",
+                        "created_at": 1790240000000,
+                    }
+                ],
+            },
+            {
+                "session_id": "s2",
+                "activities": [
+                    {
+                        "name": "Custom Status",
+                        "type": 4,
+                        "state": "hi",
+                        "created_at": 1790240001234,
+                    }
+                ],
+            },
+        ]
+
+        mirrored = mirrorable_session_activities(payload, "railway")
+        self.assertEqual(len(mirrored), 1)
+
     def test_summary_omits_song_details(self):
         summary = summarize_activities(
             [

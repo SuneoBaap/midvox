@@ -10,6 +10,11 @@ from typing import Any
 # verbatim so the republished copy matches what official clients send.
 FORWARDED_SESSION_FIELDS = frozenset({"session_id"})
 
+# Volatile fields ignored only by the dedupe key: the same activity seen on
+# two sessions (e.g. Custom Status with different created_at) collapses to
+# one instead of publishing twice.
+DEDUPE_IGNORED_FIELDS = frozenset({"created_at", "timestamps"})
+
 # PLAYING through HANG. Type 6 is only displayed with an active voice state.
 MIRRORABLE_ACTIVITY_TYPES = frozenset({0, 1, 2, 3, 4, 5, 6})
 
@@ -74,9 +79,17 @@ def mirrorable_session_activities(
             normalized = _normalize_activity(activity)
             if normalized is None:
                 continue
-            signature = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
-            if signature not in seen:
-                seen.add(signature)
+            dedupe_key = json.dumps(
+                {
+                    key: value
+                    for key, value in normalized.items()
+                    if key not in DEDUPE_IGNORED_FIELDS
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            if dedupe_key not in seen:
+                seen.add(dedupe_key)
                 mirrored.append(normalized)
 
     return mirrored
