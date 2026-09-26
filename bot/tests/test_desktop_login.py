@@ -27,6 +27,56 @@ class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
             }
         )
 
+    async def test_desktop_activity_types_then_erases_without_sending(self):
+        from unittest.mock import MagicMock
+
+        target = {
+            "type": "page",
+            "url": "https://discord.com/channels/@me",
+            "webSocketDebuggerUrl": "ws://localhost/test",
+        }
+        channel_response = MagicMock(status=200)
+        channel_response.json = AsyncMock(return_value={"guild_id": "123"})
+        target_response = MagicMock(status=200)
+        target_response.json = AsyncMock(return_value=[target])
+        session = MagicMock()
+        session.get.side_effect = [
+            MagicMock(
+                __aenter__=AsyncMock(return_value=channel_response),
+                __aexit__=AsyncMock(return_value=False),
+            ),
+            MagicMock(
+                __aenter__=AsyncMock(return_value=target_response),
+                __aexit__=AsyncMock(return_value=False),
+            ),
+        ]
+        session.ws_connect.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=AsyncMock()),
+            __aexit__=AsyncMock(return_value=False),
+        )
+        call = AsyncMock(
+            side_effect=[{}, {"result": {"value": True}}, {}, {}, {}]
+        )
+
+        with patch.object(sidecar, "TOKEN", "test-token"), \
+             patch.object(sidecar, "CHANNEL_ID", "456"), \
+             patch.object(sidecar, "cdp_call", call), \
+             patch.object(sidecar.asyncio, "sleep", AsyncMock()):
+            await sidecar.wake_desktop_in_bump_channel(session, 9222)
+
+        methods = [entry.args[2] for entry in call.call_args_list]
+        self.assertEqual(
+            methods,
+            [
+                "Page.navigate",
+                "Runtime.evaluate",
+                "Input.insertText",
+                "Input.dispatchKeyEvent",
+                "Input.dispatchKeyEvent",
+            ],
+        )
+        self.assertNotIn("Enter", str(call.call_args_list))
+
     async def test_javascript_exception_is_not_success(self):
         import json
         from types import SimpleNamespace

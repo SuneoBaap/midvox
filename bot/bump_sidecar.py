@@ -22,6 +22,7 @@ GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
 ONLINE_REFRESH_SECONDS = 240
+DESKTOP_WAKE_SECONDS = 240
 DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
     (
         path
@@ -281,6 +282,105 @@ async def authenticate_desktop(session, target, debug_port):
     return False
 
 
+async def wake_desktop_in_bump_channel(session, debug_port):
+    """Create and erase one character in the bump channel without sending it."""
+    if not CHANNEL_ID:
+        return
+
+    async with session.get(
+        f"{API_BASE}/channels/{CHANNEL_ID}",
+        headers={"Authorization": TOKEN},
+    ) as response:
+        if response.status != 200:
+            raise RuntimeError(
+                f"bump channel lookup returned HTTP {response.status}"
+            )
+        guild_id = str((await response.json()).get("guild_id") or "")
+    if not guild_id:
+        raise RuntimeError("bump channel is not attached to a guild")
+
+    async with session.get(f"http://127.0.0.1:{debug_port}/json/list") as response:
+        targets = await response.json()
+    target = next(
+        (
+            item
+            for item in targets
+            if item.get("type") == "page"
+            and str(item.get("url") or "").startswith("https://discord.com/")
+            and item.get("webSocketDebuggerUrl")
+        ),
+        None,
+    )
+    if not target:
+        raise RuntimeError("Discord desktop page is unavailable")
+
+    async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
+        await cdp_call(
+            ws,
+            1,
+            "Page.navigate",
+            {"url": f"https://discord.com/channels/{guild_id}/{CHANNEL_ID}"},
+        )
+        await asyncio.sleep(3)
+        focused = await cdp_call(
+            ws,
+            2,
+            "Runtime.evaluate",
+            {
+                "expression": (
+                    "(() => { const box = document.querySelector("
+                    "'[role=\"textbox\"][contenteditable=\"true\"]'); "
+                    "if (!box) return false; box.focus(); return true; })()"
+                ),
+                "returnByValue": True,
+            },
+        )
+        if not focused.get("result", {}).get("value"):
+            raise RuntimeError("Discord message box did not become available")
+        await cdp_call(ws, 3, "Input.insertText", {"text": "."})
+        await cdp_call(
+            ws,
+            4,
+            "Input.dispatchKeyEvent",
+            {
+                "type": "rawKeyDown",
+                "key": "Backspace",
+                "code": "Backspace",
+                "windowsVirtualKeyCode": 8,
+                "nativeVirtualKeyCode": 8,
+            },
+        )
+        await cdp_call(
+            ws,
+            5,
+            "Input.dispatchKeyEvent",
+            {
+                "type": "keyUp",
+                "key": "Backspace",
+                "code": "Backspace",
+                "windowsVirtualKeyCode": 8,
+                "nativeVirtualKeyCode": 8,
+            },
+        )
+
+
+async def keep_desktop_active(session, debug_port):
+    """Wake Discord periodically so linked activities continue updating."""
+    await asyncio.sleep(30)
+    while True:
+        try:
+            await wake_desktop_in_bump_channel(session, debug_port)
+            print(
+                "[discord-desktop] bump-channel activity refreshed; no message sent",
+                flush=True,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            print(f"[discord-desktop] activity refresh failed: {error}", flush=True)
+        await asyncio.sleep(DESKTOP_WAKE_SECONDS)
+
+
 async def relay_desktop_output(stream):
     """Drain Discord output and retain useful startup diagnostics."""
     line_count = 0
@@ -500,10 +600,15 @@ async def discord_desktop_client():
                             flush=True,
                         )
 
-                # Do not attach to, navigate, or periodically probe the renderer.
-                # Discord owns its own reconnects; only restart if Electron exits.
-                while discord_process.returncode is None:
-                    await asyncio.sleep(30)
+                activity_task = asyncio.create_task(
+                    keep_desktop_active(session, debug_port)
+                )
+                try:
+                    while discord_process.returncode is None:
+                        await asyncio.sleep(30)
+                finally:
+                    activity_task.cancel()
+                    await asyncio.gather(activity_task, return_exceptions=True)
         except asyncio.CancelledError:
             raise
         except Exception as error:
