@@ -13,7 +13,7 @@ from presence_mirror import (
 
 
 class PresenceMirrorTests(unittest.TestCase):
-    def test_mirrors_local_spotify_activity(self):
+    def test_mirrors_local_spotify_activity_verbatim(self):
         payload = [
             {"session_id": "railway", "activities": []},
             {
@@ -43,9 +43,11 @@ class PresenceMirrorTests(unittest.TestCase):
         self.assertEqual(mirrored[0]["name"], "Spotify")
         self.assertEqual(mirrored[0]["type"], 2)
         self.assertEqual(mirrored[0]["details"], "Example Song")
-        self.assertNotIn("id", mirrored[0])
+        # Discord-assigned fields are republished verbatim like real clients.
+        self.assertEqual(mirrored[0]["id"], "source-activity")
+        self.assertEqual(mirrored[0]["created_at"], 1790240000000)
+        # The other session's ID must never be forwarded.
         self.assertNotIn("session_id", mirrored[0])
-        self.assertNotIn("created_at", mirrored[0])
 
     def test_ignores_current_session_and_hidden_activities(self):
         payload = [

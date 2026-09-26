@@ -198,9 +198,8 @@ class UserGatewayFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(activity["type"], 2)
         self.assertEqual(activity["details"], "Test Song")
         self.assertEqual(activity["state"], "Test Artist")
-        self.assertNotIn("id", activity)
+        self.assertEqual(activity["sync_id"], "track123")
         self.assertNotIn("session_id", activity)
-        self.assertNotIn("created_at", activity)
 
         resume = self.server.got_resume
         self.assertIsNotNone(resume)

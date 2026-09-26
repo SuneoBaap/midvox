@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-# id, created_at, and session_id are assigned by Discord when an activity is
-# received. They must not be supplied when publishing presence.
-RECEIVE_ONLY_ACTIVITY_FIELDS = frozenset({"id", "created_at", "session_id"})
+# The source session_id must not be forwarded: it identifies another session,
+# and Discord stamps the publishing session itself. id/created_at are kept
+# verbatim so the republished copy matches what official clients send.
+FORWARDED_SESSION_FIELDS = frozenset({"session_id"})
 
 # PLAYING through HANG. Type 6 is only displayed with an active voice state.
 MIRRORABLE_ACTIVITY_TYPES = frozenset({0, 1, 2, 3, 4, 5, 6})
@@ -45,7 +46,7 @@ def _normalize_activity(activity: Any) -> dict[str, Any] | None:
     outgoing = {
         key: value
         for key, value in activity.items()
-        if key not in RECEIVE_ONLY_ACTIVITY_FIELDS and value is not None
+        if key not in FORWARDED_SESSION_FIELDS and value is not None
     }
     outgoing["name"] = name
     outgoing["type"] = activity_type
