@@ -5,6 +5,7 @@ import os
 import random
 import signal
 import string
+import time
 
 import aiohttp
 
@@ -13,6 +14,7 @@ from presence_mirror import (
     mirrorable_session_activities,
     summarize_activities,
 )
+from gateway_resume import INITIAL_BACKOFF, next_backoff, should_resume
 
 TOKEN = os.environ.get("USER_TOKEN", "").strip()
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "").strip()
@@ -22,6 +24,12 @@ API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
+RESUME_GATEWAY_URL = GATEWAY
+RESUME_SESSION_ID = ""
+RESUME_SEQ = None
+LAST_MIRRORED = []
+LAST_MIRRORED_SIGNATURE = activities_signature([])
+RECONNECT_DELAY = INITIAL_BACKOFF
 DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
     (
         path
@@ -167,12 +175,15 @@ async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
             await asyncio.sleep(retry)
 
 
-async def heartbeat(ws, interval, sequence):
-    """Keep the user session alive until the gateway connection closes."""
-    await asyncio.sleep(interval)
+async def heartbeat(ws, interval, sequence, last_ack):
+    """Heartbeat immediately, then on schedule, watching for ACKs."""
+    await asyncio.sleep(random.uniform(0, min(2.0, interval)))
     while not ws.closed:
         await ws.send_json({"op": 1, "d": sequence[0]})
+        sent_at = time.monotonic()
         await asyncio.sleep(interval)
+        if last_ack[0] < sent_at:
+            raise RuntimeError("Discord gateway did not acknowledge heartbeat")
 
 
 async def cdp_call(ws, request_id, method, params=None):
@@ -523,129 +534,204 @@ async def discord_desktop_client():
 async def connect_presence():
     """Maintain a Discord gateway session so the account appears online."""
     global SESSION_ID
+    global RESUME_GATEWAY_URL, RESUME_SESSION_ID, RESUME_SEQ
+    global LAST_MIRRORED, LAST_MIRRORED_SIGNATURE, RECONNECT_DELAY
+
+    identify_payload = {
+        "op": 2,
+        "d": {
+            "token": TOKEN,
+            "capabilities": 4093,
+            "properties": {
+                "os": "Linux",
+                "browser": "Discord Client",
+                "device": "",
+                "system_locale": "en-US",
+                "browser_user_agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/148.0.0.0 Safari/537.36"
+                ),
+                "browser_version": "148.0.0.0",
+                "os_version": "6",
+                "referrer": "",
+                "referring_domain": "",
+            },
+            "presence": {
+                # Ask Discord to assign the initial presence,
+                # then publish online plus any local-PC
+                # activity after READY.
+                "status": "unknown",
+                "since": 0,
+                "activities": [],
+                "afk": False,
+            },
+            "compress": False,
+            "client_state": {
+                "guild_versions": {},
+                "highest_last_message_id": "0",
+                "read_state_version": 0,
+                "user_guild_settings_version": -1,
+                "user_settings_version": -1,
+                "private_channels_version": "0",
+                "api_code_version": 0,
+            },
+        },
+    }
 
     while True:
+        resume_attempt = bool(RESUME_SESSION_ID)
+        url = RESUME_GATEWAY_URL or GATEWAY
+        reconnect_requested = False
+        invalid_resumable = None
+        close_code = None
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.ws_connect(GATEWAY, heartbeat=None) as ws:
-                    hello = await ws.receive_json()
+                async with session.ws_connect(url, heartbeat=None) as ws:
+                    try:
+                        hello = await asyncio.wait_for(ws.receive_json(), timeout=20)
+                    except TimeoutError:
+                        raise RuntimeError("Discord gateway did not send HELLO")
                     if hello.get("op") != 10:
                         raise RuntimeError("Discord gateway did not send HELLO")
 
                     interval = hello["d"]["heartbeat_interval"] / 1000
-                    sequence = [None]
-                    await ws.send_json(
-                        {
-                            "op": 2,
-                            "d": {
-                                "token": TOKEN,
-                                "capabilities": 4093,
-                                "properties": {
-                                    "os": "Linux",
-                                    "browser": "Discord Client",
-                                    "device": "",
-                                    "system_locale": "en-US",
-                                    "browser_user_agent": (
-                                        "Mozilla/5.0 (X11; Linux x86_64) "
-                                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                        "Chrome/148.0.0.0 Safari/537.36"
-                                    ),
-                                    "browser_version": "148.0.0.0",
-                                    "os_version": "6",
-                                    "referrer": "",
-                                    "referring_domain": "",
-                                },
-                                "presence": {
-                                    # Ask Discord to assign the initial presence,
-                                    # then publish online plus any local-PC
-                                    # activity after READY.
-                                    "status": "unknown",
-                                    "since": 0,
-                                    "activities": [],
-                                    "afk": False,
-                                },
-                                "compress": False,
-                                "client_state": {
-                                    "guild_versions": {},
-                                    "highest_last_message_id": "0",
-                                    "read_state_version": 0,
-                                    "user_guild_settings_version": -1,
-                                    "user_settings_version": -1,
-                                    "private_channels_version": "0",
-                                    "api_code_version": 0,
-                                },
-                            },
-                        }
+                    sequence = [RESUME_SEQ]
+                    last_ack = [time.monotonic()]
+                    heartbeat_task = asyncio.create_task(
+                        heartbeat(ws, interval, sequence, last_ack)
                     )
-
-                    heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
-                    mirrored_signature = None
-                    print("[user-presence] Gateway identified; waiting for READY", flush=True)
-
-                    async def publish_mirrored_presence(source, data):
-                        nonlocal mirrored_signature
-                        mirrored = mirrorable_session_activities(data, SESSION_ID)
-                        signature = activities_signature(mirrored)
-                        if mirrored_signature is not None and signature == mirrored_signature:
-                            return
-                        # Re-apply presence after READY. Some Discord routing
-                        # paths ignore the presence embedded in Identify until
-                        # a separate OP3 Presence Update arrives.
-                        await ws.send_json(
-                            {
-                                "op": 3,
-                                "d": {
-                                    "status": "online",
-                                    "since": 0,
-                                    "activities": mirrored,
-                                    "afk": False,
-                                },
-                            }
-                        )
-                        mirrored_signature = signature
-                        summary = summarize_activities(mirrored)
-                        print(
-                            "[user-presence] ONLINE as Linux Desktop with "
-                            f"{len(mirrored)} mirrored activities "
-                            f"({summary or 'none'}) from {source}",
-                            flush=True,
-                        )
-
                     try:
-                        async for message in ws:
+                        if resume_attempt:
+                            await ws.send_json(
+                                {
+                                    "op": 6,
+                                    "d": {
+                                        "token": TOKEN,
+                                        "session_id": RESUME_SESSION_ID,
+                                        "seq": RESUME_SEQ,
+                                    },
+                                }
+                            )
+                            print(
+                                "[user-presence] resuming gateway session",
+                                flush=True,
+                            )
+                        else:
+                            await ws.send_json(identify_payload)
+                            print(
+                                "[user-presence] Gateway identified; "
+                                "waiting for READY",
+                                flush=True,
+                            )
+
+                        mirrored_signature = None
+
+                        async def publish_mirrored_presence(source, data, force=False):
+                            nonlocal mirrored_signature
+                            global LAST_MIRRORED, LAST_MIRRORED_SIGNATURE
+                            mirrored = mirrorable_session_activities(data, SESSION_ID)
+                            signature = activities_signature(mirrored)
+                            if (
+                                not force
+                                and mirrored_signature is not None
+                                and signature == mirrored_signature
+                            ):
+                                return
+                            # Re-apply presence after READY. Some Discord routing
+                            # paths ignore the presence embedded in Identify until
+                            # a separate OP3 Presence Update arrives.
+                            await ws.send_json(
+                                {
+                                    "op": 3,
+                                    "d": {
+                                        "status": "online",
+                                        "since": 0,
+                                        "activities": mirrored,
+                                        "afk": False,
+                                    },
+                                }
+                            )
+                            mirrored_signature = signature
+                            LAST_MIRRORED = mirrored
+                            LAST_MIRRORED_SIGNATURE = signature
+                            summary = summarize_activities(mirrored)
+                            print(
+                                "[user-presence] ONLINE as Linux Desktop with "
+                                f"{len(mirrored)} mirrored activities "
+                                f"({summary or 'none'}) from {source}",
+                                flush=True,
+                            )
+
+                        def mark_ready():
+                            with contextlib.suppress(OSError):
+                                with open(
+                                    USER_PRESENCE_READY_FILE,
+                                    "w",
+                                    encoding="utf-8",
+                                ) as ready_file:
+                                    ready_file.write(SESSION_ID)
+                            SESSION_READY.set()
+
+                        receive_timeout = max(30.0, interval * 1.5)
+                        while True:
+                            try:
+                                message = await asyncio.wait_for(
+                                    ws.receive(), timeout=receive_timeout
+                                )
+                            except TimeoutError:
+                                raise RuntimeError("Discord gateway receive timeout")
                             if message.type == aiohttp.WSMsgType.TEXT:
                                 payload = json.loads(message.data)
                                 if payload.get("s") is not None:
                                     sequence[0] = payload["s"]
-                                if payload.get("op") == 0 and payload.get("t") == "READY":
-                                    SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
+                                    RESUME_SEQ = payload["s"]
+                                op = payload.get("op")
+                                if op == 11:
+                                    last_ack[0] = time.monotonic()
+                                elif op == 0 and payload.get("t") == "READY":
+                                    data = payload.get("d", {})
+                                    SESSION_ID = str(data.get("session_id") or "")
                                     if SESSION_ID:
-                                        await publish_mirrored_presence(
-                                            "READY", payload.get("d", {})
+                                        RESUME_GATEWAY_URL = str(
+                                            data.get("resume_gateway_url") or GATEWAY
                                         )
-                                        with contextlib.suppress(OSError):
-                                            with open(
-                                                USER_PRESENCE_READY_FILE,
-                                                "w",
-                                                encoding="utf-8",
-                                            ) as ready_file:
-                                                ready_file.write(SESSION_ID)
-                                        SESSION_READY.set()
+                                        RESUME_SESSION_ID = SESSION_ID
+                                        await publish_mirrored_presence(
+                                            "READY", data, force=True
+                                        )
+                                        mark_ready()
+                                        RECONNECT_DELAY = INITIAL_BACKOFF
+                                elif op == 0 and payload.get("t") == "RESUMED":
+                                    SESSION_ID = RESUME_SESSION_ID
+                                    if SESSION_ID:
+                                        mark_ready()
+                                        print(
+                                            "[user-presence] resumed gateway "
+                                            "session; ONLINE as Linux Desktop",
+                                            flush=True,
+                                        )
+                                        RECONNECT_DELAY = INITIAL_BACKOFF
                                 elif (
-                                    payload.get("op") == 0
+                                    op == 0
                                     and payload.get("t") == "SESSIONS_REPLACE"
                                 ):
                                     await publish_mirrored_presence(
                                         "SESSIONS_REPLACE", payload.get("d", [])
                                     )
-                                if payload.get("op") == 1:
+                                if op == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
-                                elif payload.get("op") in (7, 9):
+                                elif op in (7, 9):
+                                    if op == 7:
+                                        reconnect_requested = True
+                                    else:
+                                        invalid_resumable = bool(payload.get("d"))
                                     break
                             elif message.type in (
                                 aiohttp.WSMsgType.CLOSED,
                                 aiohttp.WSMsgType.ERROR,
                             ):
+                                close_code = ws.close_code
                                 break
                     finally:
                         SESSION_ID = ""
@@ -654,11 +740,24 @@ async def connect_presence():
                             os.remove(USER_PRESENCE_READY_FILE)
                         heartbeat_task.cancel()
                         await asyncio.gather(heartbeat_task, return_exceptions=True)
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             print(f"[user-presence] error: {e}", flush=True)
 
-        print("[user-presence] reconnecting in 5s", flush=True)
-        await asyncio.sleep(5)
+        resumable = should_resume(
+            invalid_resumable, close_code, bool(RESUME_SESSION_ID)
+        )
+        if not resumable:
+            RESUME_GATEWAY_URL = GATEWAY
+            RESUME_SESSION_ID = ""
+            RESUME_SEQ = None
+
+        delay = RECONNECT_DELAY
+        RECONNECT_DELAY = next_backoff(RECONNECT_DELAY)
+        action = "resuming" if resumable else "reconnecting"
+        print(f"[user-presence] {action} in {delay:g}s", flush=True)
+        await asyncio.sleep(delay)
 
 
 async def loop():
