@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import asyncio
 import discord
 from utils.emoji import CROSS, TICK, ZWARNING, MIDVOXCONNECTION, MIDVOXLINKS
@@ -393,6 +379,6 @@ class General(commands.Cog):
           "```Empower your server with blazing-fast features and 24/7 support!```\n"
           f"{MIDVOXLINKS} **Quick Actions**\n"
           f">>> **[Invite {BotName}](https://discord.com/oauth2/authorize?client_id=1396114795102470196&permissions=8&integration_type=0&scope=bot+applications.commands)**\n"
-          "**[Support Server](https://discord.gg/codexdev)**"
+          "**[Support Server](https://github.com/suneo779/midvox)**"
       )
       await ctx.send(view=CV2(f"{MIDVOXCONNECTION} {BotName} Integration Hub!", invite_text))

@@ -1,19 +1,3 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 CodeX Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/codexdev                      ║
- * ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
- * ║   github   ──  https://github.com/RayExo                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 import React from "react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectOption } from "@/components/ui/select";
@@ -30,13 +14,13 @@ interface ToggleSwitchProps {
   className?: string;
 }
 
-export const ToggleSwitch = ({ 
-  label, 
-  description, 
-  checked, 
-  onCheckedChange, 
+export const ToggleSwitch = ({
+  label,
+  description,
+  checked,
+  onCheckedChange,
   disabled,
-  className 
+  className
 }: ToggleSwitchProps) => (
   <div className={cn("flex items-center justify-between gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm", className)}>
     {(label || description) && (
@@ -60,22 +44,22 @@ interface DropdownSelectProps {
   className?: string;
 }
 
-export const DropdownSelect = ({ 
-  label, 
-  value, 
-  onValueChange, 
-  options, 
-  placeholder, 
+export const DropdownSelect = ({
+  label,
+  value,
+  onValueChange,
+  options,
+  placeholder,
   disabled,
-  className 
+  className
 }: DropdownSelectProps) => (
   <div className={cn("space-y-2", className)}>
     {label && <label className="pl-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-muted)]">{label}</label>}
-    <Select 
-      value={value} 
-      onValueChange={onValueChange} 
-      options={options} 
-      placeholder={placeholder} 
+    <Select
+      value={value}
+      onValueChange={onValueChange}
+      options={options}
+      placeholder={placeholder}
       disabled={disabled}
     />
   </div>
@@ -94,13 +78,13 @@ export const FormInput = ({ label, icon: Icon, className, ...props }: FormInputP
       {Icon && (
         <Icon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-faint)] transition-colors group-focus-within:text-primary" />
       )}
-      <Input 
+      <Input
         className={cn(
           "rounded-xl focus:ring-primary/15",
           Icon && "pl-10",
           className
-        )} 
-        {...props} 
+        )}
+        {...props}
       />
     </div>
   </div>

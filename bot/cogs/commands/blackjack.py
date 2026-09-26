@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 import os
@@ -145,7 +131,7 @@ class Blackjack(commands.Cog):
             player_hand.append(deck.pop())
             dealer_hand.append(deck.pop())
 
-            dealer_hand[1] = dealer_hand[1].flip() 
+            dealer_hand[1] = dealer_hand[1].flip()
 
             player_score = self.calc_hand(player_hand)
             dealer_score = self.calc_hand(dealer_hand)
@@ -171,11 +157,11 @@ class Blackjack(commands.Cog):
                 player_score = self.calc_hand(player_hand)
                 dealer_score = self.calc_hand(dealer_hand)
 
-                if player_score == 21:  
+                if player_score == 21:
                     result = ("Blackjack!", 'won')
                     break
 
-                elif player_score > 21: 
+                elif player_score > 21:
                     result = ("Player busts", 'lost')
                     break
 
@@ -203,7 +189,7 @@ class Blackjack(commands.Cog):
                     break
 
             if standing:
-                dealer_hand[1] = dealer_hand[1].flip()  
+                dealer_hand[1] = dealer_hand[1].flip()
                 player_score = self.calc_hand(player_hand)
                 dealer_score = self.calc_hand(dealer_hand)
 

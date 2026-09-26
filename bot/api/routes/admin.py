@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
 from api.schemas import AdminStats, AdminNodeStatus, AdminConfig, AdminConfigUpdate
@@ -47,7 +33,7 @@ async def get_admin_stats(bot: "midvox" = Depends(get_bot)):
             if f.endswith(".db"):
                 total_size += float(os.path.getsize(os.path.join(db_dir, f)))
                 db_count += 1
-    
+
     mb_size = total_size / (1024 * 1024)
     db_size_str = f"{mb_size:.2f} MB"
     if mb_size > 1024:
@@ -56,37 +42,37 @@ async def get_admin_stats(bot: "midvox" = Depends(get_bot)):
     # System Metrics
     process = psutil.Process(os.getpid())
     # Use a non-blocking interval check or global state for CPU
-    cpu_usage = psutil.cpu_percent() 
+    cpu_usage = psutil.cpu_percent()
     ram_raw = process.memory_info().rss
     ram_mb = ram_raw / (1024 * 1024)
-    
+
     total_commands = len(bot.commands)
     loaded_cogs = len(bot.cogs or {})
 
     # Node Healths
     nodes = [
         AdminNodeStatus(
-            name="Primary API Cluster", 
-            status="Healthy", 
-            load=f"CPU: {cpu_usage}% | RAM: {ram_mb:.1f}MB", 
+            name="Primary API Cluster",
+            status="Healthy",
+            load=f"CPU: {cpu_usage}% | RAM: {ram_mb:.1f}MB",
             icon="Globe"
         ),
         AdminNodeStatus(
-            name="Database Shards", 
-            status="Healthy" if db_count > 0 else "Warning", 
-            load=f"{db_count} SQLite DBs | {db_size_str}", 
+            name="Database Shards",
+            status="Healthy" if db_count > 0 else "Warning",
+            load=f"{db_count} SQLite DBs | {db_size_str}",
             icon="Database"
         ),
         AdminNodeStatus(
-            name="Bot Microservices", 
-            status="Healthy" if bot.is_ready() else "Booting", 
-            load=f"{loaded_cogs} Modules", 
+            name="Bot Microservices",
+            status="Healthy" if bot.is_ready() else "Booting",
+            load=f"{loaded_cogs} Modules",
             icon="Cpu"
         ),
         AdminNodeStatus(
-            name="Auth Sockets", 
-            status="Healthy", 
-            load=f"Shard: {bot.shard_count} | Latency: {round(bot.latency * 1000)}ms", 
+            name="Auth Sockets",
+            status="Healthy",
+            load=f"Shard: {bot.shard_count} | Latency: {round(bot.latency * 1000)}ms",
             icon="Lock"
         )
     ]
@@ -109,7 +95,7 @@ async def get_admin_config():
             mm = await cursor.fetchone()
         async with db.execute("SELECT value FROM config WHERE key = 'global_notification'") as cursor:
             gn = await cursor.fetchone()
-            
+
     return AdminConfig(
         maintenance_mode=mm[0].lower() == 'true' if mm else False,
         global_notification=gn[0] if gn else None

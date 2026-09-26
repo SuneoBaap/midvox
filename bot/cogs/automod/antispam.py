@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK
 from discord.ext import commands
@@ -37,7 +23,7 @@ class AntiSpam(commands.Cog):
             cursor = await db.execute("SELECT punishment FROM automod_punishments WHERE guild_id = ? AND event = 'Anti spam'", (guild_id,))
             result = await cursor.fetchone()
             return result is not None
-            
+
 
     async def get_ignored_channels(self, guild_id):
         async with aiosqlite.connect("db/automod.db") as db:
@@ -123,7 +109,7 @@ class AntiSpam(commands.Cog):
 
                 simple_embed = discord.Embed(title="Automod Anti-Spam", color=0x8A9A5B)
                 simple_embed.description = f"{TICK} | {user.mention} has been successfully **{action_taken}** for **Spamming.**"
-                
+
                 simple_embed.set_footer(text="Use the “automod logging” command to get automod logs if it is not enabled.", icon_url=self.bot.user.avatar.url)
                 await channel.send(embed=simple_embed, delete_after=30)
 

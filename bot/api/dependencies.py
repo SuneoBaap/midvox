@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import os
 from typing import Optional, TYPE_CHECKING
 from fastapi import HTTPException, Depends, Security
@@ -38,7 +24,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security
     Expected: Authorization: Bearer <API_KEY>
     """
     api_key = os.getenv("DASHBOARD_API_KEY")
-    
+
     # If no key is set in env, we might want to allow for local testing or force it.
     # The requirement says "Read API key from environment variable", implying it's required.
     if not api_key:
@@ -56,8 +42,8 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security
 
 def set_bot(bot_instance: "midvox"):
     """
-    Sets the global bot instance. 
-    This should be called in CodeX.py during startup.
+    Sets the global bot instance.
+    This is called from midvox.py during startup.
     """
     global _bot_instance
     _bot_instance = bot_instance
@@ -69,7 +55,7 @@ def get_bot() -> "midvox":
     """
     if _bot_instance is None:
         raise HTTPException(
-            status_code=503, 
+            status_code=503,
             detail="Discord bot instance is not initialized yet."
         )
     return _bot_instance

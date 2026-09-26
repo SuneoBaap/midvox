@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 from typing import Union
@@ -107,17 +93,17 @@ class FilterCog(commands.Cog):
                 await interaction.response.defer()
                 selected_filter = select.values[0].lower()
                 await self.cog.apply_filter(ctx, selected_filter)
-                #await interaction.message.delete()  
-                self.disable_all()  
+                #await interaction.message.delete()
+                self.disable_all()
 
             @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
             async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.message.delete()  
-                self.disable_all()  
+                await interaction.message.delete()
+                self.disable_all()
             def disable_all(self):
                 for child in self.children:
                     child.disabled = True
-                self.stop()  
+                self.stop()
 
         view = FilterSelect()
         view.cog = self

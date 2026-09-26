@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK
 from discord.ext import commands
@@ -76,7 +62,7 @@ class AntiCaps(commands.Cog):
     async def on_message(self, message):
         if len(message.content) < 45:
             return
-            
+
         if message.author.bot:
             return
 
@@ -123,7 +109,7 @@ class AntiCaps(commands.Cog):
 
                     simple_embed = discord.Embed(title="Automod Anti-Caps", color=0x8A9A5B)
                     simple_embed.description = f"{TICK} | {user.mention} has been successfully **{action_taken}** for **Excessive caps.**"
-                    
+
                     simple_embed.set_footer(text="Use the “automod logging” command to get automod logs if it is not enabled.", icon_url=self.bot.user.avatar.url)
                     await channel.send(embed=simple_embed, delete_after=30)
 

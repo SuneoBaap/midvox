@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK
 from discord.ext import commands
@@ -23,7 +9,7 @@ import asyncio
 class AntiEmojiSpam(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.emoji_threshold = 5  
+        self.emoji_threshold = 5
 
     async def is_automod_enabled(self, guild_id):
         async with aiosqlite.connect("db/automod.db") as db:
@@ -96,10 +82,10 @@ class AntiEmojiSpam(commands.Cog):
         if any(role.id in ignored_roles for role in user.roles):
             return
 
-        
+
         emoji_pattern = re.compile(
             r"<a?:[a-zA-Z0-9_]+:([0-9]+)>|"  #discord emojis
-            r"([\U0001F600-\U0001F64F]|"         # Emoticons 
+            r"([\U0001F600-\U0001F64F]|"         # Emoticons
             r"[\U0001F300-\U0001F5FF]|"         # Miscellaneous Symbols and Pictographs
             r"[\U0001F680-\U0001F6FF]|"         # Transport and Map Symbols
             r"[\U0001F700-\U0001F77F]|"         # Alchemical Symbols
@@ -113,9 +99,9 @@ class AntiEmojiSpam(commands.Cog):
             r"[\U0001F9B0-\U0001F9FF]"          # Additional Emoji
             r")"
         )
-        
 
-       
+
+
 
         emoji_count = len(emoji_pattern.findall(message.content))
 
@@ -137,14 +123,14 @@ class AntiEmojiSpam(commands.Cog):
                     action_taken = "Banned"
 
                 await message.delete()
-                
+
                 simple_embed = discord.Embed(title="Automod Anti Emoji Spam", color=0x8A9A5B)
                 simple_embed.description = f"{TICK} | {user.mention} has been successfully **{action_taken}** for **Spamming Emojis.**"
-                
+
                 simple_embed.set_footer(text="Use the “automod logging” command to get automod logs if it is not enabled.", icon_url=self.bot.user.avatar.url)
                 await channel.send(embed=simple_embed, delete_after=30)
 
-                
+
                 await self.log_action(guild, user, channel, action_taken, reason)
 
             except discord.Forbidden:

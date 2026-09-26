@@ -1,25 +1,9 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Save, 
-  RefreshCcw, 
+import {
+  Save,
+  RefreshCcw,
   Zap,
   Clock,
   Hash,
@@ -77,8 +61,8 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
           <div className="p-8 space-y-8">
             <div className="flex items-center justify-between mb-4 border-b border-[#1A1A1A] pb-4">
                <span className="text-sm font-bold text-neutral-300">Social Economy Status</span>
-               <Switch 
-                  checked={config.enabled} 
+               <Switch
+                  checked={config.enabled}
                   onCheckedChange={() => setConfig({...config, enabled: !config.enabled})}
                />
             </div>
@@ -89,7 +73,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
                   <Zap className="h-3 w-3" />
                   XP Weight
                 </label>
-                <Input 
+                <Input
                   type="number"
                   value={config.xp_per_message}
                   onChange={(e) => setConfig({...config, xp_per_message: parseInt(e.target.value) || 0})}
@@ -105,7 +89,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
                   Cooldown
                 </label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     type="number"
                     value={config.cooldown}
                     onChange={(e) => setConfig({...config, cooldown: parseInt(e.target.value) || 0})}
@@ -123,7 +107,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
                 <Hash className="h-3 w-3" />
                 Level Up Channel
               </label>
-              <Input 
+              <Input
                 value={config.level_up_channel || ""}
                 onChange={(e) => setConfig({...config, level_up_channel: e.target.value ? parseInt(e.target.value.replace(/\D/g, "")) : null})}
                 placeholder="Discord Channel ID"
@@ -132,7 +116,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
               />
             </div>
 
-            <Button 
+            <Button
               type="submit"
               disabled={saving}
               className="w-full h-14 text-base font-bold gap-2"
@@ -154,7 +138,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
                 <p className="text-xs text-neutral-500 font-bold px-1">Rank Card Color</p>
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl border border-neutral-700 shadow-inner" style={{ backgroundColor: config.embed_style.color }} />
-                  <Input 
+                  <Input
                     value={config.embed_style.color}
                     onChange={(e) => setConfig({...config, embed_style: {...config.embed_style, color: e.target.value}})}
                     className="font-mono h-10"
@@ -167,7 +151,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
                   <Layout className="h-4 w-4 text-neutral-500" />
                   <span className="text-sm font-bold text-neutral-300">Thumbnail</span>
                 </div>
-                <Switch 
+                <Switch
                   checked={config.embed_style.thumbnail}
                   onCheckedChange={(val) => setConfig({...config, embed_style: {...config.embed_style, thumbnail: val}})}
                   disabled={!config.enabled}

@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import DELETE, TICK
 from discord.ext import commands
@@ -54,7 +40,7 @@ class Warn(commands.Cog):
         self.color = discord.Color.from_rgb(255, 0, 0)
         self.db_path = "db/warn.db"
 
-        
+
         asyncio.create_task(self.setup())
 
     def get_user_avatar(self, user):
@@ -126,11 +112,11 @@ class Warn(commands.Cog):
         if user not in ctx.guild.members:
             return await ctx.reply("The user is not a member of this server.")
         try:
-            
+
             await self.add_warn(ctx.guild.id, user.id)
             total_warns = await self.get_total_warns(ctx.guild.id, user.id)
 
-            
+
             reason_to_send = reason or "No reason provided"
             try:
                 await user.send(f"You have been warned in **{ctx.guild.name}** by **{ctx.author}**. Reason: {reason_to_send}")
@@ -140,7 +126,7 @@ class Warn(commands.Cog):
             except discord.HTTPException:
                 dm_status = "No"
 
-            
+
             embed = discord.Embed(description=f"**{TICK} | Successfully Warned [{user}](https://discord.com/users/{user.id})\nReason {reason_to_send}\nNow He has {total_warns} Warns**",
                                               color=self.color)
             embed.set_thumbnail(url=ctx.author.display_avatar.url)

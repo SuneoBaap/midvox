@@ -1,19 +1,3 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
@@ -94,7 +78,7 @@ export function AutoRoleForm({ initialConfig, roles, guildId }: AutoRoleFormProp
             <p className="text-xs text-neutral-400">Roles given to newly joined {type}.</p>
           </div>
         </div>
-        
+
         <Select value="" onValueChange={(val) => addRole(type, val)}>
           <SelectTrigger className="w-full h-12 bg-[#0F0F0F] border-[#1A1A1A] hover:border-neutral-700 transition-all">
             <SelectValue placeholder={`Add a ${type === "humans" ? "member" : "bot"} role...`} />
@@ -106,8 +90,8 @@ export function AutoRoleForm({ initialConfig, roles, guildId }: AutoRoleFormProp
               .map((r) => (
                 <SelectItem key={r.id} value={r.id} className="focus:bg-[#1A1A1A] group">
                   <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full" 
+                    <div
+                      className="w-2 h-2 rounded-full"
                       style={{ backgroundColor: formatColor(r.color) }}
                     />
                     <span>{r.name}</span>
@@ -129,16 +113,16 @@ export function AutoRoleForm({ initialConfig, roles, guildId }: AutoRoleFormProp
                 const role = roles.find(r => r.id === roleId);
                 const color = role ? formatColor(role.color) : "#94a3b8";
                 return (
-                  <div 
-                    key={roleId} 
+                  <div
+                    key={roleId}
                     className="flex items-center gap-2 bg-[#1A1A1A]/80 border border-neutral-700/50 px-3 py-1.5 rounded-lg text-sm group animate-in zoom-in-95 duration-200"
                   >
-                    <div 
-                      className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" 
+                    <div
+                      className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]"
                       style={{ backgroundColor: color }}
                     />
                     <span className="text-neutral-200 font-medium">{role ? role.name : `Unknown (${roleId})`}</span>
-                    <button 
+                    <button
                       onClick={() => removeRole(type, roleId)}
                       className="ml-1 text-neutral-500 hover:text-red-400 transition-colors p-0.5 rounded-md hover:bg-red-400/10"
                     >
@@ -158,14 +142,14 @@ export function AutoRoleForm({ initialConfig, roles, guildId }: AutoRoleFormProp
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
         <div className="bg-[#111111] border border-[#1A1A1A] rounded-[32px] shadow-2xl p-8 space-y-10 relative">
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {renderRoleList("humans")}
             {renderRoleList("bots")}
           </div>
 
           <div className="pt-6 border-t border-[#1A1A1A]">
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={saving}
               className="w-full h-14 text-base font-bold gap-3 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] transition-all"
@@ -183,16 +167,16 @@ export function AutoRoleForm({ initialConfig, roles, guildId }: AutoRoleFormProp
           <div className="absolute -right-6 -top-6 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
             <UserPlus className="h-40 w-40 text-primary" />
           </div>
-          
+
           <div className="flex items-center gap-2 mb-4">
             <Info className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-bold text-slate-50">Guidelines</h3>
           </div>
-          
+
           <p className="text-xs text-neutral-400 leading-relaxed mb-6">
             AutoRole ensures every new member is welcomed with the right sets of roles immediately upon joining.
           </p>
-          
+
           <div className="space-y-4">
             <div className="flex gap-3">
               <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />

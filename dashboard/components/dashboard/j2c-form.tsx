@@ -1,19 +1,3 @@
-﻿/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
@@ -44,14 +28,14 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
 
   const handleSave = async () => {
     setSaving(true);
-    const payload = isEnabled 
-      ? { 
-          join_channel_id: config.join_channel_id, 
+    const payload = isEnabled
+      ? {
+          join_channel_id: config.join_channel_id,
           control_channel_id: config.control_channel_id,
-          category_id: config.category_id 
+          category_id: config.category_id
         }
-      : { 
-          join_channel_id: null, 
+      : {
+          join_channel_id: null,
           control_channel_id: null,
           category_id: null
         };
@@ -77,7 +61,7 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
         <div className="bg-[#111111] border border-[#1A1A1A] rounded-[6px] shadow-xl p-8 space-y-8">
-          
+
           <div className="flex items-center justify-between p-6 bg-[#131313] rounded-[6px] border border-[#1A1A1A]">
             <div className="flex items-center gap-4">
               <div className={cn("p-3 rounded-xl transition-colors", isEnabled ? "bg-emerald-500/20 text-emerald-500" : "bg-red-500/20 text-red-500")}>
@@ -95,8 +79,8 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
                   {isEnabled ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              <Switch 
-                checked={isEnabled} 
+              <Switch
+                checked={isEnabled}
                 onCheckedChange={setIsEnabled}
                 className="scale-125 data-[state=checked]:bg-emerald-500"
               />
@@ -114,7 +98,7 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
                   <p className="text-xs text-neutral-400 mt-1">Voice channel users join to trigger creation</p>
                 </div>
               </div>
-              
+
               <Select
                 value={config.join_channel_id ? config.join_channel_id : "none"}
                 onValueChange={(val) => setConfig({ ...config, join_channel_id: val === "none" ? null : val })}
@@ -143,7 +127,7 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
                   <p className="text-xs text-neutral-400 mt-1">Channel where users manage their private VCs</p>
                 </div>
               </div>
-              
+
               <Select
                 value={config.control_channel_id ? config.control_channel_id : "none"}
                 onValueChange={(val) => setConfig({ ...config, control_channel_id: val === "none" ? null : val })}
@@ -172,7 +156,7 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
                   <p className="text-xs text-neutral-400 mt-1">Category where temporary voice channels are created</p>
                 </div>
               </div>
-              
+
               <Select
                 value={config.category_id ? config.category_id : "none"}
                 onValueChange={(val) => setConfig({ ...config, category_id: val === "none" ? null : val })}
@@ -192,7 +176,7 @@ export function J2CForm({ initialConfig, channels, guildId }: J2CFormProps) {
             </div>
           </div>
 
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={saving || (isEnabled && !config.join_channel_id)}
             className="w-full h-14 text-base font-bold gap-2"

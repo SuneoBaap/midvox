@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 """
 Centralized emoji module for the MidVox bot.
 All emoji definitions are stored here for easy management and consistency.
@@ -63,7 +49,7 @@ KING = "<:king:1531958848154238986>"
 LEVEL_UP = "<:zlevelup:1531958827048632360>"
 LOCK = "<:lock:1531959125326430239>"
 MANAGER = "<:manager:1531959092053151765>"
-MENTION = "<:zyrox_mention:1531958774997450762>"
+MENTION = "<:midvox_mention:1531958774997450762>"
 MESSAGE = "<:zmsg:1531959007932055684>"
 MINECRAFT = "<:zmc:1531958997593358488>"
 ML_CROSS = CROSS
@@ -87,12 +73,12 @@ SHUFFLE = "<:shuffle:1531958733507137596>"
 SKIP = "<:skip:1531958980090396744>"
 STAR = "<:starr:1531958985710633043>"
 SWORD = "<:zsowrd:1531959075636645898>"
-SYSTEM = "<:zyrox_system:1531958853036670986>"
-THUNDER = "<:zyroxthunder:1531959064957816886>"
+SYSTEM = "<:midvox_system:1531958853036670986>"
+THUNDER = "<:midvox_thunder:1531959064957816886>"
 TICK = "<a:mv_success:900000000000000002>"
 TICKET = "<:zticket:1531958831880605776>"
 TICK_ALT = TICK
-TIME = "<:zyrox_time:1531959187339350208>"
+TIME = "<:midvox_time:1531959187339350208>"
 TIMER = "<:ztimer:1531959333477159053>"
 UNLOCK = "<:unlock:1531959278678839437>"
 UPTIME = "<:uptime:1531958764037738596>"
@@ -126,15 +112,15 @@ ZTICK = TICK
 ZUNMUTE = "<:zunmute:1531959135078191296>"
 ZWARNING = WARNING
 ZWRENCH = "<:zwrench:1531958753434271855>"
-MIDVOXCONNECTION = "<:zyroxconnection:1531959050873475163>"
-MIDVOXHAMMER = "<:zyroxhammer:1531959266838319256>"
-MIDVOXLINKS = "<:zyroxlinks:1531959014282235964>"
-MIDVOXSYS = "<:zyroxsys:1531959246344818830>"
-MIDVOX_CODE = "<:zyrox_code:1531959139738062908>"
-MIDVOX_COMMAND = "<:zyrox_command:1531958896552448125>"
-MIDVOX_GLOBAL = "<:zyrox_global:1531959019768643726>"
-MIDVOX_OWNER = "<:zyrox_owner:1531958901040349315>"
-MIDVOX_SEARCH = "<:zyrox_search:1531958790595809470>"
+MIDVOXCONNECTION = "<:midvox_connection:1531959050873475163>"
+MIDVOXHAMMER = "<:midvox_hammer:1531959266838319256>"
+MIDVOXLINKS = "<:midvox_links:1531959014282235964>"
+MIDVOXSYS = "<:midvox_system:1531959246344818830>"
+MIDVOX_CODE = "<:midvox_code:1531959139738062908>"
+MIDVOX_COMMAND = "<:midvox_command:1531958896552448125>"
+MIDVOX_GLOBAL = "<:midvox_global:1531959019768643726>"
+MIDVOX_OWNER = "<:midvox_owner:1531958901040349315>"
+MIDVOX_SEARCH = "<:midvox_search:1531958790595809470>"
 
 # ============================================================================
 # DISCORD CUSTOM EMOJIS (Animated)
@@ -422,10 +408,10 @@ UTILITY_EMOJIS = {
 def get_badge_emoji(badge_name: str) -> str:
     """
     Get Discord badge emoji by name.
-    
+
     Args:
         badge_name: The name of the badge (e.g., 'staff', 'partner', 'bug_hunter')
-    
+
     Returns:
         The emoji string for the badge, or None if not found
     """
@@ -435,10 +421,10 @@ def get_badge_emoji(badge_name: str) -> str:
 def get_action_emoji(action: str) -> str:
     """
     Get emoji for a common action.
-    
+
     Args:
         action: The action name (e.g., 'success', 'error', 'warning')
-    
+
     Returns:
         The emoji string for the action
     """
@@ -448,10 +434,10 @@ def get_action_emoji(action: str) -> str:
 def get_button_emoji(button_type: str) -> str:
     """
     Get emoji for a button type.
-    
+
     Args:
         button_type: The button type (e.g., 'note', 'privacy', 'claim')
-    
+
     Returns:
         The emoji string for the button
     """

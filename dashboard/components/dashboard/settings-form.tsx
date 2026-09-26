@@ -1,25 +1,9 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Save, 
-  RefreshCcw, 
+import {
+  Save,
+  RefreshCcw,
   Command,
   Info
 } from "lucide-react";
@@ -74,7 +58,7 @@ export function SettingsForm({ initialPrefix, guildId }: SettingsFormProps) {
                   Command Prefix
                 </label>
                 <div className="relative group">
-                  <Input 
+                  <Input
                     value={prefix}
                     onChange={(e) => setPrefix(e.target.value)}
                     placeholder="e.g. !, ?, >>"
@@ -88,8 +72,8 @@ export function SettingsForm({ initialPrefix, guildId }: SettingsFormProps) {
                 <p className="text-xs text-neutral-500 italic">This character triggers bot commands (e.g. {prefix || ">"}help)</p>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={saving || !prefix}
                 className="w-full h-14 text-base font-bold gap-2 shadow-primary/20"
               >
@@ -98,7 +82,7 @@ export function SettingsForm({ initialPrefix, guildId }: SettingsFormProps) {
               </Button>
             </form>
           </div>
-          
+
           <div className="bg-[#1A1A1A]/30 px-8 py-4 border-t border-[#1A1A1A] flex items-center justify-between">
              <span className="text-xs text-neutral-500 font-medium">Last synced: Just now</span>
              <button className="text-xs text-primary hover:underline font-bold">Refresh Cache</button>

@@ -1,471 +1,154 @@
 <div align="center">
 
-```
-███████╗██╗   ██╗██████╗  ██████╗ ██╗  ██╗
-╚══███╔╝╚██╗ ██╔╝██╔══██╗██╔═══██╗╚██╗██╔╝
-  ███╔╝  ╚████╔╝ ██████╔╝██║   ██║ ╚███╔╝ 
- ███╔╝    ╚██╔╝  ██╔══██╗██║   ██║ ██╔██╗ 
-███████╗   ██║   ██║  ██║╚██████╔╝██╔╝ ██╗
-╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝
-```
+# MidVox
 
-<h3>A feature-rich Discord bot paired with a sleek Next.js dashboard</h3>
+**A full Discord management bot with a modern web dashboard.**
 
-<a href="https://nexiohost.in"><img src="https://img.shields.io/badge/⭐%20PREMIUM%20HOSTING-NexioHost-FFD700?style=for-the-badge&labelColor=1a1a2e&color=FFD700&logoColor=FFD700"/></a>
+Made and maintained by **Suneo**.
 
-<p>
-  <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white"/></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14+-000000?style=for-the-badge&logo=nextdotjs&logoColor=white"/></a>
-  <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white"/></a>
-  <a href="https://discordpy.readthedocs.io"><img src="https://img.shields.io/badge/Discord.py-v2-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-</p>
-<p>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-red?style=for-the-badge"/></a>
-  <a href="https://discord.gg/codexdev"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="https://youtube.com/@CodeXDevs"><img src="https://img.shields.io/badge/YouTube-CodeXDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/RayExo"><img src="https://img.shields.io/badge/GitHub-RayExo-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
-</p>
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![Discord](https://img.shields.io/badge/Discord-Bot-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/developers/applications)
+[![License](https://img.shields.io/badge/License-MIT-84CC16?style=flat-square)](LICENSE)
 
 </div>
 
----
+MidVox combines moderation, server automation, media tools, persistent guild settings, and an OAuth protected dashboard in one deployable service. The production image includes the Python bot API, Next.js dashboard, and the local media components used by the bot.
 
-## ✦ Overview
+## Features
 
-MidVox is a fully-featured Discord bot with a modern web dashboard for managing everything from antinuke to music. Built on `discord.py v2`, `FastAPI`, and `Next.js 14` with Tailwind CSS.
+- Moderation, antinuke, automod, logging, tickets, welcome messages, and role tools
+- Per-server configuration through a responsive Next.js dashboard
+- MongoDB backed settings that survive redeployments and hosting-account changes
+- YouTube Shorts and supported media downloads through a private local Cobalt sidecar
+- Discord OAuth login with automatic bot-application ID detection
+- Optional official Discord desktop session for connected-account activity presence
+- Optional DISBOARD bump scheduler when a user session and channel are configured
+- Custom and animated Discord emoji support
 
-```
-MidVox-CV2-With-Dashboard/
-├── 🤖  bot/                   Python Discord bot + FastAPI backend
-│   ├── api/                   Dashboard REST API (FastAPI)
-│   ├── cogs/                  All bot features (commands, events, antinuke, automod…)
-│   ├── core/                  Bot client, context, cog base
-│   ├── utils/                 Shared utilities (emoji, tools, sync, cloudflare tunnel…)
-│   ├── games/                 Standalone game modules
-│   ├── assets/                Fonts, backgrounds, GIFs
-│   └── CodeX.py               Entry point
-│
-└── 🌐  dashboard/             Next.js frontend
-    ├── app/                   App Router pages & API routes
-    ├── components/            Reusable UI components
-    ├── hooks/                 Custom React hooks
-    ├── lib/                   API helpers & utilities
-    └── types/                 TypeScript type definitions
-```
+## Architecture
 
----
+```text
+Discord
+  ├─ MidVox bot ───────── Python / discord.py
+  └─ Dashboard login ──── Discord OAuth
 
-## ✦ Deploy to Railway
+Railway container
+  ├─ Bot + internal API ─ 127.0.0.1:5001
+  ├─ Web dashboard ────── 0.0.0.0:8080
+  ├─ Cobalt sidecar ───── 127.0.0.1:9000
+  └─ Optional presence ── official Discord Linux client
 
-This repository is configured as a single Railway service. `railway.json`
-forces the root `Dockerfile`, starts `start.sh`, listens on Railway's injected
-`PORT`, and uses `/api/health` as the deployment health check.
-
-1. Create a new Railway project from this repository.
-2. Keep the generated service as one replica. Multiple replicas would create
-   competing Discord user sessions.
-3. Add these service variables:
-   - `TOKEN` — application bot token
-   - `OWNER_IDS` — comma-separated Discord user IDs
-   - `DASHBOARD_API_KEY` — strong dashboard API secret
-   - `NEXT_PUBLIC_DASHBOARD_API_KEY` — currently required by the dashboard
-     proxy and must exactly match `DASHBOARD_API_KEY`
-   - `NEXTAUTH_SECRET` — strong random session secret
-   - `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` — dashboard OAuth app
-   - `NEXT_PUBLIC_ADMIN_IDS` — comma-separated dashboard admin IDs
-   - `USER_TOKEN` — optional user-account token for desktop presence and
-     connected-app activity
-4. Optionally add `MONGO_URI` for persistent guild configuration and
-   `YOUTUBE_COOKIE` when YouTube downloads require an authenticated session.
-5. Deploy. Railway provides `PORT` and `RAILWAY_PUBLIC_DOMAIN`; the startup
-   script automatically binds the dashboard to `0.0.0.0:$PORT` and sets the
-   OAuth callback URL to `https://$RAILWAY_PUBLIC_DOMAIN`.
-
-Do not set a static `NEXTAUTH_URL` copied from another deployment. The startup
-script always prefers the current Railway domain. Keep every token and secret
-in Railway variables rather than committing them to the repository.
-
----
-
-## ✦ Features
-
-<table>
-<tr>
-<td width="50%">
-
-**🛡️ Security**
-- Antinuke — ban, kick, channel & role flood, webhook abuse, bot adds, prune
-- Automod — spam, caps, links, invites, mass mentions, emoji spam
-- Anti-member update protection
-- Whitelist / unwhitelist system
-- Emergency lockdown mode
-
-</td>
-<td width="50%">
-
-**🎵 Music**
-- Lavalink v4 powered playback
-- YouTube, SoundCloud, JioSaavn search
-- Queue, loop, autoplay, shuffle
-- Seek, rewind, forward controls
-- Fully configurable via `.env`
-
-</td>
-</tr>
-<tr>
-<td>
-
-**⚙️ Management**
-- Moderation — ban, kick, mute, warn, lock, jail, and more
-- Full logging system
-- Reaction roles, vanity roles, invite tracker
-- Tickets, giveaways, verification
-- Join-to-create voice channels
-
-</td>
-<td>
-
-**🌐 Dashboard**
-- Discord OAuth2 login
-- Per-server settings management
-- Live bot stats & metrics
-- Fully branded & customisable
-- HTTPS via Cloudflare Tunnel (permanent URL)
-- Deploys to Vercel in minutes
-
-</td>
-</tr>
-<tr>
-<td>
-
-**🎉 Engagement**
-- Leveling & XP system with leaderboard
-- Birthday tracker
-- 12+ mini-games (chess, battleship, wordle, 2048…)
-- AFK system, autorole, autoresponder, sticky messages
-- Counting, blackjack, slots, booster perks
-
-</td>
-<td>
-
-**🔧 Developer**
-- Application emoji auto-sync on startup
-- Jishaku eval support
-- Slash + prefix commands
-- FastAPI backend with API key auth + rate limiting
-- Cloudflare Tunnel — unlimited bandwidth, permanent URL, zero system installs
-- CodeX Devs watermark on every source file
-
-</td>
-</tr>
-</table>
-
----
-
-## ✦ Prerequisites
-
-| Requirement | Version / Notes |
-|---|---|
-| Python | 3.10 or higher |
-| Node.js | 18 or higher |
-| Lavalink node | v4 |
-| Discord bot token | — |
-| Discord OAuth app | for dashboard login |
-| Cloudflare account (free) | for HTTPS tunnel |
-
----
-
-## ✦ Bot Setup
-
-**1 — Clone the repo**
-
-```bash
-git clone https://github.com/Lafda44/MidVox
-cd MidVox-CV2-With-Dashboard/bot
+MongoDB Atlas
+  └─ Persistent settings grouped by guild
 ```
 
-**2 — Install dependencies**
+## Deploy on Railway
+
+1. Fork or import this repository into Railway.
+2. Keep the repository root as the service root.
+3. Use the detected root `Dockerfile` builder.
+4. Leave **Build Command** empty.
+5. Leave **Start Command** empty so Docker runs `bash start.sh`.
+6. Point the public domain to port `8080`.
+7. Add the required variables below and deploy.
+
+The dashboard health endpoint is `/api/health`. A single Railway replica is recommended because the bot, dashboard, Cobalt, and optional presence session share one container.
+
+## Configuration
+
+Copy [`.env.example`](.env.example) for local development. Store real credentials in Railway Variables; never commit them.
+
+### Required variables
+
+| Variable | Purpose |
+| --- | --- |
+| `TOKEN` | Discord bot token |
+| `OWNER_IDS` | Comma-separated Discord user IDs with owner access |
+| `DASHBOARD_API_KEY` | Private key used by the dashboard API |
+| `NEXT_PUBLIC_DASHBOARD_API_KEY` | Matching dashboard client key used by the current dashboard proxy |
+| `NEXTAUTH_SECRET` | Random secret for dashboard sessions |
+| `DISCORD_CLIENT_ID` | Discord OAuth application ID; startup corrects it from `TOKEN` when needed |
+| `DISCORD_CLIENT_SECRET` | Discord OAuth client secret |
+| `MONGO_URI` | MongoDB connection string for persistent guild settings |
+
+Railway supplies the public hostname at runtime. `start.sh` derives `NEXTAUTH_URL` from `RAILWAY_PUBLIC_DOMAIN`, preventing copied deployments from redirecting to an old domain.
+
+### Optional variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `8080` | Public dashboard port |
+| `API_PORT` | `5001` | Internal bot API port |
+| `YOUTUBE_COOKIE` | empty | YouTube cookie header used by local Cobalt when YouTube requires authentication |
+| `COBALT_PUBLIC_URL` | local URL | Public base URL generated by Cobalt when needed |
+| `WARP` | `1` | Enables the private WARP egress used by Cobalt on datacenter networks |
+| `USER_TOKEN` | empty | Enables the optional Discord desktop presence session |
+| `BUMP_CHANNEL_ID` | empty | Enables scheduled DISBOARD bumps in one channel |
+| `BUMP_INTERVAL` | `600` | Delay between bump attempts, in seconds |
+| `EMOJI_SYNC` | `false` | Enables startup emoji synchronization |
+| `SUPPORT_URL` | repository URL | Link shown by commands that offer support |
+
+## Local development
+
+The full production stack is designed for the Docker image. For focused development, run the bot and dashboard separately.
 
 ```bash
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# Linux / macOS
 source .venv/bin/activate
-
-pip install -r requirements.txt
+pip install -r bot/requirements.txt
+cp .env.example .env
+cd bot && python midvox.py
 ```
 
-**3 — Configure the environment**
-
-Copy `.env.example` to `.env` and fill in the values:
-
-```env
-# ── Core ──────────────────────────────────────────────────────────
-TOKEN              = your_discord_bot_token
-brand_name         = 'MidVox'
-
-# ── Owner IDs (comma-separated) ───────────────────────────────────
-OWNER_IDS          = 870179991462236170,767979794411028491
-
-# ── Lavalink ──────────────────────────────────────────────────────
-LAVALINK_HOST      = "your-lavalink-host"
-LAVALINK_PASSWORD  = "your_password"
-LAVALINK_SECURE    = "true"
-LAVALINK_PORT      = ""
-
-# ── API / Dashboard Backend ───────────────────────────────────────
-API_ENABLED        = "true"
-API_PORT           = "8000"
-DASHBOARD_API_KEY  = "change_this_to_a_strong_secret"
-CORS_ORIGINS       = ""
-
-# ── Cloudflare Tunnel ─────────────────────────────────────────────
-TUNNEL_ENABLED     = "true"
-CF_TUNNEL_TOKEN    = "your_tunnel_token"
-CF_TUNNEL_URL      = "https://api.yourdomain.com"
-
-# ── Webhooks ──────────────────────────────────────────────────────
-WEBHOOK_URL        = "https://discord.com/api/webhooks/..."
-```
-
-**4 — Run the bot**
-
-```bash
-python CodeX.py
-```
-
-### User status and connected-app activity
-
-The repository-root `Dockerfile` can run the user account in Discord's official
-Linux desktop client on a virtual X display. This keeps Discord online as
-**Desktop** and lets Discord publish activities from linked accounts such as
-Spotify to the user's profile.
-
-1. Build and deploy with the repository `Dockerfile` (the Railway configuration
-   already selects it).
-2. Set `USER_TOKEN` to the user account token. This is separate from the
-   application bot's `TOKEN`.
-3. In Discord, open **User Settings → Connections**, connect Spotify or another
-   supported service, and leave **Display current activity as a status message**
-   enabled. Also verify **Activity Privacy → Display current activity as a status
-   message** is enabled.
-4. Start playback in the connected service. The desktop sidecar will keep the
-   account online and Discord will publish the current song to the profile.
-5. If music is playing on a local PC, the Linux Desktop fallback can republish
-   that PC session's visible Spotify activity. Keep the same Spotify account
-   connected and activity display enabled on the local client.
-
-The virtual display is headless: it does not expose a VNC desktop publicly.
-Activity is shown in Discord, not in the web dashboard. `BUMP_CHANNEL_ID` is
-optional and is not required for presence or music status. The preinstalled
-Discord modules are refreshed when the Docker image is rebuilt.
-
-> **Security:** user-token automation is outside Discord's normal bot OAuth
-> flow and can violate Discord's terms or cause account termination. Keep
-> `USER_TOKEN` in deployment secrets only.
-
----
-
-## ✦ Dashboard Setup
-
-**1 — Install dependencies**
+In another terminal:
 
 ```bash
 cd dashboard
 npm install
-```
-
-**2 — Configure the environment**
-
-Copy `.env.example` to `.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL           = https://api.yourdomain.com/api/v1
-NEXT_PUBLIC_DASHBOARD_API_KEY = your_shared_api_key
-
-NEXTAUTH_URL                  = http://localhost:3000
-NEXTAUTH_SECRET               = a_long_random_string
-
-DISCORD_CLIENT_ID             = your_discord_oauth_client_id
-DISCORD_CLIENT_SECRET         = your_discord_oauth_client_secret
-
-NEXT_PUBLIC_ADMIN_IDS         = your_discord_user_id
-NEXT_PUBLIC_BRAND_NAME        = "MidVox"
-NEXT_PUBLIC_BRAND_NAME_WORD   = "ZX"
-```
-
-**3 — Run locally**
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+On Windows PowerShell, activate the environment with `.venv\Scripts\Activate.ps1`.
 
----
+## Project layout
 
-## ✦ Environment Reference
-
-### Bot — `bot/.env`
-
-| Variable | Default | Description |
-|---|---|---|
-| `TOKEN` | — | Discord bot token |
-| `OWNER_IDS` | — | Comma-separated owner Discord user IDs |
-| `LAVALINK_HOST` | — | Lavalink server hostname (no protocol) |
-| `LAVALINK_PASSWORD` | — | Lavalink password |
-| `LAVALINK_SECURE` | `true` | `true` = HTTPS, `false` = HTTP |
-| `LAVALINK_PORT` | _(empty)_ | Port — only needed when `LAVALINK_SECURE=false` |
-| `API_ENABLED` | `true` | Start the FastAPI dashboard backend |
-| `API_PORT` | `8000` | Port the backend listens on |
-| `DASHBOARD_API_KEY` | — | Shared secret between bot API and dashboard |
-| `CORS_ORIGINS` | _(empty)_ | Extra CORS-allowed origins, comma-separated |
-| `WEBHOOK_URL` | — | Discord webhook for command logs |
-| `TUNNEL_ENABLED` | `true` | Expose the API over HTTPS via Cloudflare Tunnel |
-| `CF_TUNNEL_TOKEN` | — | Token from Cloudflare Zero Trust dashboard |
-| `CF_TUNNEL_URL` | — | Your permanent public URL (e.g. `https://api.yourdomain.com`) |
-
-### Dashboard — `dashboard/.env.local`
-
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | Full URL to the bot's FastAPI backend — use Cloudflare Tunnel URL |
-| `NEXT_PUBLIC_DASHBOARD_API_KEY` | Must match `DASHBOARD_API_KEY` in the bot |
-| `NEXTAUTH_URL` | Dashboard URL outside Railway; Railway uses its current public domain automatically |
-| `NEXTAUTH_SECRET` | Random secret for NextAuth session signing |
-| `DISCORD_CLIENT_ID` | Discord OAuth2 client ID |
-| `DISCORD_CLIENT_SECRET` | Discord OAuth2 client secret |
-| `NEXT_PUBLIC_ADMIN_IDS` | Comma-separated Discord user IDs with admin access |
-| `NEXT_PUBLIC_BRAND_NAME` | Bot name shown in the dashboard UI |
-| `NEXT_PUBLIC_BRAND_NAME_WORD` | Short abbreviation shown in the dashboard |
-
----
-
-## ✦ HTTPS Tunnel (Cloudflare)
-
-The bot uses **pycloudflared** — a Python package that downloads the `cloudflared` binary automatically on first run. No CLI installs, no system packages — works on Pterodactyl and any Python host.
-
-**Why Cloudflare over ngrok:**
-- ✅ Unlimited bandwidth & requests — no monthly caps
-- ✅ Permanent URL that never changes between restarts
-- ✅ Free — no paid plan needed
-- ✅ Zero system installs — binary downloads via Python
-
-**Setup (browser only, no CLI needed):**
-
-1. Go to [one.dash.cloudflare.com](https://one.dash.cloudflare.com) → **Networks → Tunnels → Create a tunnel**
-2. Choose **Cloudflared**, give it a name (e.g. `midvox-api`), save
-3. On the **Install connector** step, copy the token from the command shown:
-   ```
-   cloudflared tunnel run --token <COPY_THIS>
-   ```
-4. Go to **Public Hostname** tab → add a hostname:
-   - Subdomain: `api` · Domain: `yourdomain.com` · Service: `http://localhost:8000`
-5. Add to `bot/.env`:
-   ```env
-   CF_TUNNEL_TOKEN = "eyJhIjoiXXXX..."
-   CF_TUNNEL_URL   = "https://api.yourdomain.com"
-   ```
-
-On every startup the console prints:
-```
-◈ Tunnel: cloudflared binary ready — starting tunnel on port 8000…
-◈ Tunnel: API is live at  https://api.yourdomain.com
-  ↳ NEXT_PUBLIC_API_URL = https://api.yourdomain.com/api/v1
+```text
+bot/
+  api/                 Internal dashboard API
+  cogs/                Commands, events, moderation, and automation
+  core/                Bot framework extensions
+  tests/               Focused regression tests
+  midvox.py            Application entrypoint
+dashboard/
+  app/                 Next.js routes and pages
+  components/          Dashboard UI and settings forms
+  lib/                 Authentication and API helpers
+docker/                Build-time Cobalt compatibility patch
+Dockerfile             Production multi-stage image
+start.sh               Container process supervisor
 ```
 
----
+## Validation
 
-## ✦ Deployment
+Before deploying a change:
 
-### 🤖 Bot — any Python host
-
-1. Upload the entire `bot/` folder to your host (Pterodactyl, Render, Railway, Fly.io, VPS…)
-2. Set the start command to `python CodeX.py`
-3. Add all environment variables
-4. `pycloudflared` downloads the binary automatically on first run — no extra steps
-
-> Recommended free/cheap hosts: Render · Railway · Fly.io · VPS
->
-> ⭐ **[NexioHost](https://nexiohost.in)** — Premium bot hosting, built for Discord bots. Fast, reliable, and affordable.
-
-### 🌐 Dashboard — Vercel
-
-1. Go to [vercel.com](https://vercel.com) → **Add New Project** → connect your GitHub repo
-2. Set root directory to `dashboard/`
-3. Add all environment variables under **Settings → Environment Variables**
-4. Add the OAuth redirect URI in Discord Developer Portal:
-   ```
-   https://your-app.vercel.app/api/auth/callback/discord
-   ```
-5. Hit **Deploy** — done ✓
-
----
-
-## ✦ Emoji Sync
-
-Runs automatically before the bot imports its commands:
-
-```
-★ Starting Application Emoji Sync — 147 unique emojis found in emoji.py
-◈ Found 147 templates | Application hosts 147 emojis
-↑ Uploading: ztick  (not in application emojis)
-✔ Uploaded: ztick  [saved as ID: 1234567890]
-✔ emoji.py patched in-place to reflect current API state.
-✔ Emoji sync complete — starting bot with current application IDs
+```bash
+python -m unittest discover -s bot/tests -v
+cd dashboard && npm run build
+bash -n start.sh
 ```
 
-| Event | Action |
-|---|---|
-| New emoji found | Uploaded to application, ID written to `emoji.py` |
-| Stale ID detected | `emoji.py` patched automatically |
-| No changes | Sync completes instantly, no restart |
-| Missing legacy asset | Uses a readable Unicode fallback |
+## Security
 
----
+Keep bot tokens, OAuth secrets, user tokens, cookie headers, API keys, and MongoDB credentials only in the hosting provider's secret-variable store. Rotate a credential immediately if it appears in a commit, screenshot, log, or chat message.
 
-## ✦ Troubleshooting
+## License
 
-| Problem | Fix |
-|---|---|
-| Bot fails to start | Check `TOKEN` is set and bot has correct gateway intents |
-| Music not working | Verify `LAVALINK_HOST`, `LAVALINK_SECURE`, and `LAVALINK_PORT` |
-| Dashboard auth error | Check Discord OAuth client ID/secret and redirect URI |
-| Dashboard can't load data | Confirm `API_ENABLED=true`, bot is running, `NEXT_PUBLIC_API_URL` is correct |
-| Emojis showing as plain text | Check the startup log for `[EmojiSync]`; synchronization is automatic |
-| CORS errors from dashboard | Add your Vercel URL to `CORS_ORIGINS` in `bot/.env` |
-| Tunnel not starting | Check `CF_TUNNEL_TOKEN` is valid and `pycloudflared` is installed |
-| Tunnel URL changed | Set `CF_TUNNEL_URL` — named tunnels always produce the same URL |
-
----
-
-## ✦ Security
-
-- Never commit `.env` files — `.gitignore` already covers them
-- Use a strong, unique `NEXTAUTH_SECRET` and `DASHBOARD_API_KEY`
-- Rotate any secret that gets accidentally exposed
-- The bot API is always behind an API key — never expose it without one
-
----
+MidVox is distributed under the [MIT License](LICENSE). The project preserves the copyright notices required by its upstream MIT-licensed source.
 
 <div align="center">
 
-## ✦ CodeX Devs
-
-*Built for protection. Designed for style.*
-
-<a href="https://discord.gg/codexdev"><img src="https://discord.com/api/guilds/1301573144817045524/widget.png?style=banner2" alt="CodeX Development Discord Server" width="480"/></a>
-
-<p>
-  <a href="https://discord.gg/codexdev"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="https://youtube.com/@CodeXDevs"><img src="https://img.shields.io/badge/YouTube-CodeXDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/RayExo"><img src="https://img.shields.io/badge/GitHub-RayExo-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
-  <a href="https://nexiohost.in"><img src="https://img.shields.io/badge/⭐%20PREMIUM%20HOSTING-NexioHost-FFD700?style=for-the-badge&labelColor=1a1a2e&color=FFD700&logoColor=FFD700"/></a>
-</p>
-
-© 2026 CodeX Devs — MIT License
+**MidVox · Made by Suneo**
 
 </div>

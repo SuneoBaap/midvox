@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, EMOTE, TICK, ZSAFE, ZSETTINGS
 from discord.ext import commands
@@ -40,7 +26,7 @@ class Antinuke(commands.Cog):
     ''')
     await self.db.commit()
 
-    
+
   async def enable_limit_settings(self, guild_id):
     default_limits = DEFAULT_LIMITS
     for action, limit in default_limits.items():
@@ -53,7 +39,7 @@ class Antinuke(commands.Cog):
 
 
   @commands.hybrid_command(name='antinuke', aliases=['antiwizz', 'anti'], help="Enables/Disables Anti-Nuke Module in the server")
-  
+
   @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 4, commands.BucketType.user)
@@ -103,11 +89,11 @@ class Antinuke(commands.Cog):
         )
         await ctx.send(view=view)
       else:
-        
+
         setup_view = CV2(f"Antinuke Setup {EMOTE}", f"{TICK} | Initializing Quick Setup!")
         setup_message = await ctx.send(view=setup_view)
 
-        
+
         if not ctx.guild.me.guild_permissions.administrator:
           view = CV2(f"Antinuke Setup {EMOTE}",
             f"{TICK} | Initializing Quick Setup!\n"
@@ -127,7 +113,7 @@ class Antinuke(commands.Cog):
           f"{TICK} Checking {BRAND_NAME}'s role position for optimal configuration...\n"
           f"{TICK} | Crafting and configuring the {BRAND_NAME} Supreme role...")
         await setup_message.edit(view=view)
-        
+
         try:
           role = await ctx.guild.create_role(
             name=f"{BRAND_NAME} Supreme™",

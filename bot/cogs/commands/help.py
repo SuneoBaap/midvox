@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 from discord import app_commands, Interaction
@@ -158,7 +144,7 @@ class HelpCommand(commands.HelpCommand):
     )
 
     embed.set_footer(text=f"MidVox • Requested by {self.context.author}")
-    
+
     view = vhelp.View(mapping=mapping, ctx=self.context, homeembed=embed, ui=2)
     await ctx.reply(view=view)
 
@@ -235,8 +221,8 @@ class HelpCommand(commands.HelpCommand):
       title=f"{group.qualified_name.title()} [{count}]",
       description="< > Duty | [ ] Optional\n",
       per_page=4
-    ).get_pages()   
-    
+    ).get_pages()
+
     paginator = Paginator(ctx, embeds)
     await paginator.paginate()
 

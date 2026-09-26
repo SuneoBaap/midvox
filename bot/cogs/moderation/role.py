@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, TICK, ZWARNING
 import discord
@@ -142,7 +128,7 @@ class Role(commands.Cog):
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
         return await ctx.send(embed=embed)
-          
+
     else:
       if role.position >= ctx.guild.me.top_role.position:
         embed1 = discord.Embed(
@@ -166,7 +152,7 @@ class Role(commands.Cog):
     await asyncio.sleep(seconds)
     await user.remove_roles(role)
 
-  
+
   @role.command(help="Delete a role in the guild")
   @blacklist_check()
   @ignore_check()
@@ -206,7 +192,7 @@ class Role(commands.Cog):
         return await ctx.send(embed=embed)
 
     await role.delete()
-    
+
     embed = discord.Embed(
         description=f"Successfully deleted {role}.",
         color=self.color
@@ -215,7 +201,7 @@ class Role(commands.Cog):
     embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
     await ctx.send(embed=embed)
-      
+
   @role.command(help="Create a role in the guild")
   @blacklist_check()
   @ignore_check()
@@ -242,7 +228,7 @@ class Role(commands.Cog):
   @commands.has_permissions(administrator=True)
   @commands.bot_has_permissions(manage_roles=True)
   async def rename(self, ctx, role: discord.Role, *, newname):
-    
+
     if role.position >= ctx.author.top_role.position:
         embed = discord.Embed(
             description=f"You can't manage the role {role.mention} because it is higher or equal to your top role.",
@@ -253,7 +239,7 @@ class Role(commands.Cog):
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
         return await ctx.send(embed=embed)
 
-    
+
     if role.position >= ctx.guild.me.top_role.position:
         embed = discord.Embed(
             description=f"I can't manage the role {role.mention} because it is higher than my top role.",
@@ -272,7 +258,7 @@ class Role(commands.Cog):
     embed.set_author(name="Success")
     embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-    await ctx.send(embed=embed)                  
+    await ctx.send(embed=embed)
 
   @role.command(name="humans", help="Gives role to all humans in the guild")
   @blacklist_check()
@@ -694,7 +680,7 @@ class Role(commands.Cog):
         await ctx.send(embed=denied, mention_author=False)
 
         await ctx.send(embed=embed, mention_author=False)
-        
+
 
 
   @rrole.command(name="bots", help="Removes a role from all the bots in the server.")
@@ -775,7 +761,7 @@ class Role(commands.Cog):
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
         await ctx.send(embed=denied, mention_author=False)
 
-    
+
 
 
 
@@ -856,8 +842,8 @@ class Role(commands.Cog):
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
         await ctx.send(embed=denied, mention_author=False)
 
-    
-    
+
+
 
   @rrole.command(name="unverified", help="Removes a role from all the unverified members in the server.")
   @blacklist_check()
@@ -938,6 +924,5 @@ class Role(commands.Cog):
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
         await ctx.send(embed=denied, mention_author=False)
 
-  
 
- 
+

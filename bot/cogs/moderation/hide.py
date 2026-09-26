@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CHANNEL, TICK, ZCROSS
 from discord.ext import commands
@@ -31,8 +17,8 @@ class Hide(commands.Cog):
     async def hide_command(self, ctx, channel: discord.TextChannel = None):
         """Hides a channel from @everyone."""
         # If no channel is specified, default to the current channel
-        channel = channel or ctx.channel 
-        
+        channel = channel or ctx.channel
+
         # Get the authorf's avatar URL, handling cases where they might have a default avatar
         author_avatar_url = ctx.author.avatar.url if ctx.author.avatar else None
 
@@ -62,7 +48,7 @@ class Hide(commands.Cog):
         # Set the author's avatar as the thumbnail
         if author_avatar_url:
             embed.set_thumbnail(url=author_avatar_url)
-            
+
         await ctx.send(embed=embed)
 
 # Function to add the cog to your bot

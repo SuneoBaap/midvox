@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import ERROR
 from discord.ext import commands
@@ -29,7 +15,7 @@ class Snipe(commands.Cog):
         # Ignore messages from bots or from DMs
         if message.author.bot or not message.guild:
             return
-        
+
         # Store the message details
         self.sniped_messages[message.channel.id] = {
             'content': message.content,
@@ -59,7 +45,7 @@ class Snipe(commands.Cog):
             )
             embed.set_author(name=f"Sniped message from {author.name}", icon_url=author.display_avatar.url)
             embed.set_footer(text="Deleted at") # The timestamp is automatically formatted in the footer
-            
+
             await ctx.send(embed=embed)
         else:
             # Send an error message if no message is stored for this channel

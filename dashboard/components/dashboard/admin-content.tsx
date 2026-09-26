@@ -1,23 +1,7 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
+import {
   Shield, Users, Server, Activity, Database, Cpu, Globe, Lock, Settings, RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -116,7 +100,7 @@ export function AdminContent() {
               <p className="text-neutral-400 mt-2 font-medium">Restricted access for MidVox administrators only.</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => fetchData(true)}
             className="flex items-center gap-3 bg-red-500/5 px-6 py-3 rounded-[6px] border border-red-500/10 hover:bg-red-500/10 transition-all active:scale-95 group/refresh"
           >
@@ -196,13 +180,13 @@ export function AdminContent() {
           <div className="p-8 flex-1 space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 pl-1">Maintenance Mode</label>
-              <button 
+              <button
                 onClick={handleToggleMaintenance}
                 disabled={saving}
                 className={cn(
                   "w-full flex items-center justify-between p-4 rounded-[6px] border transition-all",
-                  config?.maintenance_mode 
-                    ? "bg-red-500/10 border-red-500/30 text-red-500" 
+                  config?.maintenance_mode
+                    ? "bg-red-500/10 border-red-500/30 text-red-500"
                     : "bg-[#1A1A1A]/70 border-[#1F1F1F] text-neutral-600 hover:bg-[#1A1A1A]"
                 )}
               >
@@ -220,10 +204,10 @@ export function AdminContent() {
                 </div>
               </button>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 pl-1">Global Notification</label>
-              <textarea 
+              <textarea
                 value={notification}
                 onChange={(e) => setNotification(e.target.value)}
                 className="w-full h-32 bg-[#1A1A1A]/70 border border-[#1F1F1F] rounded-[6px] p-4 text-xs font-medium text-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-500/30 transition-all placeholder:text-neutral-600"
@@ -231,7 +215,7 @@ export function AdminContent() {
               />
             </div>
 
-            <button 
+            <button
               onClick={handleBroadcast}
               disabled={saving}
               className="w-full py-4 bg-primary rounded-[6px] font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"

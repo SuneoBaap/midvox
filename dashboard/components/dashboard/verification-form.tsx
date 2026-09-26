@@ -1,19 +1,3 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
@@ -61,15 +45,15 @@ export function VerificationForm({ initialConfig, channels, roles, guildId }: Ve
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
         <div className="bg-[#111111] border border-[#1A1A1A] rounded-[6px] shadow-xl p-8 space-y-8">
-          
+
           {/* Main Toggle */}
           <div className="flex items-center justify-between p-6 bg-[#131313] rounded-[6px] border border-[#1A1A1A]">
             <div>
               <h3 className="text-lg font-black text-slate-50">Verification System</h3>
               <p className="text-sm text-neutral-400 mt-1">Enable or disable server verification.</p>
             </div>
-            <Switch 
-              checked={config.enabled} 
+            <Switch
+              checked={config.enabled}
               onCheckedChange={(val) => setConfig({ ...config, enabled: val })}
               className="scale-125"
             />
@@ -78,7 +62,7 @@ export function VerificationForm({ initialConfig, channels, roles, guildId }: Ve
           <div className={`space-y-6 transition-all duration-300 ${!config.enabled && "opacity-50 pointer-events-none"}`}>
             {/* Channel Setup */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
               <div className="space-y-3">
                 <label className="text-sm font-bold text-neutral-300 flex items-center gap-2">
                   <Hash className="h-4 w-4 text-neutral-400" />
@@ -184,7 +168,7 @@ export function VerificationForm({ initialConfig, channels, roles, guildId }: Ve
 
           </div>
 
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={saving}
             className="w-full h-14 text-base font-bold gap-2"

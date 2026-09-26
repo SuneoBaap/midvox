@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import aiohttp
 import io
 import time
@@ -63,7 +49,7 @@ async def generate_response(instructions, history):
     ]
     response = await client.chat.completions.create(
         model=config['MODEL_ID'],
-        messages=messages,        
+        messages=messages,
         tools=tools,
         tool_choice="auto",
     )
@@ -94,7 +80,7 @@ async def generate_response(instructions, history):
         second_response = await client.chat.completions.create(
             model=config['MODEL_ID'],
             messages=messages
-        ) 
+        )
         return second_response.choices[0].message.content
     return response_message.content
 

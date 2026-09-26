@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, TICK, ZWARNING
 from discord import app_commands
@@ -46,7 +32,7 @@ class Customrole(commands.Cog):
     async def reset_rate_limit(self, user_id):
         await asyncio.sleep(self.rate_limit_timeout)
         self.rate_limit.pop(user_id, None)
-        
+
 
 
 
@@ -65,7 +51,7 @@ class Customrole(commands.Cog):
             await member.remove_roles(role, reason=f"{BRAND_NAME} Customrole | Role Removed")
         else:
             raise discord.Forbidden("Bot does not have permission to manage roles.")
-            
+
 
 
     async def add_role2(self, *, role: int, member: discord.Member):
@@ -78,7 +64,7 @@ class Customrole(commands.Cog):
             role = discord.Object(id=int(role))
             await member.remove_roles(role, reason=f"{BRAND_NAME} Customrole| Role Removed")
 
-    
+
 
     async def handle_role_command(self, context: Context, member: discord.Member, role_type: str):
         async with aiosqlite.connect('db/customrole.db') as db:
@@ -107,7 +93,7 @@ class Customrole(commands.Cog):
                 else:
                     await context.reply(view=CV2(f"{CROSS} Error", f"Roles configuration is not set up in {context.guild.name}"))
 
-    
+
 
 
     async def create_tables(self):
@@ -133,7 +119,7 @@ class Customrole(commands.Cog):
             ''')
             await db.commit()
 
-    
+
     @commands.hybrid_group(name="setup",
                            description="Setups custom roles for the server.",
                            help="Setups custom roles for the server.")
@@ -162,7 +148,7 @@ class Customrole(commands.Cog):
                 await db.commit()
         except Exception as e:
             print(f"Error updating role data: {e}")
-            
+
 
     async def fetch_custom_role_data(self, guild_id):
         async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -260,7 +246,7 @@ class Customrole(commands.Cog):
         else:
             await context.reply(view=CV2(f"{ZWARNING} Access Denied", "Your role should be above my top role."))
 
-    
+
 
     @set.command(name="config",
                  description="Shows the current custom role configuration in the Guild.",
@@ -293,7 +279,7 @@ class Customrole(commands.Cog):
 
 
 
-            
+
 
 
     @set.command(name="create",
@@ -323,7 +309,7 @@ class Customrole(commands.Cog):
             await db.commit()
 
         await context.reply(view=CV2(f"{TICK} Success", f"Custom role command `{name}` created to assign the role {role.mention}.\n\n__**How to Use?**__\nUse `{name} <user>` Command to Assign/Remove {role.mention} role to User.\n> This will work for the users having `Manage Roles` permissions."))
-        
+
 
     @set.command(name="delete", aliases=["remove"],
                  description="Deletes a custom role command.",
@@ -347,7 +333,7 @@ class Customrole(commands.Cog):
             await db.commit()
 
         await context.reply(view=CV2(f"{TICK} Success", f"Custom role command `{name}` has been deleted."))
-        
+
 
     @set.command(
         name="list",
@@ -365,13 +351,13 @@ class Customrole(commands.Cog):
             await context.reply(view=CV2(f"{CROSS} Error", "No custom roles have been created for this server."))
             return
 
-        
+
         def chunk_list(data: List[Tuple[str, int]], chunk_size: int):
             """Yield successive chunks of `chunk_size` from `data`."""
             for i in range(0, len(data), chunk_size):
                 yield data[i:i + chunk_size]
 
-        
+
         chunks = list(chunk_list(custom_roles, 7))
 
         for i, chunk in enumerate(chunks):
@@ -404,7 +390,7 @@ class Customrole(commands.Cog):
                         if role:
                             removed_roles.append(f"**{role_name.capitalize()}:** {role.mention}")
                             await self.update_role_data(context.guild.id, role_name, None)
-                            
+
                 async with aiosqlite.connect(DATABASE_PATH) as db:
                     await db.execute("DELETE FROM custom_roles WHERE guild_id = ?", (context.guild.id,))
                     await db.commit()
@@ -415,8 +401,8 @@ class Customrole(commands.Cog):
         else:
             await context.reply(view=CV2(f"{ZWARNING} Access Denied", "Your role should be above my top role."))
 
-        
-            
+
+
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -426,25 +412,25 @@ class Customrole(commands.Cog):
 
         prefixes = await self.bot.get_prefix(message)
 
-        
+
         if not prefixes:
             return
 
-        
+
         if not any(message.content.startswith(prefix) for prefix in prefixes):
             return
 
-        
+
         for prefix in prefixes:
             if message.content.startswith(prefix):
-                command_name = message.content[len(prefix):].split()[0] 
+                command_name = message.content[len(prefix):].split()[0]
                 break
         else:
             return
 
         guild_id = message.guild.id
 
-        
+
         async with aiosqlite.connect(DATABASE_PATH) as db:
             async with db.execute("SELECT role_id FROM custom_roles WHERE guild_id = ? AND name = ?", (guild_id, command_name)) as cursor:
                 result = await cursor.fetchone()
@@ -453,7 +439,7 @@ class Customrole(commands.Cog):
             role_id = result[0]
             role = message.guild.get_role(role_id)
 
-            
+
             async with aiosqlite.connect(DATABASE_PATH) as db:
                 async with db.execute("SELECT reqrole FROM roles WHERE guild_id = ?", (guild_id,)) as cursor:
                     reqrole_result = await cursor.fetchone()
@@ -461,23 +447,23 @@ class Customrole(commands.Cog):
             reqrole_id = reqrole_result[0] if reqrole_result else None
             reqrole = message.guild.get_role(reqrole_id) if reqrole_id else None
 
-            
+
             if reqrole is None:
                 await message.channel.send(f"{ZWARNING} The required role is not set up in this server. Please set it up using `setup reqrole`.")
                 return
 
-            
+
             if reqrole not in message.author.roles:
                 await message.channel.send(view=CV2(f"{ZWARNING} Access Denied", f"You need the {reqrole.mention} role to use this command."))
                 return
 
-            
+
             member = message.mentions[0] if message.mentions else None
             if not member:
                 await message.channel.send("Please mention a user to assign the role.")
                 return
 
-            
+
             now = asyncio.get_event_loop().time()
             if guild_id not in self.cooldown or now - self.cooldown[guild_id] >= 10:
                 self.cooldown[guild_id] = now
@@ -498,7 +484,7 @@ class Customrole(commands.Cog):
         else:
             return
 
-    
+
 
     @commands.hybrid_command(name="staff",
          description="Gives the staff role to the user.",
@@ -554,4 +540,3 @@ class Customrole(commands.Cog):
         await self.handle_role_command(context, member, 'frnd')
 
 
- 

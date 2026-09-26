@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK
 from discord.ext import commands, tasks
@@ -81,7 +67,7 @@ async def do_removal(ctx, limit, predicate, *, before=None, after=None):
       await ctx.send(f"{TICK} | Successfully removed {deleted} messages.", delete_after=7)
   else:
       await ctx.send(to_send, delete_after=7)
-    
+
 
 class Message(commands.Cog):
 
@@ -229,7 +215,7 @@ class Message(commands.Cog):
                 await message.clear_reactions()
 
         await ctx.success(f"{TICK} | Successfully removed {total_reactions} reactions.")
-            
+
 
 
 
@@ -247,7 +233,7 @@ class Message(commands.Cog):
 
     def predicate(m):
         return (m.webhook_id is None and m.author.bot) or (prefix and m.content.startswith(prefix))
-      
+
     await do_removal(ctx, search, predicate)
 
 
@@ -260,8 +246,7 @@ class Message(commands.Cog):
   @commands.has_permissions(manage_messages=True)
   @commands.bot_has_permissions(manage_messages=True)
   async def purguser(self, ctx, member: discord.Member, search=100):
-      
+
       await ctx.message.delete()
       await do_removal(ctx, search, lambda e: e.author == member)
 
- 

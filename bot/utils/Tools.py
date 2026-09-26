@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import json, sys, os
 import discord
 from discord.ext import commands
@@ -38,7 +24,7 @@ async def is_topcheck_enabled(guild_id: int):
         async with db.execute("SELECT enabled FROM topcheck WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
             return row is not None and row[0] == 1
-            
+
 
 
 def read_json(file_path):
@@ -55,7 +41,7 @@ def write_json(file_path, data):
 def get_or_create_guild_config(file_path, guild_id, default_config):
     data = read_json(file_path)
     if "guilds" not in data:
-        data["guilds"] = {}  
+        data["guilds"] = {}
 
     guild_id_str = str(guild_id)
     if guild_id_str not in data["guilds"]:
@@ -66,7 +52,7 @@ def get_or_create_guild_config(file_path, guild_id, default_config):
 def update_guild_config(file_path, guild_id, new_data):
     data = read_json(file_path)
     if "guilds" not in data:
-        data["guilds"] = {}  
+        data["guilds"] = {}
 
     data["guilds"][str(guild_id)] = new_data
     write_json(file_path, data)
@@ -132,7 +118,7 @@ def blacklist_check():
     return True
 
   return commands.check(predicate)
-    
+
 
 async def get_ignore_data(guild_id: int) -> dict:
     async with aiosqlite.connect("db/ignore.db") as db:
@@ -198,7 +184,7 @@ def top_check():
 
         if ctx.author != ctx.guild.owner and ctx.author.top_role.position <= ctx.guild.me.top_role.position:
             embed = discord.Embed(
-                title=f"{DENIED} Access Denied", 
+                title=f"{DENIED} Access Denied",
                 description="Your top role must be at a **higher** position than my top role.",
                 color=0x000000
             )

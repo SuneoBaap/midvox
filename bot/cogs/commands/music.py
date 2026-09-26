@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import os
 import random
 import discord
@@ -76,7 +62,7 @@ class SpotifyAPI:
                     return await response.json()
         raise Exception("Exceeded max retries to fetch Spotify data")
 
-    
+
     async def get_track(self, track_id):
         return await self.get(f"tracks/{track_id}")
 
@@ -129,7 +115,7 @@ class PlatformSelectView(LayoutView):
         top_results = results[:5]
         await self.ctx.send(view=SearchResultView(self.ctx, top_results, self.query, source))
 
-    
+
 
 class SearchResultView(LayoutView):
     def __init__(self, ctx, results, query="", source=""):
@@ -191,7 +177,7 @@ class MusicControlView(LayoutView):
         if track:
             sec = track.length // 1000
             duration = f"{sec // 60:02d}:{sec % 60:02d}"
-            
+
             requester = self.ctx.author.display_name
             if autoplay: requester += " (Autoplay)"
 
@@ -339,15 +325,15 @@ class Music(commands.Cog):
         self.client = client
         self.client.loop.create_task(self.connect_nodes())
         self.client.loop.create_task(self.monitor_inactivity())
-        
-        self.inactivity_timeout = 120 
-        self.player_inactivity = {}  
+
+        self.inactivity_timeout = 120
+        self.player_inactivity = {}
 
     async def monitor_inactivity(self):
         while True:
             for guild in self.client.guilds:
-                await self.check_inactivity(guild.id) 
-            await asyncio.sleep(60) 
+                await self.check_inactivity(guild.id)
+            await asyncio.sleep(60)
 
     async def check_inactivity(self, guild_id):
         guild = self.client.get_guild(guild_id)
@@ -374,7 +360,7 @@ class Music(commands.Cog):
             if player:
                 await player.disconnect(force=True)
                 try:
-                    support = Button(label='Support', style=discord.ButtonStyle.link, url='https://discord.gg/codexdev')
+                    support = Button(label='Support', style=discord.ButtonStyle.link, url='https://github.com/suneo779/midvox')
                     vote = Button(label='Vote', style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
                     view = LayoutView(timeout=None)
                     container = build_container(
@@ -423,7 +409,7 @@ class Music(commands.Cog):
                     await player.ctx.send(view=CV2("No suitable track found for autoplay."))
             else:
                 await player.disconnect()
-                support = Button(label='Support', style=discord.ButtonStyle.link, url='https://discord.gg/codexdev')
+                support = Button(label='Support', style=discord.ButtonStyle.link, url='https://github.com/suneo779/midvox')
                 vote = Button(label='Vote', style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
                 view = LayoutView(timeout=None)
                 container = build_container(
@@ -449,8 +435,8 @@ class Music(commands.Cog):
 
         vc = ctx.voice_client or await ctx.author.voice.channel.connect(cls=wavelink.Player)
         vc.ctx = ctx
-        
-        
+
+
         if vc.playing:
             if ctx.voice_client and ctx.voice_client.channel != ctx.author.voice.channel:
                 await ctx.send(view=CV2(f"You must be connected to {ctx.voice_client.channel.mention} to play."))
@@ -463,9 +449,9 @@ class Music(commands.Cog):
             await self.handle_spotify_link(ctx, vc, query, "playlist")
         elif re.match(SPOTIFY_ALBUM_REGEX, query):
             await self.handle_spotify_link(ctx, vc, query, "album")
-        
+
             return"""
-            
+
         tracks = await wavelink.Playable.search(query)
         if not tracks:
             await ctx.send(view=CV2("No results found."))
@@ -473,7 +459,7 @@ class Music(commands.Cog):
 
         if isinstance(tracks, wavelink.Playlist):
             await vc.queue.put_wait(tracks.tracks)
-            await ctx.send(view=CV2(f"{ZPLUS} Added playlist [{tracks.name}](https://discord.gg/codexdev) with **{len(tracks.tracks)} songs** to the queue."))
+            await ctx.send(view=CV2(f"{ZPLUS} Added playlist [{tracks.name}](https://github.com/suneo779/midvox) with **{len(tracks.tracks)} songs** to the queue."))
             if not vc.playing:
                 track = await vc.queue.get_wait()
                 await vc.play(track)
@@ -481,7 +467,7 @@ class Music(commands.Cog):
         else:
             track = tracks[0]
             await vc.queue.put_wait(track)
-            await ctx.send(view=CV2(f"{ZPLUS}   Added [{track.title}](https://discord.gg/codexdev) to the queue."))
+            await ctx.send(view=CV2(f"{ZPLUS}   Added [{track.title}](https://github.com/suneo779/midvox) to the queue."))
             if not vc.playing:
                 await vc.play(await vc.queue.get_wait())
                 await self.display_player_embed(vc, track, ctx)
@@ -489,18 +475,18 @@ class Music(commands.Cog):
            # await interaction.response.defer()
 
 
-    
+
     async def handle_spotify_link(self, ctx, vc, link, type_):
         try:
             if type_ == "track":
                 track_id = re.search(SPOTIFY_TRACK_REGEX, link).group(1)
                 track_info = await spotify_api.get_track(track_id)
 
-                
+
                 title = track_info['name']
                 author = ', '.join(artist['name'] for artist in track_info['artists'])
 
-                
+
                 search_query = f"{title} by {author}"
                 search_results = await wavelink.Playable.search(search_query, source=wavelink.enums.TrackSource.YouTube)
 
@@ -510,16 +496,16 @@ class Music(commands.Cog):
 
                 track = search_results[0]
                 await vc.queue.put_wait(track)
-                await ctx.send(view=CV2(f"{ZPLUS}  Added [{track.title}](https://discord.gg/codexdev) to the queue."))
+                await ctx.send(view=CV2(f"{ZPLUS}  Added [{track.title}](https://github.com/suneo779/midvox) to the queue."))
                 if not vc.playing:
                     await vc.play(track)
                     await self.display_player_embed(vc, track, ctx)
 
                 #await self.display_player_embed(vc, track, ctx)
-                
+
             elif type_ == "playlist":
                 lmao = await ctx.send("⏳ Processing to add tracks from the playlist, this may take a while...")
-                
+
                 playlist_id = re.search(SPOTIFY_PLAYLIST_REGEX, link).group(1)
                 playlist_info = await spotify_api.get(f"playlists/{playlist_id}")
                 tracks = playlist_info.get("tracks", {}).get("items", [])
@@ -541,9 +527,9 @@ class Music(commands.Cog):
                         c += 1
                         await ctx.message.add_reaction("✅")
 
-                await ctx.send(view=CV2(f"{ZPLUS} Added **{c}** of **{playlist_length}** tracks from **playlist** **[{playlist_info['name']}](https://discord.gg/codexdev)** to the queue."))
+                await ctx.send(view=CV2(f"{ZPLUS} Added **{c}** of **{playlist_length}** tracks from **playlist** **[{playlist_info['name']}](https://github.com/suneo779/midvox)** to the queue."))
                 await lmao.delete()
-                
+
                 if not vc.playing:
                     next_track = await vc.queue.get_wait()
                     await vc.play(next_track)
@@ -569,13 +555,13 @@ class Music(commands.Cog):
                     if track_results:
                         await vc.queue.put_wait(track_results[0])
 
-                await ctx.send(view=CV2(f"{ZPLUS} Added all tracks from album **[{album_info['name']}](https://discord.gg/codexdev)** to the queue."))
+                await ctx.send(view=CV2(f"{ZPLUS} Added all tracks from album **[{album_info['name']}](https://github.com/suneo779/midvox)** to the queue."))
                 if not vc.playing:
                     next_track = await vc.queue.get_wait()
                     await vc.play(next_track)
                     await self.display_player_embed(vc, next_track, ctx)
 
-                
+
         except Exception as e:
             await ctx.send(f"An error occurred while processing the Spotify link: {e}")
 
@@ -591,7 +577,7 @@ class Music(commands.Cog):
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def play(self, ctx: commands.Context, *, query: str):
-        
+
         await self.play_source(ctx, query)
 
 
@@ -622,8 +608,8 @@ class Music(commands.Cog):
             return
 
         track = vc.current
-        position = vc.position / 1000  
-        length = track.length / 1000  
+        position = vc.position / 1000
+        length = track.length / 1000
 
         progress_bar = self.create_progress_bar(position, length, length=10)
         position_str = f"{int(position // 60)}:{int(position % 60):02}"
@@ -953,7 +939,7 @@ class Music(commands.Cog):
             return
 
         track = vc.current
-        target_position = int(track.length * (percentage / 100))  
+        target_position = int(track.length * (percentage / 100))
         await vc.seek(target_position)
 
         await ctx.send(view=CV2(f"Seeked to {percentage}% of the current track."))

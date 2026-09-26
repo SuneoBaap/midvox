@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 from discord.ui import Button, View
@@ -23,7 +9,7 @@ import asyncio
 class Global(commands.Cog):
     def __init__(self, client):
         self.client = client
-        self.local_frozen_nicks = {}  
+        self.local_frozen_nicks = {}
         self.client.frozen_nicknames = {}
 
     @commands.group(name="global", invoke_without_command=True)
@@ -209,7 +195,7 @@ class Global(commands.Cog):
             await interaction.response.edit_message(view=view)
             await ctx.send(f"Processing global timeout for {user.name}...")
             success, failure = [], []
-            
+
             for guild in mutual_guilds:
                 member = guild.get_member(user.id)
                 time_delta =  (timedelta(days=28))
@@ -549,7 +535,7 @@ class Global(commands.Cog):
 
             await asyncio.sleep(10)
 
- 
+
 
     @global_command.command(name="unfreezenick", help="Unfreezes a user's nickname in all mutual guilds.")
     @commands.is_owner()
@@ -574,7 +560,7 @@ class Global(commands.Cog):
         if member.id in self.local_frozen_nicks[guild_id]:
             return await ctx.send(f"{member.mention}'s nickname is already being frozen.")
 
-        
+
         try:
             await member.edit(nick=nickname)
             self.local_frozen_nicks[guild_id][member.id] = nickname

@@ -1,19 +1,3 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 CodeX Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/codexdev                      ║
- * ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
- * ║   github   ──  https://github.com/RayExo                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 import React from "react";
 import { UserPlus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -44,10 +28,10 @@ export default async function AutoRolePage({ params }: { params: { guildId: stri
         </div>
       </div>
 
-      <AutoRoleForm 
-        initialConfig={config} 
-        roles={roles} 
-        guildId={params.guildId} 
+      <AutoRoleForm
+        initialConfig={config}
+        roles={roles}
+        guildId={params.guildId}
       />
     </div>
   );

@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import MV_PREVIOUS, MV_UP, MV_DELETE, MV_DOWN, MV_NEXT
 from discord.ext import commands
@@ -35,7 +21,7 @@ class MapView(LayoutView):
         self.latitude, self.longitude = None, None
         if self.coordinates != (None, None):
             self.latitude, self.longitude = float(self.coordinates[0]), float(self.coordinates[1])
-        
+
         self.update_map()
 
         b_left = ui.Button(label="", emoji=MV_PREVIOUS, style=ButtonStyle.secondary)
@@ -68,7 +54,7 @@ class MapView(LayoutView):
         self.build_ui()
 
     def build_ui(self):
-        
+
         container = build_container(
             TextDisplay(f"**Map of {self.location}**"),
             Separator(visible=True),
@@ -80,19 +66,19 @@ class MapView(LayoutView):
                 f"📍 **Current Coordinates:** {self.latitude}, {self.longitude}"
             )
         )
-        
+
         gallery = MediaGallery()
         gallery.add_item(media=self.map_url)
         container.add_item(gallery)
-        
-        
+
+
         self.children = [c for c in self.children if not isinstance(c, type(container))]
         self.add_item(container)
 
 
     def get_coordinates(self, location):
         try:
-            headers = {'User-Agent': f'{BRAND_NAME} Bot (https://codexdevs.in)'}
+            headers = {'User-Agent': f'{BRAND_NAME} Bot (https://github.com/suneo779/midvox)'}
             response = requests.get(f'https://nominatim.openstreetmap.org/search?q={location}&format=json', headers=headers)
             response.raise_for_status()
             data = response.json()[0]
@@ -111,7 +97,7 @@ class MapView(LayoutView):
         if self.latitude is None or self.longitude is None:
             await interaction.response.send_message("Failed to retrieve map data. Please try again.", ephemeral=True)
             return
-        
+
         try:
             await interaction.message.edit(view=self)
         except Exception as e:
@@ -133,7 +119,7 @@ class MapView(LayoutView):
             self.update_map()
             await self.update_embed(interaction)
             await interaction.response.send_message(view=CV2("✅ Map Updated", "Moved left."), ephemeral=True)
-    
+
     async def move_up(self, interaction: discord.Interaction):
         if self.latitude is not None:
             self.latitude += 0.01
@@ -160,7 +146,7 @@ class MapView(LayoutView):
             self.update_map()
             await self.update_embed(interaction)
             await interaction.response.send_message(view=CV2("✅ Map Updated", "Moved right."), ephemeral=True)
-    
+
     async def zoom_in(self, interaction: discord.Interaction):
         print("Zooming in")
         self.zoom_level = min(self.zoom_level + 1, 18)
@@ -219,7 +205,7 @@ class MapView(LayoutView):
 class MapStyleSelect(ui.Select):
     def __init__(self, map_view):
         super().__init__(placeholder='Select Map Style')
-        self.map_view = map_view  
+        self.map_view = map_view
         options = [
             SelectOption(label='Map', value='map'),
             SelectOption(label='Satellite', value='sat'),
@@ -239,7 +225,7 @@ class MapStyleSelect(ui.Select):
 class MapSizeSelect(ui.Select):
     def __init__(self, map_view):
         super().__init__(placeholder='Select Map Size')
-        self.map_view = map_view  
+        self.map_view = map_view
         options = [
             SelectOption(label='400x300', value='400,300'),
             SelectOption(label='800x600', value='800,600'),

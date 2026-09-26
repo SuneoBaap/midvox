@@ -1,18 +1,4 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
-import os 
+import os
 import discord
 from utils.emoji import BOOST, CODEBASE, CROSS, KING, TICK, UPTIME, ZWARNING
 from discord.ext import commands
@@ -32,7 +18,7 @@ from utils.config import BotName, serverLink
 from utils import Paginator, DescriptionEmbedPaginator, FieldPagePaginator, TextPaginator
 from core import Cog, midvox, Context
 from typing import Optional
-import aiosqlite 
+import aiosqlite
 import asyncio
 import aiohttp
 
@@ -68,7 +54,7 @@ class RoleInfoView(View):
     permission_text = ", ".join(permissions) if permissions else "None"
     await interaction.response.send_message(view=CV2(f"Permissions for {self.role.name}", permission_text or "No permissions."), ephemeral=True)
 
-    
+
 class OverwritesView(View):
   def __init__(self, channel, author_id):
       super().__init__(timeout=180)
@@ -159,7 +145,7 @@ class Extra(commands.Cog):
       ))
       await ctx.reply(view=view)
 
-  
+
   @banner.command(name="user")
   @blacklist_check()
   @ignore_check()
@@ -194,11 +180,11 @@ class Extra(commands.Cog):
       await ctx.send(view=view)
 
 
-  
-  
+
+
 
   @commands.command(name="uptime", description="Shows the Bot's Uptime.")
-  @blacklist_check() 
+  @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 3, commands.BucketType.user)
   async def uptime(self, ctx):
@@ -216,12 +202,12 @@ class Extra(commands.Cog):
       )
       await ctx.send(view=CV2(f"{BRAND_NAME} Manager Uptime", uptime_text))
 
-    
+
 
   @commands.hybrid_command(name="serverinfo",
                            aliases=["sinfo", "si"],
                            with_app_command=True)
-  @blacklist_check() 
+  @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 3, commands.BucketType.user)
   async def serverinfo(self, ctx):
@@ -272,9 +258,9 @@ class Extra(commands.Cog):
             items.append(gallery)
         view.add_item(build_container(*items))
         await ctx.send(view=view)
-        
 
-  
+
+
   @commands.hybrid_command(name="userinfo",
                            aliases=["whois", "ui"],
                            usage="Userinfo [user]",
@@ -334,10 +320,10 @@ class Extra(commands.Cog):
         kp += " , Administrator"
       if member.guild_permissions.manage_channels:
         kp += " , Manage Channels"
-        
+
       if  member.guild_permissions.manage_guild:
         kp += " , Manage Server"
-        
+
       if member.guild_permissions.manage_messages:
         kp += " , Manage Messages"
       if member.guild_permissions.mention_everyone:
@@ -815,7 +801,7 @@ class Extra(commands.Cog):
 
   @commands.hybrid_command(name="vcinfo",
                            description="View information about a voice channel.",
-                           help="View information about a voice channel.", 
+                           help="View information about a voice channel.",
                            usage="<VoiceChannel>",
                            with_app_command=True)
   @blacklist_check()
@@ -857,7 +843,7 @@ class Extra(commands.Cog):
   async def channelinfo(self, ctx, channel: discord.TextChannel = None):
     if channel is None:
       channel = ctx.channel
-      
+
     ch_text = (
         f"**ID:** {channel.id}\n**Created At:** {channel.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"**Category:** {channel.category.name if channel.category else 'None'}\n"
@@ -876,7 +862,7 @@ class Extra(commands.Cog):
   @commands.cooldown(1, 3, commands.BucketType.user)
   async def ping(self, ctx: commands.Context):
     """Shows the bot's WebSocket, API, and Database latencies."""
-    
+
     # 1. Start timer and send an initial "Pinging..." message
     start_time = time.monotonic()
     msg = await ctx.send(view=CV2("Checking Latency...", "Calculating response times, please wait."))
@@ -884,7 +870,7 @@ class Extra(commands.Cog):
 
     bot_latency = round(self.bot.latency * 1000)
     api_latency = round((end_time - start_time) * 1000)
-    
+
     db_latency = "Not Available"
     try:
         async with aiosqlite.connect("db/afk.db") as db:
@@ -905,7 +891,7 @@ class Extra(commands.Cog):
 
 
 
-  
+
   @commands.command(name="permissions", aliases= ["perms"],
                            help="Check and list the key permissions of a specific user",
                            usage="perms <user>",
@@ -956,15 +942,15 @@ class Extra(commands.Cog):
       key_permissions.append("Priority Speaker")
     if member.guild_permissions.stream:
       key_permissions.append("Stream")
-    
-    
-    
+
+
+
 
     permissions_list = ", ".join(key_permissions) if key_permissions else "None"
 
     await ctx.reply(view=CV2(f"Key Permissions of {member}", f"__**Key Permissions**__\n{permissions_list}"))
 
-  
+
 
 
 

@@ -1,38 +1,24 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
-import discord 
+import discord
 from utils.emoji import CROSS, TICK, ZWARNING, MESSAGE
-from discord import app_commands 
-from discord .ext import commands 
-import aiosqlite 
-import asyncio 
-import json 
-import re 
-import random 
-import math 
-from datetime import datetime ,timezone ,timedelta 
-from typing import Optional ,Dict ,List ,Tuple 
+from discord import app_commands
+from discord .ext import commands
+import aiosqlite
+import asyncio
+import json
+import re
+import random
+import math
+from datetime import datetime ,timezone ,timedelta
+from typing import Optional ,Dict ,List ,Tuple
 try :
-    from PIL import Image ,ImageDraw ,ImageFont ,ImageFilter ,ImageEnhance 
-    PIL_AVAILABLE =True 
+    from PIL import Image ,ImageDraw ,ImageFont ,ImageFilter ,ImageEnhance
+    PIL_AVAILABLE =True
 except ImportError :
-    PIL_AVAILABLE =False 
-import io 
-import os 
-import requests 
-import logging 
+    PIL_AVAILABLE =False
+import io
+import os
+import requests
+import logging
 
 
 logger =logging .getLogger ('discord')
@@ -48,40 +34,40 @@ def format_number (num :int )->str :
 def calculate_level_from_xp (xp :int )->int :
     """Calculate level from XP using standard formula"""
     if xp <0 :
-        return 0 
+        return 0
     return int (math .sqrt (xp /100 ))
 
 def calculate_xp_for_level (level :int )->int :
     """Calculate XP required for a specific level"""
-    return level *level *100 
+    return level *level *100
 
 def get_level_progress (xp :int )->tuple :
     """Get current level, XP for current level, and XP for next level"""
     current_level =calculate_level_from_xp (xp )
     current_level_xp =calculate_xp_for_level (current_level )
     next_level_xp =calculate_xp_for_level (current_level +1 )
-    progress =xp -current_level_xp 
-    needed =next_level_xp -current_level_xp 
-    return current_level ,progress ,needed 
+    progress =xp -current_level_xp
+    needed =next_level_xp -current_level_xp
+    return current_level ,progress ,needed
 
 def get_progress_bar (current :int ,total :int ,length :int =10 )->str :
     """Create a visual progress bar"""
     if total ==0 :
-        return "▱"*length 
+        return "▱"*length
     filled =int ((current /total )*length )
     return "▰"*filled +"▱"*(length -filled )
 
 def validate_hex_color (color :str )->bool :
     """Validate hex color format"""
     if not color .startswith ('#'):
-        return False 
+        return False
     return bool (re .match (r'^#(?:[0-9a-fA-F]{3}){1,2}$',color ))
 
 def hex_to_int (hex_color :str )->int :
     """Convert hex color to integer"""
     try :
         if not hex_color .startswith ('#'):
-            hex_color ='#'+hex_color 
+            hex_color ='#'+hex_color
         return int (hex_color .lstrip ('#'),16 )
     except (ValueError ,TypeError ):
         return 0x8A9A5B
@@ -110,7 +96,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
     def __init__ (self ,cog ,current_settings ):
         super ().__init__ ()
 
-        self .cog =cog 
+        self .cog =cog
 
 
         self .xp_per_message =discord .ui .TextInput (
@@ -118,7 +104,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
         placeholder ="Amount of XP per message (default: 20)",
         default =str (current_settings .get ('xp_per_message',20 )),
         required =True ,
-        max_length =3 
+        max_length =3
         )
 
         self .level_up_message =discord .ui .TextInput (
@@ -127,7 +113,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
         default =current_settings .get ('level_message','Congratulations {user}! You have reached level {level}!'),
         required =True ,
         style =discord .TextStyle .paragraph ,
-        max_length =2000 
+        max_length =2000
         )
 
 
@@ -146,7 +132,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
         placeholder ="#FF0000",
         default =current_color ,
         required =True ,
-        max_length =7 
+        max_length =7
         )
 
         self .level_up_image =discord .ui .TextInput (
@@ -154,7 +140,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
         placeholder ="Direct image URL for level up embeds",
         default =current_settings .get ('level_image',''),
         required =False ,
-        max_length =500 
+        max_length =500
         )
 
         self .thumbnail_enabled =discord .ui .TextInput (
@@ -162,7 +148,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
         placeholder ="true or false",
         default =str (current_settings .get ('thumbnail_enabled',True )).lower (),
         required =True ,
-        max_length =5 
+        max_length =5
         )
 
         self .add_item (self .xp_per_message )
@@ -175,7 +161,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
         try :
             if not interaction or not hasattr (interaction ,'response'):
                 logger .error ("Invalid interaction object in LevelConfigModal")
-                return 
+                return
 
             await interaction .response .defer (ephemeral =True )
 
@@ -187,16 +173,16 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
             except ValueError as ve :
                 logger .error (f"XP validation error: {ve}")
                 await interaction .followup .send (f"{CROSS} Invalid XP per message value! Must be between 1 and 999.",ephemeral =True )
-                return 
+                return
 
 
             color_value =self .embed_color .value .strip ()
             if not color_value .startswith ('#'):
-                color_value ='#'+color_value 
+                color_value ='#'+color_value
 
             if not validate_hex_color (color_value ):
                 await interaction .followup .send (f"{CROSS} Invalid hex color format! Use format like #FF0000",ephemeral =True )
-                return 
+                return
 
             thumbnail_bool =self .thumbnail_enabled .value .lower ()in ['true','yes','1','on']
 
@@ -205,10 +191,10 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
                 embed_color_int =hex_to_int (color_value )
             except Exception as e :
                 logger .error (f"Color conversion error: {e}")
-                embed_color_int =0 
+                embed_color_int =0
 
 
-            image_value =self .level_up_image .value .strip ()if self .level_up_image .value and self .level_up_image .value .strip ()else None 
+            image_value =self .level_up_image .value .strip ()if self .level_up_image .value and self .level_up_image .value .strip ()else None
 
 
             try :
@@ -220,8 +206,8 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
                     if exists :
 
                         await db .execute ("""
-                            UPDATE leveling_settings 
-                            SET enabled = ?, xp_per_message = ?, level_message = ?, embed_color = ?, 
+                            UPDATE leveling_settings
+                            SET enabled = ?, xp_per_message = ?, level_message = ?, embed_color = ?,
                                 level_image = ?, thumbnail_enabled = ?
                             WHERE guild_id = ?
                         """,(
@@ -231,13 +217,13 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
                         embed_color_int ,
                         image_value ,
                         1 if thumbnail_bool else 0 ,
-                        interaction .guild .id 
+                        interaction .guild .id
                         ))
                         logger .info (f"Updated settings for guild {interaction.guild.id}")
                     else :
 
                         await db .execute ("""
-                            INSERT INTO leveling_settings 
+                            INSERT INTO leveling_settings
                             (guild_id, enabled, xp_per_message, level_message, embed_color, level_image, thumbnail_enabled,
                              min_xp, max_xp, cooldown_seconds, dm_level_up, channel_id)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -253,7 +239,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
                         25 ,
                         60 ,
                         0 ,
-                        None 
+                        None
                         ))
                         logger .info (f"Created new settings for guild {interaction.guild.id}")
 
@@ -261,7 +247,7 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
                     logger .info (f"Settings saved successfully for guild {interaction.guild.id}")
 
             except Exception as e :
-                return 
+                return
 
 
             embed =discord .Embed (
@@ -283,12 +269,12 @@ class LevelConfigModal (discord .ui .Modal ,title ="Leveling System Configuratio
             logger .error (f"Critical error in LevelConfigModal: {e}")
             await interaction .followup .send (
             f"{CROSS} An unexpected error occurred: {str(e)}",
-            ephemeral =True 
+            ephemeral =True
             )
 
 class Leveling (commands .Cog ):
     def __init__ (self ,bot ):
-        self .bot =bot 
+        self .bot =bot
         self .message_cooldowns ={}
         self .last_level_cache ={}
         self .db_path ="db/leveling.db"
@@ -408,7 +394,7 @@ class Leveling (commands .Cog ):
 
     async def get_guild_settings (self ,guild_id :int )->dict :
         """Get guild leveling settings"""
-        max_retries =5 
+        max_retries =5
         for attempt in range (max_retries ):
             try :
                 async with aiosqlite .connect ("db/leveling.db")as db :
@@ -425,11 +411,11 @@ class Leveling (commands .Cog ):
                         'level_message':'Congratulations {user}! You have reached level {level}!',
                         'embed_color':'#000000','level_image':None ,'thumbnail_enabled':True ,
                         'xp_per_message':20 ,'min_xp':15 ,'max_xp':25 ,'cooldown_seconds':60 ,
-                        'dm_level_up':False 
+                        'dm_level_up':False
                         }
 
 
-                    embed_color =row [4 ]if len (row )>4 and row [4 ]is not None else 0 
+                    embed_color =row [4 ]if len (row )>4 and row [4 ]is not None else 0
                     if isinstance (embed_color ,int ):
                         color_hex =f"#{embed_color:06x}"
                     else :
@@ -447,20 +433,20 @@ class Leveling (commands .Cog ):
                     'min_xp':row [8 ]if len (row )>8 else 15 ,
                     'max_xp':row [9 ]if len (row )>9 else 25 ,
                     'cooldown_seconds':row [10 ]if len (row )>10 else 60 ,
-                    'dm_level_up':bool (row [11 ])if len (row )>11 else False 
+                    'dm_level_up':bool (row [11 ])if len (row )>11 else False
                     }
 
             except aiosqlite .OperationalError as e :
                 if attempt <max_retries -1 :
                     logger .warning (f"Database locked, retrying... (attempt {attempt + 1})")
                     await asyncio .sleep (0.1 *(attempt +1 ))
-                    continue 
+                    continue
                 else :
                     logger .error (f"Database error after {max_retries} attempts: {e}")
-                    break 
+                    break
             except Exception as e :
                 logger .error (f"Error getting guild settings: {e}")
-                break 
+                break
 
 
         return {
@@ -468,7 +454,7 @@ class Leveling (commands .Cog ):
         'level_message':'Congratulations {user}! You have reached level {level}!',
         'embed_color':'#000000','level_image':None ,'thumbnail_enabled':True ,
         'xp_per_message':20 ,'min_xp':15 ,'max_xp':25 ,'cooldown_seconds':60 ,
-        'dm_level_up':False 
+        'dm_level_up':False
         }
 
     async def is_blacklisted (self ,guild_id :int ,user_id :int ,channel_id :int )->bool :
@@ -483,7 +469,7 @@ class Leveling (commands .Cog ):
                     if "target_type"not in columns :
 
                         logger .warning ("target_type column missing from leveling_blacklist table")
-                        return False 
+                        return False
 
 
                 async with db .execute (
@@ -491,7 +477,7 @@ class Leveling (commands .Cog ):
                 (guild_id ,channel_id )
                 )as cursor :
                     if await cursor .fetchone ():
-                        return True 
+                        return True
 
 
                 guild =self .bot .get_guild (guild_id )
@@ -504,24 +490,24 @@ class Leveling (commands .Cog ):
                         )as cursor :
                             blacklisted_roles =[row [0 ]for row in await cursor .fetchall ()]
                             if any (role .id in blacklisted_roles for role in member .roles ):
-                                return True 
-                return False 
+                                return True
+                return False
         except Exception as e :
             logger .error (f"Error checking blacklist: {e}")
-            return False 
+            return False
 
     async def get_xp_multiplier (self ,guild_id :int ,user_id :int ,channel_id :int )->float :
         """Get XP multiplier for user"""
         try :
             guild =self .bot .get_guild (guild_id )
             if not guild :
-                return 1.0 
+                return 1.0
 
             member =guild .get_member (user_id )
             if not member :
-                return 1.0 
+                return 1.0
 
-            total_multiplier =1.0 
+            total_multiplier =1.0
             async with aiosqlite .connect ("db/leveling.db")as db :
 
                 async with db .execute (
@@ -532,7 +518,7 @@ class Leveling (commands .Cog ):
 
                 for role_id ,multiplier in role_multipliers :
                     if any (role .id ==role_id for role in member .roles ):
-                        total_multiplier *=multiplier 
+                        total_multiplier *=multiplier
 
 
                 async with db .execute (
@@ -543,20 +529,20 @@ class Leveling (commands .Cog ):
                     if channel_mult :
                         total_multiplier *=channel_mult [0 ]
 
-            return total_multiplier 
+            return total_multiplier
         except Exception as e :
             logger .error (f"Error getting XP multiplier: {e}")
-            return 1.0 
+            return 1.0
 
     @commands .Cog .listener ()
     async def on_message (self ,message ):
         """Handle message XP tracking with independent message tracking system"""
         if message .author .bot or not message .guild :
-            return 
+            return
 
-        guild_id =message .guild .id 
-        user_id =message .author .id 
-        channel_id =message .channel .id 
+        guild_id =message .guild .id
+        user_id =message .author .id
+        channel_id =message .channel .id
 
 
         cooldown_key =f"{guild_id}_{user_id}"
@@ -564,15 +550,15 @@ class Leveling (commands .Cog ):
 
         if cooldown_key in self .message_cooldowns :
             if now <self .message_cooldowns [cooldown_key ]:
-                return 
+                return
 
         try :
             settings =await self .get_guild_settings (guild_id )
             if not settings .get ('enabled',False ):
-                return 
+                return
 
             if await self .is_blacklisted (guild_id ,user_id ,channel_id ):
-                return 
+                return
 
 
             cooldown_seconds =settings .get ('cooldown_seconds',60 )
@@ -581,14 +567,14 @@ class Leveling (commands .Cog ):
 
             base_xp =settings .get ('xp_per_message',20 )
             if base_xp is None :
-                base_xp =20 
+                base_xp =20
 
-            final_xp =base_xp 
+            final_xp =base_xp
 
 
             multiplier =await self .get_xp_multiplier (guild_id ,user_id ,channel_id )
             if multiplier is None :
-                multiplier =1.0 
+                multiplier =1.0
 
             final_xp =int (final_xp *multiplier )
 
@@ -601,22 +587,22 @@ class Leveling (commands .Cog ):
                     row =await cursor .fetchone ()
 
                 if row and len (row )>=2 :
-                    current_xp =row [0 ]if row [0 ]is not None else 0 
-                    current_messages =row [1 ]if row [1 ]is not None else 0 
+                    current_xp =row [0 ]if row [0 ]is not None else 0
+                    current_messages =row [1 ]if row [1 ]is not None else 0
                     old_level =calculate_level_from_xp (current_xp )
-                    new_xp =current_xp +final_xp 
+                    new_xp =current_xp +final_xp
                     new_level =calculate_level_from_xp (new_xp )
-                    new_messages =current_messages +1 
+                    new_messages =current_messages +1
 
                     await db .execute ("""
-                        UPDATE user_xp 
+                        UPDATE user_xp
                         SET xp = ?, messages = ?, last_message_time = ?
                         WHERE guild_id = ? AND user_id = ?
                     """,(new_xp ,new_messages ,now .isoformat (),guild_id ,user_id ))
                 else :
-                    old_level =0 
+                    old_level =0
                     new_level =calculate_level_from_xp (final_xp )
-                    new_messages =1 
+                    new_messages =1
 
                     await db .execute ("""
                         INSERT INTO user_xp (guild_id, user_id, xp, messages, last_message_time)
@@ -624,7 +610,7 @@ class Leveling (commands .Cog ):
                     """,(guild_id ,user_id ,final_xp ,new_messages ,now .isoformat ()))
 
 
-                current_new_xp =new_xp if 'new_xp'in locals ()else final_xp 
+                current_new_xp =new_xp if 'new_xp'in locals ()else final_xp
                 current_new_level =new_level if 'new_level'in locals ()else calculate_level_from_xp (final_xp )
                 await db .execute ("""
                     INSERT OR REPLACE INTO users (guild_id, user_id, xp, level)
@@ -645,24 +631,24 @@ class Leveling (commands .Cog ):
         try :
 
             channel_id =settings .get ('channel_id')
-            channel =None 
+            channel =None
 
             if channel_id :
                 channel =self .bot .get_channel (channel_id )
 
                 if channel and not channel .permissions_for (message .guild .me ).send_messages :
                     logger .warning (f"No permission to send messages in configured level channel {channel_id}")
-                    channel =None 
+                    channel =None
 
 
             if not channel :
                 if not channel_id :
 
-                    channel =message .channel 
+                    channel =message .channel
                 else :
 
                     logger .error (f"Configured level channel {channel_id} not found or not accessible")
-                    return 
+                    return
 
 
             level_message =settings .get ('level_message','Congratulations {user}! You have reached level {level}!')
@@ -775,13 +761,13 @@ class Leveling (commands .Cog ):
                 )as cursor :
                     row =await cursor .fetchone ()
                     if row :
-                        xp ,messages =row 
+                        xp ,messages =row
                         level =calculate_level_from_xp (xp if xp is not None else 0 )
-                        return xp if xp is not None else 0 ,level ,messages if messages is not None else 0 
-                    return 0 ,0 ,0 
+                        return xp if xp is not None else 0 ,level ,messages if messages is not None else 0
+                    return 0 ,0 ,0
         except Exception as e :
             logger .error (f"Error getting user data: {e}")
-            return 0 ,0 ,0 
+            return 0 ,0 ,0
 
     async def get_user_rank (self ,guild_id :int ,user_id :int )->int :
         """Get user's rank in the guild"""
@@ -792,10 +778,10 @@ class Leveling (commands .Cog ):
                 (guild_id ,guild_id ,user_id )
                 )as cursor :
                     rank =(await cursor .fetchone ())[0 ]
-                    return rank 
+                    return rank
         except Exception as e :
             logger .error (f"Error getting user rank: {e}")
-            return 1 
+            return 1
 
     def create_simple_rank_card (self ,member ,xp ,level ,rank ,messages ):
         """Create a simple text-based rank card when PIL fails"""
@@ -846,12 +832,12 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error creating rank card: {e}")
-            return None 
+            return None
 
     async def create_rank_card_design (self ,member ,xp ,level ,rank ,messages ,design_number ):
         """Create specific rank card design based on design number"""
         current_level ,progress ,needed =get_level_progress (xp )
-        width ,height =900 ,300 
+        width ,height =900 ,300
 
 
         try :
@@ -898,9 +884,9 @@ class Leveling (commands .Cog ):
 
         for x in range (width ):
             for y in range (height ):
-                factor_x =x /width 
-                factor_y =y /height 
-                factor =(factor_x +factor_y )/2 
+                factor_x =x /width
+                factor_y =y /height
+                factor =(factor_x +factor_y )/2
 
                 r =int (scheme [0 ][0 ]+(scheme [1 ][0 ]-scheme [0 ][0 ])*factor )
                 g =int (scheme [0 ][1 ]+(scheme [1 ][1 ]-scheme [0 ][1 ])*factor )
@@ -919,7 +905,7 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def create_neon_design (self ,member ,xp ,level ,rank ,messages ,current_level ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Neon cyberpunk style design"""
@@ -947,7 +933,7 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def create_space_design (self ,member ,xp ,level ,rank ,messages ,current_level ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Space theme with stars and nebula"""
@@ -980,7 +966,7 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def create_minimal_design (self ,member ,xp ,level ,rank ,messages ,current_level ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Clean minimal design"""
@@ -999,7 +985,7 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def create_gaming_design (self ,member ,xp ,level ,rank ,messages ,current_level ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Gaming RGB style design"""
@@ -1009,7 +995,7 @@ class Leveling (commands .Cog ):
 
         colors =[(255 ,0 ,0 ),(255 ,127 ,0 ),(255 ,255 ,0 ),(0 ,255 ,0 ),(0 ,0 ,255 ),(139 ,0 ,255 )]
         for i ,color in enumerate (colors ):
-            offset =i *2 
+            offset =i *2
             draw .rounded_rectangle ((10 +offset ,10 +offset ,width -10 -offset ,height -10 -offset ),
             radius =20 -offset ,outline =color ,width =2 )
 
@@ -1022,7 +1008,7 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def create_elegant_design (self ,member ,xp ,level ,rank ,messages ,current_level ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Elegant gold and black design"""
@@ -1044,7 +1030,7 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def create_cyberpunk_design (self ,member ,xp ,level ,rank ,messages ,current_level ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Cyberpunk style design"""
@@ -1068,13 +1054,13 @@ class Leveling (commands .Cog ):
         img .save (img_bytes ,format ='PNG')
         img_bytes .seek (0 )
         img .close ()
-        return img_bytes 
+        return img_bytes
 
     async def add_avatar_and_content_classic (self ,draw ,member ,level ,rank ,messages ,xp ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for classic design"""
 
-        avatar_size =120 
-        avatar_x ,avatar_y =30 ,90 
+        avatar_size =120
+        avatar_x ,avatar_y =30 ,90
 
         try :
             avatar_url =str (member .display_avatar .with_size (256 ).url )
@@ -1090,7 +1076,7 @@ class Leveling (commands .Cog ):
                 draw .ellipse ((avatar_x -3 ,avatar_y -3 ,avatar_x +avatar_size +3 ,avatar_y +avatar_size +3 ),fill =(255 ,255 ,255 ))
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1100,7 +1086,7 @@ class Leveling (commands .Cog ):
             draw .text ((avatar_x +avatar_size //2 -20 ,avatar_y +avatar_size //2 -20 ),"👤",font =font_large ,fill =(255 ,255 ,255 ))
 
 
-        info_x =180 
+        info_x =180
         username =member .display_name [:18 ]
 
         draw .text ((info_x +2 ,42 ),username ,font =font_large ,fill =(0 ,0 ,0 ))
@@ -1113,8 +1099,8 @@ class Leveling (commands .Cog ):
         draw .text ((info_x ,110 ),f"📊 Rank #{rank}",font =font_medium ,fill =(135 ,206 ,250 ))
 
 
-        bar_x ,bar_y =info_x ,150 
-        bar_width ,bar_height =500 ,25 
+        bar_x ,bar_y =info_x ,150
+        bar_width ,bar_height =500 ,25
 
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =12 ,fill =(32 ,34 ,37 ))
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =12 ,outline =(128 ,128 ,128 ),width =1 )
@@ -1123,7 +1109,7 @@ class Leveling (commands .Cog ):
             progress_width =int ((progress /needed )*bar_width )
             if progress_width >0 :
                 for i in range (progress_width ):
-                    factor =i /progress_width if progress_width >0 else 0 
+                    factor =i /progress_width if progress_width >0 else 0
                     r =int (100 +(255 -100 )*factor )
                     g =int (150 +(105 -150 )*factor )
                     b =int (255 -50 *factor )
@@ -1132,12 +1118,12 @@ class Leveling (commands .Cog ):
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x +1 ,bar_y +6 ),xp_text ,font =font_small ,fill =(0 ,0 ,0 ))
         draw .text ((text_x ,bar_y +5 ),xp_text ,font =font_small ,fill =(255 ,255 ,255 ))
 
 
-        stats_x =720 
+        stats_x =720
         draw .text ((stats_x +1 ,81 ),f"💬 Messages",font =font_small ,fill =(0 ,0 ,0 ))
         draw .text ((stats_x ,80 ),f"💬 Messages",font =font_small ,fill =(255 ,255 ,255 ))
         draw .text ((stats_x +1 ,101 ),f"{messages:,}",font =font_medium ,fill =(0 ,0 ,0 ))
@@ -1148,7 +1134,7 @@ class Leveling (commands .Cog ):
         draw .text ((stats_x +1 ,151 ),f"{xp:,}",font =font_medium ,fill =(0 ,0 ,0 ))
         draw .text ((stats_x ,150 ),f"{xp:,}",font =font_medium ,fill =(255 ,165 ,0 ))
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x +1 ,181 ),f"📈 Progress",font =font_small ,fill =(0 ,0 ,0 ))
         draw .text ((stats_x ,180 ),f"📈 Progress",font =font_small ,fill =(255 ,255 ,255 ))
         draw .text ((stats_x +1 ,201 ),f"{percentage:.1f}%",font =font_medium ,fill =(0 ,0 ,0 ))
@@ -1161,8 +1147,8 @@ class Leveling (commands .Cog ):
 
     async def add_avatar_and_content_neon (self ,draw ,member ,level ,rank ,messages ,xp ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for neon design"""
-        avatar_size =100 
-        avatar_x ,avatar_y =40 ,100 
+        avatar_size =100
+        avatar_x ,avatar_y =40 ,100
 
 
         for i in range (3 ):
@@ -1180,7 +1166,7 @@ class Leveling (commands .Cog ):
                 mask_draw .ellipse ((0 ,0 ,avatar_size ,avatar_size ),fill =255 )
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1189,7 +1175,7 @@ class Leveling (commands .Cog ):
             draw .text ((avatar_x +avatar_size //2 -15 ,avatar_y +avatar_size //2 -15 ),"👤",font =font_medium ,fill =(0 ,255 ,255 ))
 
 
-        info_x =170 
+        info_x =170
         username =member .display_name [:15 ]
 
 
@@ -1200,8 +1186,8 @@ class Leveling (commands .Cog ):
             draw .text ((info_x +offset [0 ],115 +offset [1 ]),f"🎯 Rank #{rank}",font =font_medium ,fill =color )
 
 
-        bar_x ,bar_y =info_x ,160 
-        bar_width ,bar_height =480 ,20 
+        bar_x ,bar_y =info_x ,160
+        bar_width ,bar_height =480 ,20
 
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =10 ,fill =(0 ,20 ,20 ))
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =10 ,outline =(0 ,255 ,255 ),width =2 )
@@ -1214,22 +1200,22 @@ class Leveling (commands .Cog ):
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x ,bar_y +2 ),xp_text ,font =font_small ,fill =(255 ,255 ,255 ))
 
 
-        stats_x =700 
-        stats_y =80 
+        stats_x =700
+        stats_y =80
         draw .text ((stats_x ,stats_y ),f"💬 {messages:,}",font =font_small ,fill =(0 ,255 ,255 ))
         draw .text ((stats_x ,stats_y +25 ),f"⭐ {xp:,} XP",font =font_small ,fill =(0 ,255 ,255 ))
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x ,stats_y +50 ),f"📈 {percentage:.1f}%",font =font_small ,fill =(0 ,255 ,255 ))
 
     async def add_avatar_and_content_space (self ,draw ,member ,level ,rank ,messages ,xp ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for space design"""
-        avatar_size =110 
-        avatar_x ,avatar_y =35 ,95 
+        avatar_size =110
+        avatar_x ,avatar_y =35 ,95
 
 
         for i in range (5 ):
@@ -1249,7 +1235,7 @@ class Leveling (commands .Cog ):
                 mask_draw .ellipse ((0 ,0 ,avatar_size ,avatar_size ),fill =255 )
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1258,7 +1244,7 @@ class Leveling (commands .Cog ):
             draw .text ((avatar_x +avatar_size //2 -15 ,avatar_y +avatar_size //2 -15 ),"🚀",font =font_medium ,fill =(255 ,255 ,255 ))
 
 
-        info_x =175 
+        info_x =175
         username =member .display_name [:16 ]
 
         draw .text ((info_x ,45 ),username ,font =font_large ,fill =(255 ,255 ,255 ))
@@ -1266,8 +1252,8 @@ class Leveling (commands .Cog ):
         draw .text ((info_x ,110 ),f"🛸 Rank #{rank}",font =font_medium ,fill =(100 ,200 ,255 ))
 
 
-        bar_x ,bar_y =info_x ,155 
-        bar_width ,bar_height =490 ,22 
+        bar_x ,bar_y =info_x ,155
+        bar_width ,bar_height =490 ,22
 
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =11 ,fill =(10 ,10 ,30 ))
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =11 ,outline =(100 ,150 ,255 ),width =1 )
@@ -1277,32 +1263,32 @@ class Leveling (commands .Cog ):
             if progress_width >0 :
 
                 for i in range (progress_width ):
-                    factor =i /progress_width if progress_width >0 else 0 
+                    factor =i /progress_width if progress_width >0 else 0
                     r =int (50 +(200 *factor ))
                     g =int (100 +(150 *factor ))
-                    b =255 
+                    b =255
                     draw .line ([(bar_x +i ,bar_y +2 ),(bar_x +i ,bar_y +bar_height -2 )],fill =(r ,g ,b ))
 
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x ,bar_y +3 ),xp_text ,font =font_small ,fill =(255 ,255 ,255 ))
 
 
-        stats_x =720 
+        stats_x =720
         draw .text ((stats_x ,85 ),f"📡 Messages",font =font_small ,fill =(200 ,200 ,255 ))
         draw .text ((stats_x ,105 ),f"{messages:,}",font =font_medium ,fill =(255 ,255 ,255 ))
         draw .text ((stats_x ,135 ),f"⭐ Total XP",font =font_small ,fill =(200 ,200 ,255 ))
         draw .text ((stats_x ,155 ),f"{xp:,}",font =font_medium ,fill =(255 ,215 ,0 ))
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x ,185 ),f"🌌 {percentage:.1f}%",font =font_small ,fill =(100 ,200 ,255 ))
 
     async def add_avatar_and_content_minimal (self ,draw ,member ,level ,rank ,messages ,xp ,progress ,needed ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for minimal design"""
-        avatar_size =100 
-        avatar_x ,avatar_y =40 ,100 
+        avatar_size =100
+        avatar_x ,avatar_y =40 ,100
 
 
         draw .ellipse ((avatar_x -2 ,avatar_y -2 ,avatar_x +avatar_size +2 ,avatar_y +avatar_size +2 ),outline =(200 ,200 ,200 ),width =2 )
@@ -1319,7 +1305,7 @@ class Leveling (commands .Cog ):
                 mask_draw .ellipse ((0 ,0 ,avatar_size ,avatar_size ),fill =255 )
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1328,7 +1314,7 @@ class Leveling (commands .Cog ):
             draw .text ((avatar_x +avatar_size //2 -15 ,avatar_y +avatar_size //2 -15 ),"👤",font =font_medium ,fill =(100 ,100 ,100 ))
 
 
-        info_x =170 
+        info_x =170
         username =member .display_name [:18 ]
 
         draw .text ((info_x ,50 ),username ,font =font_large ,fill =(50 ,50 ,50 ))
@@ -1336,8 +1322,8 @@ class Leveling (commands .Cog ):
         draw .text ((info_x ,115 ),f"Rank #{rank}",font =font_medium ,fill =(150 ,150 ,150 ))
 
 
-        bar_x ,bar_y =info_x ,160 
-        bar_width ,bar_height =480 ,18 
+        bar_x ,bar_y =info_x ,160
+        bar_width ,bar_height =480 ,18
 
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =9 ,fill =(240 ,240 ,240 ))
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =9 ,outline =(200 ,200 ,200 ),width =1 )
@@ -1350,26 +1336,26 @@ class Leveling (commands .Cog ):
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x ,bar_y +2 ),xp_text ,font =font_small ,fill =(100 ,100 ,100 ))
 
 
-        stats_x =700 
+        stats_x =700
         draw .text ((stats_x ,85 ),f"Messages: {messages:,}",font =font_small ,fill =(120 ,120 ,120 ))
         draw .text ((stats_x ,115 ),f"Total XP: {xp:,}",font =font_small ,fill =(120 ,120 ,120 ))
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x ,145 ),f"Progress: {percentage:.1f}%",font =font_small ,fill =(120 ,120 ,120 ))
 
     async def add_avatar_and_content_gaming (self ,draw ,member ,xp ,progress ,needed ,messages ,level ,rank ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for gaming design"""
-        avatar_size =110 
-        avatar_x ,avatar_y =35 ,95 
+        avatar_size =110
+        avatar_x ,avatar_y =35 ,95
 
 
         colors =[(255 ,0 ,0 ),(0 ,255 ,0 ),(0 ,0 ,255 )]
         for i ,color in enumerate (colors ):
-            offset =i *2 
+            offset =i *2
             draw .ellipse ((avatar_x -5 -offset ,avatar_y -5 -offset ,avatar_x +avatar_size +5 +offset ,avatar_y +avatar_size +5 +offset ),outline =color ,width =1 )
 
         try :
@@ -1384,7 +1370,7 @@ class Leveling (commands .Cog ):
                 mask_draw .ellipse ((0 ,0 ,avatar_size ,avatar_size ),fill =255 )
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1393,7 +1379,7 @@ class Leveling (commands .Cog ):
             draw .text ((avatar_x +avatar_size //2 -15 ,avatar_y +avatar_size //2 -15 ),"🎮",font =font_medium ,fill =(200 ,200 ,200 ))
 
 
-        info_x =175 
+        info_x =175
         username =member .display_name [:16 ]
 
         draw .text ((info_x ,45 ),username ,font =font_large ,fill =(200 ,200 ,200 ))
@@ -1401,8 +1387,8 @@ class Leveling (commands .Cog ):
         draw .text ((info_x ,110 ),f"Rank #{rank}",font =font_medium ,fill =(100 ,100 ,100 ))
 
 
-        bar_x ,bar_y =info_x ,155 
-        bar_width ,bar_height =490 ,22 
+        bar_x ,bar_y =info_x ,155
+        bar_width ,bar_height =490 ,22
 
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =11 ,fill =(30 ,30 ,30 ))
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =11 ,outline =(80 ,80 ,80 ),width =1 )
@@ -1412,30 +1398,30 @@ class Leveling (commands .Cog ):
             if progress_width >0 :
 
                 for i in range (progress_width ):
-                    factor =i /progress_width if progress_width >0 else 0 
+                    factor =i /progress_width if progress_width >0 else 0
                     r =int (50 +(150 *factor ))
                     g =int (100 +(100 *factor ))
-                    b =200 
+                    b =200
                     draw .line ([(bar_x +i ,bar_y +2 ),(bar_x +i ,bar_y +bar_height -2 )],fill =(r ,g ,b ))
 
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x ,bar_y +3 ),xp_text ,font =font_small ,fill =(200 ,200 ,200 ))
 
 
-        stats_x =720 
+        stats_x =720
         draw .text ((stats_x ,85 ),f"Messages: {messages:,}",font =font_small ,fill =(150 ,150 ,150 ))
         draw .text ((stats_x ,115 ),f"Total XP: {xp:,}",font =font_small ,fill =(150 ,150 ,150 ))
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x ,145 ),f"Progress: {percentage:.1f}%",font =font_small ,fill =(150 ,150 ,150 ))
 
     async def add_avatar_and_content_elegant (self ,draw ,member ,xp ,progress ,needed ,messages ,level ,rank ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for elegant design"""
-        avatar_size =110 
-        avatar_x ,avatar_y =35 ,95 
+        avatar_size =110
+        avatar_x ,avatar_y =35 ,95
 
 
         for i in range (3 ):
@@ -1454,7 +1440,7 @@ class Leveling (commands .Cog ):
                 mask_draw .ellipse ((0 ,0 ,avatar_size ,avatar_size ),fill =255 )
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1463,7 +1449,7 @@ class Leveling (commands .Cog ):
             draw .text ((avatar_x +avatar_size //2 -15 ,avatar_y +avatar_size //2 -15 ),"👑",font =font_medium ,fill =(255 ,215 ,0 ))
 
 
-        info_x =175 
+        info_x =175
         username =member .display_name [:16 ]
 
         draw .text ((info_x ,45 ),username ,font =font_large ,fill =(230 ,230 ,230 ))
@@ -1471,8 +1457,8 @@ class Leveling (commands .Cog ):
         draw .text ((info_x ,110 ),f"Rank #{rank}",font =font_medium ,fill =(180 ,180 ,180 ))
 
 
-        bar_x ,bar_y =info_x ,155 
-        bar_width ,bar_height =490 ,22 
+        bar_x ,bar_y =info_x ,155
+        bar_width ,bar_height =490 ,22
 
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =11 ,fill =(40 ,40 ,40 ))
         draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),radius =11 ,outline =(100 ,80 ,0 ),width =1 )
@@ -1482,30 +1468,30 @@ class Leveling (commands .Cog ):
             if progress_width >0 :
 
                 for i in range (progress_width ):
-                    factor =i /progress_width if progress_width >0 else 0 
-                    r =255 
+                    factor =i /progress_width if progress_width >0 else 0
+                    r =255
                     g =int (150 +(65 *factor ))
-                    b =0 
+                    b =0
                     draw .line ([(bar_x +i ,bar_y +2 ),(bar_x +i ,bar_y +bar_height -2 )],fill =(r ,g ,b ))
 
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x ,bar_y +3 ),xp_text ,font =font_small ,fill =(220 ,220 ,220 ))
 
 
-        stats_x =720 
+        stats_x =720
         draw .text ((stats_x ,85 ),f"Messages: {messages:,}",font =font_small ,fill =(180 ,180 ,180 ))
         draw .text ((stats_x ,115 ),f"Total XP: {xp:,}",font =font_small ,fill =(255 ,215 ,0 ))
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x ,145 ),f"Progress: {percentage:.1f}%",font =font_small ,fill =(200 ,200 ,200 ))
 
     async def add_avatar_and_content_cyberpunk (self ,draw ,member ,xp ,progress ,needed ,messages ,level ,rank ,width ,height ,font_large ,font_medium ,font_small ):
         """Add avatar and content for cyberpunk design"""
-        avatar_size =100 
-        avatar_x ,avatar_y =40 ,100 
+        avatar_size =100
+        avatar_x ,avatar_y =40 ,100
 
 
         try :
@@ -1520,7 +1506,7 @@ class Leveling (commands .Cog ):
                 mask_draw .rectangle ((0 ,0 ,avatar_size ,avatar_size ),fill =255 )
 
                 avatar_img .putalpha (mask )
-                img =draw ._image 
+                img =draw ._image
                 img .paste (avatar_img ,(avatar_x ,avatar_y ),avatar_img )
             else :
                 raise Exception ("Failed to download avatar")
@@ -1530,7 +1516,7 @@ class Leveling (commands .Cog ):
 
 
         text_color =(148 ,0 ,211 )
-        info_x =170 
+        info_x =170
         username =member .display_name [:15 ]
 
         draw .text ((info_x ,50 ),username ,font =font_large ,fill =text_color )
@@ -1538,8 +1524,8 @@ class Leveling (commands .Cog ):
         draw .text ((info_x ,115 ),f"Rank #{rank}",font =font_medium ,fill =text_color )
 
 
-        bar_x ,bar_y =info_x ,160 
-        bar_width ,bar_height =480 ,20 
+        bar_x ,bar_y =info_x ,160
+        bar_width ,bar_height =480 ,20
 
         draw .rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),fill =(30 ,30 ,30 ))
 
@@ -1551,22 +1537,22 @@ class Leveling (commands .Cog ):
         xp_text =f"{progress:,} / {needed:,} XP"
         text_bbox =draw .textbbox ((0 ,0 ),xp_text ,font =font_small )
         text_width =text_bbox [2 ]-text_bbox [0 ]
-        text_x =bar_x +(bar_width -text_width )//2 
+        text_x =bar_x +(bar_width -text_width )//2
         draw .text ((text_x ,bar_y +2 ),xp_text ,font =font_small ,fill =(220 ,220 ,220 ))
 
 
-        stats_x =700 
+        stats_x =700
         draw .text ((stats_x ,85 ),f"Messages: {messages:,}",font =font_small ,fill =text_color )
         draw .text ((stats_x ,115 ),f"Total XP: {xp:,}",font =font_small ,fill =text_color )
 
-        percentage =(progress /needed *100 )if needed >0 else 100 
+        percentage =(progress /needed *100 )if needed >0 else 100
         draw .text ((stats_x ,145 ),f"Progress: {percentage:.1f}%",font =font_small ,fill =text_color )
 
     @level .command (name ="rank",description ="View your current rank and level")
     async def rank (self ,ctx ,member :Optional [discord .Member ]=None ):
         """Display rank card"""
-        member =member or ctx .author 
-        guild_id =ctx .guild .id 
+        member =member or ctx .author
+        guild_id =ctx .guild .id
 
         try :
             rank_card =await self .create_rank_card (member ,guild_id )
@@ -1582,12 +1568,12 @@ class Leveling (commands .Cog ):
                 try :
                     rank_card .close ()
                 except :
-                    pass 
+                    pass
             else :
-                pass 
+                pass
         except Exception as e :
             logger .error (f"Error in rank command: {e}")
-            pass 
+            pass
 
     @level .command (name ="settings",description ="Configure leveling settings",aliases =['config'])
     @commands .has_permissions (administrator =True )
@@ -1606,7 +1592,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error in settings command: {e}")
-            pass 
+            pass
 
     async def interactive_setup (self ,ctx ,current_settings ):
         """Interactive setup for prefix commands"""
@@ -1627,13 +1613,13 @@ class Leveling (commands .Cog ):
             f"🎨 Embed Color: {current_settings.get('embed_color', '#000000')}\n"
             f"🖼️ Thumbnail: {'{TICK} Yes' if current_settings.get('thumbnail_enabled', True) else '{CROSS} No'}\n"
             f"📢 Level Channel: {'Set' if current_settings.get('channel_id') else 'Not set'}",
-            inline =False 
+            inline =False
             )
 
             setup_msg =await ctx .send (embed =embed )
 
             def check (m ):
-                return m .author ==ctx .author and m .channel ==ctx .channel 
+                return m .author ==ctx .author and m .channel ==ctx .channel
 
 
             await ctx .send ("💎 **How much XP should users get per message?** (1-999)\n"
@@ -1643,7 +1629,7 @@ class Leveling (commands .Cog ):
                 xp_msg =await self .bot .wait_for ('message',check =check ,timeout =60 )
                 if xp_msg .content .lower ()=='cancel':
                     await ctx .send (f"{CROSS} Setup cancelled.")
-                    return 
+                    return
 
                 if xp_msg .content .lower ()=='skip':
                     xp_per_message =current_settings .get ('xp_per_message',20 )
@@ -1666,18 +1652,18 @@ class Leveling (commands .Cog ):
                 msg_response =await self .bot .wait_for ('message',check =check ,timeout =120 )
                 if msg_response .content .lower ()=='cancel':
                     await ctx .send (f"{CROSS} Setup cancelled.")
-                    return 
+                    return
 
                 if msg_response .content .lower ()=='skip':
-                    level_message =current_msg 
+                    level_message =current_msg
                 else :
-                    level_message =msg_response .content 
+                    level_message =msg_response .content
                     if len (level_message )>2000 :
                         await ctx .send (f"{CROSS} Message too long (max 2000 chars). Using current value.")
-                        level_message =current_msg 
+                        level_message =current_msg
             except asyncio .TimeoutError :
                 await ctx .send ("⏰ Timeout. Using current value.")
-                level_message =current_msg 
+                level_message =current_msg
 
 
             current_color =current_settings .get ('embed_color','#000000')
@@ -1688,23 +1674,23 @@ class Leveling (commands .Cog ):
                 color_msg =await self .bot .wait_for ('message',check =check ,timeout =60 )
                 if color_msg .content .lower ()=='cancel':
                     await ctx .send (f"{CROSS} Setup cancelled.")
-                    return 
+                    return
 
                 if color_msg .content .lower ()=='skip':
-                    embed_color =current_color 
+                    embed_color =current_color
                 else :
                     color_input =color_msg .content .strip ()
                     if not color_input .startswith ('#'):
-                        color_input ='#'+color_input 
+                        color_input ='#'+color_input
 
                     if validate_hex_color (color_input ):
-                        embed_color =color_input 
+                        embed_color =color_input
                     else :
                         await ctx .send (f"{CROSS} Invalid hex color. Using current value.")
-                        embed_color =current_color 
+                        embed_color =current_color
             except asyncio .TimeoutError :
                 await ctx .send ("⏰ Timeout. Using current value.")
-                embed_color =current_color 
+                embed_color =current_color
 
 
             current_image =current_settings .get ('level_image','')
@@ -1715,18 +1701,18 @@ class Leveling (commands .Cog ):
                 image_msg =await self .bot .wait_for ('message',check =check ,timeout =60 )
                 if image_msg .content .lower ()=='cancel':
                     await ctx .send (f"{CROSS} Setup cancelled.")
-                    return 
+                    return
 
                 if image_msg .content .lower ()=='skip':
-                    level_image =current_image 
+                    level_image =current_image
                 else :
-                    level_image =image_msg .content .strip ()if image_msg .content .strip ()!='none'else None 
+                    level_image =image_msg .content .strip ()if image_msg .content .strip ()!='none'else None
                     if level_image and len (level_image )>500 :
                         await ctx .send (f"{CROSS} URL too long. Using current value.")
-                        level_image =current_image 
+                        level_image =current_image
             except asyncio .TimeoutError :
                 await ctx .send ("⏰ Timeout. Using current value.")
-                level_image =current_image 
+                level_image =current_image
 
 
             current_thumb =current_settings .get ('thumbnail_enabled',True )
@@ -1737,19 +1723,19 @@ class Leveling (commands .Cog ):
                 thumb_msg =await self .bot .wait_for ('message',check =check ,timeout =60 )
                 if thumb_msg .content .lower ()=='cancel':
                     await ctx .send (f"{CROSS} Setup cancelled.")
-                    return 
+                    return
 
                 if thumb_msg .content .lower ()=='skip':
-                    thumbnail_enabled =current_thumb 
+                    thumbnail_enabled =current_thumb
                 else :
                     thumbnail_enabled =thumb_msg .content .lower ()in ['yes','y','true','1','on','enable']
             except asyncio .TimeoutError :
                 await ctx .send ("⏰ Timeout. Using current value.")
-                thumbnail_enabled =current_thumb 
+                thumbnail_enabled =current_thumb
 
 
             embed_color_int =hex_to_int (embed_color )
-            level_image_final =level_image if level_image and level_image .strip ()else None 
+            level_image_final =level_image if level_image and level_image .strip ()else None
 
             async with aiosqlite .connect ("db/leveling.db")as db :
 
@@ -1759,8 +1745,8 @@ class Leveling (commands .Cog ):
                 if exists :
 
                     await db .execute ("""
-                        UPDATE leveling_settings 
-                        SET enabled = 1, xp_per_message = ?, level_message = ?, embed_color = ?, 
+                        UPDATE leveling_settings
+                        SET enabled = 1, xp_per_message = ?, level_message = ?, embed_color = ?,
                             level_image = ?, thumbnail_enabled = ?
                         WHERE guild_id = ?
                     """,(
@@ -1769,12 +1755,12 @@ class Leveling (commands .Cog ):
                     embed_color_int ,
                     level_image_final ,
                     1 if thumbnail_enabled else 0 ,
-                    ctx .guild .id 
+                    ctx .guild .id
                     ))
                 else :
 
                     await db .execute ("""
-                        INSERT INTO leveling_settings 
+                        INSERT INTO leveling_settings
                         (guild_id, enabled, xp_per_message, level_message, embed_color, level_image, thumbnail_enabled,
                          min_xp, max_xp, cooldown_seconds, dm_level_up, channel_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1790,7 +1776,7 @@ class Leveling (commands .Cog ):
                     25 ,
                     60 ,
                     0 ,
-                    None 
+                    None
                     ))
 
                 await db .commit ()
@@ -1811,7 +1797,7 @@ class Leveling (commands .Cog ):
             f"🎨 **Embed Color:** {embed_color}\n"
             f"🖼️ **Level-up Image:** {'Set' if level_image_final else 'None'}\n"
             f"🖼️ **Show Thumbnail:** {'Yes' if thumbnail_enabled else 'No'}",
-            inline =False 
+            inline =False
             )
 
             final_embed .add_field (
@@ -1820,7 +1806,7 @@ class Leveling (commands .Cog ):
             "• Use `!level rewards add <level> @role` to add level rewards\n"
             "• Use `!level leaderboard` to view the server leaderboard\n"
             "• Users will now gain XP from messages!",
-            inline =False 
+            inline =False
             )
 
             view =PlaceholdersView ()
@@ -1828,7 +1814,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error in interactive setup: {e}")
-            pass 
+            pass
 
     @level .command (name ="setxp",description ="Set XP amount per message")
     @commands .has_permissions (administrator =True )
@@ -1837,7 +1823,7 @@ class Leveling (commands .Cog ):
         try :
             if amount <1 or amount >999 :
                 await ctx .send (f"{CROSS} XP per message must be between 1 and 999!")
-                return 
+                return
 
             async with aiosqlite .connect (self .db_path )as db :
                 async with db .execute ("SELECT guild_id FROM leveling_settings WHERE guild_id = ?",(ctx .guild .id ,))as cursor :
@@ -1860,7 +1846,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error setting XP amount: {e}")
-            pass 
+            pass
 
     @level .command (name ="setmessage",description ="Set level-up message")
     @commands .has_permissions (administrator =True )
@@ -1869,7 +1855,7 @@ class Leveling (commands .Cog ):
         try :
             if len (message )>2000 :
                 await ctx .send (f"{CROSS} Level-up message must be less than 2000 characters!")
-                return 
+                return
 
             async with aiosqlite .connect (self .db_path )as db :
                 async with db .execute ("SELECT guild_id FROM leveling_settings WHERE guild_id = ?",(ctx .guild .id ,))as cursor :
@@ -1892,7 +1878,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error setting level message: {e}")
-            pass 
+            pass
 
     @level .command (name ="setcolor",description ="Set embed color")
     @commands .has_permissions (administrator =True )
@@ -1901,11 +1887,11 @@ class Leveling (commands .Cog ):
         try :
 
             if not color .startswith ('#'):
-                color ='#'+color 
+                color ='#'+color
 
             if not validate_hex_color (color ):
                 await ctx .send (f"{CROSS} Invalid hex color format! Use format like #FF0000")
-                return 
+                return
 
             color_int =hex_to_int (color )
 
@@ -1930,7 +1916,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error setting embed color: {e}")
-            pass 
+            pass
 
     @level .command (name ="thumbnail",description ="Toggle user thumbnail in level-up messages")
     @commands .has_permissions (administrator =True )
@@ -1940,7 +1926,7 @@ class Leveling (commands .Cog ):
             setting =setting .lower ()
             if setting not in ['on','off','true','false','yes','no','enable','disable']:
                 await ctx .send (f"{CROSS} Use: `on/off`, `true/false`, `yes/no`, or `enable/disable`")
-                return 
+                return
 
             enabled =setting in ['on','true','yes','enable']
 
@@ -1965,7 +1951,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error setting thumbnail: {e}")
-            pass 
+            pass
 
     @level .command (name ="cooldown",description ="Set message cooldown in seconds")
     @commands .has_permissions (administrator =True )
@@ -1974,7 +1960,7 @@ class Leveling (commands .Cog ):
         try :
             if seconds <0 or seconds >3600 :
                 await ctx .send (f"{CROSS} Cooldown must be between 0 and 3600 seconds (1 hour)!")
-                return 
+                return
 
             async with aiosqlite .connect (self .db_path )as db :
                 async with db .execute ("SELECT guild_id FROM leveling_settings WHERE guild_id = ?",(ctx .guild .id ,))as cursor :
@@ -1997,7 +1983,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error setting cooldown: {e}")
-            pass 
+            pass
 
     @level .group (name ="rewards",invoke_without_command =True ,description ="Manage level rewards")
     async def rewards (self ,ctx ):
@@ -2012,7 +1998,7 @@ class Leveling (commands .Cog ):
         try :
             if level <=0 :
                 await ctx .send ("Level must be greater than 0.")
-                return 
+                return
 
             async with aiosqlite .connect ("db/leveling.db")as db :
                 await db .execute (
@@ -2024,7 +2010,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Added reward {role.mention} for level {level} (Remove Previous: {remove_previous})")
         except Exception as e :
             logger .error (f"Error in rewards add command: {e}")
-            pass 
+            pass
 
     @rewards .command (name ="remove",description ="Remove a level reward")
     @commands .has_permissions (administrator =True )
@@ -2041,7 +2027,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Removed reward for level {level}")
         except Exception as e :
             logger .error (f"Error in rewards remove command: {e}")
-            pass 
+            pass
 
     @rewards .command (name ="list",description ="List all level rewards")
     @commands .has_permissions (administrator =True )
@@ -2057,7 +2043,7 @@ class Leveling (commands .Cog ):
 
             if not rewards :
                 await ctx .send ("No level rewards configured.")
-                return 
+                return
 
             embed =discord .Embed (title ="Level Rewards",color =0x8A9A5B ,timestamp =datetime .now (timezone .utc ))
             for level ,role_id ,remove_previous in rewards :
@@ -2068,7 +2054,7 @@ class Leveling (commands .Cog ):
             await ctx .send (embed =embed )
         except Exception as e :
             logger .error (f"Error in rewards list command: {e}")
-            pass 
+            pass
 
     @level .group (name ="multiplier",invoke_without_command =True ,description ="Manage XP multipliers")
     async def multiplier (self ,ctx ):
@@ -2083,26 +2069,26 @@ class Leveling (commands .Cog ):
         try :
             if target_type not in ["role","channel"]:
                 await ctx .send ("Invalid target type. Must be 'role' or 'channel'.")
-                return 
+                return
 
             if multiplier <=0 :
                 await ctx .send ("Multiplier must be greater than 0.")
-                return 
+                return
 
             if target_type =="role":
                 try :
                     role_id =int (target )
-                    target_id =ctx .guild .get_role (role_id ).id 
+                    target_id =ctx .guild .get_role (role_id ).id
                 except :
                     await ctx .send ("Invalid role ID.")
-                    return 
+                    return
             else :
                 try :
                     channel_id =int (target )
-                    target_id =ctx .guild .get_channel (channel_id ).id 
+                    target_id =ctx .guild .get_channel (channel_id ).id
                 except :
                     await ctx .send ("Invalid channel ID.")
-                    return 
+                    return
 
             async with aiosqlite .connect ("db/leveling.db")as db :
                 await db .execute (
@@ -2114,7 +2100,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Added {multiplier}x multiplier for {target_type} {target}")
         except Exception as e :
             logger .error (f"Error in multiplier add command: {e}")
-            pass 
+            pass
 
     @multiplier .command (name ="remove",description ="Remove an XP multiplier")
     @commands .has_permissions (administrator =True )
@@ -2123,22 +2109,22 @@ class Leveling (commands .Cog ):
         try :
             if target_type not in ["role","channel"]:
                 await ctx .send ("Invalid target type. Must be 'role' or 'channel'.")
-                return 
+                return
 
             if target_type =="role":
                 try :
                     role_id =int (target )
-                    target_id =ctx .guild .get_role (role_id ).id 
+                    target_id =ctx .guild .get_role (role_id ).id
                 except :
                     await ctx .send ("Invalid role ID.")
-                    return 
+                    return
             else :
                 try :
                     channel_id =int (target )
-                    target_id =ctx .guild .get_channel (channel_id ).id 
+                    target_id =ctx .guild .get_channel (channel_id ).id
                 except :
                     await ctx .send ("Invalid channel ID.")
-                    return 
+                    return
 
             async with aiosqlite .connect ("db/leveling.db")as db :
                 await db .execute (
@@ -2150,7 +2136,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Removed multiplier for {target_type} {target}")
         except Exception as e :
             logger .error (f"Error in multiplier remove command: {e}")
-            pass 
+            pass
 
     @multiplier .command (name ="list",description ="List all XP multipliers")
     @commands .has_permissions (administrator =True )
@@ -2166,7 +2152,7 @@ class Leveling (commands .Cog ):
 
             if not multipliers :
                 await ctx .send ("No XP multipliers configured.")
-                return 
+                return
 
             embed =discord .Embed (title ="XP Multipliers",color =0x8A9A5B ,timestamp =datetime .now (timezone .utc ))
             for target_id ,target_type ,multiplier in multipliers :
@@ -2181,7 +2167,7 @@ class Leveling (commands .Cog ):
             await ctx .send (embed =embed )
         except Exception as e :
             logger .error (f"Error in multiplier list command: {e}")
-            pass 
+            pass
 
     @level .group (name ="blacklist",invoke_without_command =True ,description ="Manage leveling blacklists")
     async def blacklist (self ,ctx ):
@@ -2196,22 +2182,22 @@ class Leveling (commands .Cog ):
         try :
             if target_type not in ["role","channel"]:
                 await ctx .send ("Invalid target type. Must be 'role' or 'channel'.")
-                return 
+                return
 
             if target_type =="role":
                 try :
                     role_id =int (target )
-                    target_id =ctx .guild .get_role (role_id ).id 
+                    target_id =ctx .guild .get_role (role_id ).id
                 except :
                     await ctx .send ("Invalid role ID.")
-                    return 
+                    return
             else :
                 try :
                     channel_id =int (target )
-                    target_id =ctx .guild .get_channel (channel_id ).id 
+                    target_id =ctx .guild .get_channel (channel_id ).id
                 except :
                     await ctx .send ("Invalid channel ID.")
-                    return 
+                    return
 
             async with aiosqlite .connect ("db/leveling.db")as db :
                 await db .execute (
@@ -2223,7 +2209,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Added {target_type} {target} to the leveling blacklist.")
         except Exception as e :
             logger .error (f"Error in blacklist add command: {e}")
-            pass 
+            pass
 
     @blacklist .command (name ="remove",description ="Remove from the leveling blacklist")
     @commands .has_permissions (administrator =True )
@@ -2232,22 +2218,22 @@ class Leveling (commands .Cog ):
         try :
             if target_type not in ["role","channel"]:
                 await ctx .send ("Invalid target type. Must be 'role' or 'channel'.")
-                return 
+                return
 
             if target_type =="role":
                 try :
                     role_id =int (target )
-                    target_id =ctx .guild .get_role (role_id ).id 
+                    target_id =ctx .guild .get_role (role_id ).id
                 except :
                     await ctx .send ("Invalid role ID.")
-                    return 
+                    return
             else :
                 try :
                     channel_id =int (target )
-                    target_id =ctx .guild .get_channel (channel_id ).id 
+                    target_id =ctx .guild .get_channel (channel_id ).id
                 except :
                     await ctx .send ("Invalid channel ID.")
-                    return 
+                    return
 
             async with aiosqlite .connect ("db/leveling.db")as db :
                 await db .execute (
@@ -2259,7 +2245,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Removed {target_type} {target} from the leveling blacklist.")
         except Exception as e :
             logger .error (f"Error in blacklist remove command: {e}")
-            pass 
+            pass
 
     @blacklist .command (name ="list",description ="List the leveling blacklist")
     @commands .has_permissions (administrator =True )
@@ -2275,7 +2261,7 @@ class Leveling (commands .Cog ):
 
             if not blacklisted :
                 await ctx .send ("The leveling blacklist is empty.")
-                return 
+                return
 
             embed =discord .Embed (title ="Leveling Blacklist",color =0x8A9A5B ,timestamp =datetime .now (timezone .utc ))
             for target_id ,target_type in blacklisted :
@@ -2290,7 +2276,7 @@ class Leveling (commands .Cog ):
             await ctx .send (embed =embed )
         except Exception as e :
             logger .error (f"Error in blacklist list command: {e}")
-            pass 
+            pass
 
     async def apply_level_roles (self ,guild ,member ,level ):
         """Apply level-based roles to a member."""
@@ -2321,7 +2307,7 @@ class Leveling (commands .Cog ):
         try :
             if level <=0 :
                 await ctx .send ("Level must be greater than 0.")
-                return 
+                return
 
             async with aiosqlite .connect (self .db_path )as db :
                 await db .execute ("INSERT OR REPLACE INTO level_roles (guild_id, level, role_id) VALUES (?, ?, ?)",(ctx .guild .id ,level ,role .id ))
@@ -2330,7 +2316,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Set role {role.mention} for level {level}.")
         except Exception as e :
             logger .error (f"Error setting level role: {e}")
-            pass 
+            pass
 
     @commands .hybrid_command (name ="removelevelrole",description ="Remove a level role (admin only)")
     @commands .has_permissions (administrator =True )
@@ -2344,7 +2330,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Removed role for level {level}.")
         except Exception as e :
             logger .error (f"Error removing level role: {e}")
-            pass 
+            pass
 
     @commands .hybrid_command (name ="listlevelroles",description ="List all level roles (admin only)")
     @commands .has_permissions (administrator =True )
@@ -2357,7 +2343,7 @@ class Leveling (commands .Cog ):
 
             if not roles :
                 await ctx .send ("No level roles set for this server.")
-                return 
+                return
 
             embed =discord .Embed (title ="Level Roles",color =0x8A9A5B ,timestamp =datetime .now (timezone .utc ))
             for level ,role_id in roles :
@@ -2368,7 +2354,7 @@ class Leveling (commands .Cog ):
             await ctx .send (embed =embed )
         except Exception as e :
             logger .error (f"Error listing level roles: {e}")
-            pass 
+            pass
 
     @commands .hybrid_command (name ="resetxp",description ="Reset a user's XP (admin only)")
     @commands .has_permissions (administrator =True )
@@ -2382,7 +2368,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Successfully reset XP for {member.mention}.")
         except Exception as e :
             logger .error (f"Error resetting XP: {e}")
-            pass 
+            pass
 
     @commands .hybrid_command (name ="setxp",description ="Set a user's XP (admin only)")
     @commands .has_permissions (administrator =True )
@@ -2397,7 +2383,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Successfully set XP for {member.mention} to {xp:,}.")
         except Exception as e :
             logger .error (f"Error setting XP: {e}")
-            pass 
+            pass
 
     @commands .hybrid_command (name ="setlevel",description ="Set a user's level (admin only)")
     @commands .has_permissions (administrator =True )
@@ -2412,7 +2398,7 @@ class Leveling (commands .Cog ):
             await ctx .send (f"Successfully set level for {member.mention} to {level:,}.")
         except Exception as e :
             logger .error (f"Error setting level: {e}")
-            pass 
+            pass
 
     @level .command (name ="leaderboard",description ="View the server level leaderboard")
     @commands .cooldown (1 ,10 ,commands .BucketType .guild )
@@ -2425,9 +2411,9 @@ class Leveling (commands .Cog ):
             async with aiosqlite .connect ("db/leveling.db")as db :
 
                 cursor =await db .execute ('''
-                    SELECT user_id, xp, messages FROM user_xp 
-                    WHERE guild_id = ? 
-                    ORDER BY xp DESC 
+                    SELECT user_id, xp, messages FROM user_xp
+                    WHERE guild_id = ?
+                    ORDER BY xp DESC
                     LIMIT 10
                 ''',(ctx .guild .id ,))
 
@@ -2443,7 +2429,7 @@ class Leveling (commands .Cog ):
                     await ctx .followup .send (embed =embed )
                 else :
                     await ctx .send (embed =embed )
-                return 
+                return
 
 
             leaderboard_image =await self .create_leaderboard_image (ctx .guild ,top_users )
@@ -2465,12 +2451,12 @@ class Leveling (commands .Cog ):
                     try :
                         leaderboard_image .close ()
                     except :
-                        pass 
+                        pass
             else :
                 if isinstance (ctx ,discord .Interaction ):
                     await ctx .followup .send ("Failed to generate leaderboard.")
                 else :
-                    pass 
+                    pass
 
         except Exception as e :
             logger .error (f"Error in level leaderboard command: {e}")
@@ -2487,10 +2473,10 @@ class Leveling (commands .Cog ):
                 return self .create_text_leaderboard (guild ,top_users )
 
 
-            width ,height =1920 ,1080 
+            width ,height =1920 ,1080
 
 
-            background_loaded =False 
+            background_loaded =False
             background_extensions =['.jpg','.jpeg','.png','.gif','.webp']
 
             for ext in background_extensions :
@@ -2498,19 +2484,19 @@ class Leveling (commands .Cog ):
                     bg_path =f"/home/container/assets/leaderboardlevel{ext}"
                     if os .path .exists (bg_path ):
                         temp_bg =Image .open (bg_path )
-                        bg_width ,bg_height =temp_bg .size 
+                        bg_width ,bg_height =temp_bg .size
 
 
-                        ratio =bg_width /bg_height 
+                        ratio =bg_width /bg_height
 
                         if 1.7 <=ratio <=1.8 :
-                            width ,height =1920 ,1080 
+                            width ,height =1920 ,1080
                         elif 1.3 <=ratio <=1.35 :
-                            width ,height =1600 ,1200 
+                            width ,height =1600 ,1200
                         elif 0.95 <=ratio <=1.05 :
-                            width ,height =1200 ,1200 
+                            width ,height =1200 ,1200
                         elif 0.7 <=ratio <=0.85 :
-                            width ,height =1200 ,1600 
+                            width ,height =1200 ,1600
                         else :
 
                             if bg_width >2000 or bg_height >1500 :
@@ -2518,13 +2504,13 @@ class Leveling (commands .Cog ):
                                 width =int (bg_width *scale )
                                 height =int (bg_height *scale )
                             else :
-                                width ,height =bg_width ,bg_height 
+                                width ,height =bg_width ,bg_height
 
                         temp_bg .close ()
-                        break 
+                        break
                 except Exception as e :
                     logger .error (f"Failed to analyze background {bg_path}: {e}")
-                    continue 
+                    continue
 
 
             for ext in background_extensions :
@@ -2538,12 +2524,12 @@ class Leveling (commands .Cog ):
 
                         background_img =background_img .resize ((width ,height ),Image .Resampling .LANCZOS )
                         img =background_img .convert ('RGB')
-                        background_loaded =True 
+                        background_loaded =True
                         logger .info (f"Loaded custom background: {bg_path} - Resized to {width}x{height}")
-                        break 
+                        break
                 except Exception as e :
                     logger .error (f"Failed to load background {bg_path}: {e}")
-                    continue 
+                    continue
 
 
             if not background_loaded :
@@ -2551,7 +2537,7 @@ class Leveling (commands .Cog ):
                 draw_temp =ImageDraw .Draw (img )
 
                 for y in range (height ):
-                    factor =y /height 
+                    factor =y /height
                     r =int (15 +(45 -15 )*factor +10 *math .sin (factor *math .pi *2 ))
                     g =int (15 +(55 -15 )*factor +15 *math .sin (factor *math .pi *3 ))
                     b =int (25 +(85 -25 )*factor +20 *math .sin (factor *math .pi *4 ))
@@ -2577,12 +2563,12 @@ class Leveling (commands .Cog ):
             title =f"🏆 {guild.name} Level Leaderboard"
             title_bbox =draw .textbbox ((0 ,0 ),title ,font =title_font )
             title_width =title_bbox [2 ]-title_bbox [0 ]
-            title_x =(width -title_width )//2 
+            title_x =(width -title_width )//2
 
 
-            title_bg_margin =50 
-            title_y =25 
-            title_height =90 
+            title_bg_margin =50
+            title_y =25
+            title_height =90
 
 
             draw .rounded_rectangle (
@@ -2591,7 +2577,7 @@ class Leveling (commands .Cog ):
             )
             draw .rounded_rectangle (
             (title_x -title_bg_margin ,title_y ,title_x +title_width +title_bg_margin ,title_y +title_height ),
-            radius =25 ,outline =(255 ,215 ,0 ,200 ),width =3 
+            radius =25 ,outline =(255 ,215 ,0 ,200 ),width =3
             )
 
 
@@ -2601,15 +2587,15 @@ class Leveling (commands .Cog ):
             draw .text ((title_x ,title_y +20 ),title ,font =title_font ,fill =(255 ,215 ,0 ))
 
 
-            start_y =180 
-            entry_height =120 
-            margin_left =100 
-            margin_right =100 
+            start_y =180
+            entry_height =120
+            margin_left =100
+            margin_right =100
 
             for i ,(user_id ,xp ,messages )in enumerate (top_users ):
                 user =guild .get_member (user_id )
                 if not user :
-                    continue 
+                    continue
 
                 y =start_y +(i *entry_height )
                 level =calculate_level_from_xp (xp )
@@ -2637,8 +2623,8 @@ class Leveling (commands .Cog ):
                     accent_color =(150 ,200 ,255 )
 
 
-                entry_bg_y =y -15 
-                entry_bg_height =entry_height -10 
+                entry_bg_y =y -15
+                entry_bg_height =entry_height -10
 
 
                 draw .rounded_rectangle (
@@ -2652,40 +2638,40 @@ class Leveling (commands .Cog ):
                     draw .rounded_rectangle (
                     (margin_left -border_layer ,entry_bg_y -border_layer ,
                     width -margin_right +border_layer ,entry_bg_y +entry_bg_height +border_layer ),
-                    radius =20 +border_layer ,outline =(*border_color ,border_alpha ),width =2 
+                    radius =20 +border_layer ,outline =(*border_color ,border_alpha ),width =2
                     )
 
 
-                rank_x =margin_left +40 
+                rank_x =margin_left +40
                 rank_text =f"#{i + 1}"
 
 
-                rank_circle_size =55 
-                rank_circle_y =y +20 
+                rank_circle_size =55
+                rank_circle_y =y +20
                 draw .ellipse (
                 (rank_x -5 ,rank_circle_y ,rank_x +rank_circle_size ,rank_circle_y +rank_circle_size ),
                 fill =(*rank_color ,60 )
                 )
                 draw .ellipse (
                 (rank_x -5 ,rank_circle_y ,rank_x +rank_circle_size ,rank_circle_y +rank_circle_size ),
-                outline =rank_color ,width =3 
+                outline =rank_color ,width =3
                 )
 
 
                 rank_bbox =draw .textbbox ((0 ,0 ),rank_text ,font =rank_font )
                 rank_text_width =rank_bbox [2 ]-rank_bbox [0 ]
                 rank_text_height =rank_bbox [3 ]-rank_bbox [1 ]
-                rank_text_x =rank_x +(rank_circle_size -rank_text_width )//2 -5 
-                rank_text_y =rank_circle_y +(rank_circle_size -rank_text_height )//2 
+                rank_text_x =rank_x +(rank_circle_size -rank_text_width )//2 -5
+                rank_text_y =rank_circle_y +(rank_circle_size -rank_text_height )//2
 
 
                 draw .text ((rank_text_x +3 ,rank_text_y +3 ),rank_text ,font =rank_font ,fill =(0 ,0 ,0 ,200 ))
                 draw .text ((rank_text_x ,rank_text_y ),rank_text ,font =rank_font ,fill =rank_color )
 
 
-                avatar_x =margin_left +140 
-                avatar_y =y +20 
-                avatar_size =70 
+                avatar_x =margin_left +140
+                avatar_y =y +20
+                avatar_size =70
 
 
                 for border_layer in range (3 ):
@@ -2696,7 +2682,7 @@ class Leveling (commands .Cog ):
 
                     draw .ellipse (
                     (border_x ,border_y ,border_x +border_size ,border_y +border_size ),
-                    outline =(*rank_color ,alpha ),width =3 
+                    outline =(*rank_color ,alpha ),width =3
                     )
 
 
@@ -2727,24 +2713,24 @@ class Leveling (commands .Cog ):
                     emoji_bbox =draw .textbbox ((0 ,0 ),emoji ,font =name_font )
                     emoji_width =emoji_bbox [2 ]-emoji_bbox [0 ]
                     emoji_height =emoji_bbox [3 ]-emoji_bbox [1 ]
-                    emoji_x =avatar_x +(avatar_size -emoji_width )//2 
-                    emoji_y =avatar_y +(avatar_size -emoji_height )//2 
+                    emoji_x =avatar_x +(avatar_size -emoji_width )//2
+                    emoji_y =avatar_y +(avatar_size -emoji_height )//2
                     draw .text ((emoji_x ,emoji_y ),emoji ,font =name_font ,fill =accent_color )
 
 
-                info_x =margin_left +240 
+                info_x =margin_left +240
                 username =user .display_name [:18 ]
 
 
-                username_y =y +15 
+                username_y =y +15
                 for shadow in [(4 ,4 ),(3 ,3 ),(2 ,2 ),(1 ,1 )]:
                     draw .text ((info_x +shadow [0 ],username_y +shadow [1 ]),username ,font =name_font ,fill =(0 ,0 ,0 ,150 ))
                 draw .text ((info_x ,username_y ),username ,font =name_font ,fill =(255 ,255 ,255 ))
 
 
                 level_text =f"Level {level:,}"
-                level_badge_x =info_x 
-                level_badge_y =y +55 
+                level_badge_x =info_x
+                level_badge_y =y +55
                 level_bbox =draw .textbbox ((0 ,0 ),level_text ,font =stats_font )
                 level_width =level_bbox [2 ]-level_bbox [0 ]
 
@@ -2755,21 +2741,21 @@ class Leveling (commands .Cog ):
                 )
                 draw .rounded_rectangle (
                 (level_badge_x -8 ,level_badge_y -5 ,level_badge_x +level_width +16 ,level_badge_y +25 ),
-                radius =12 ,outline =rank_color ,width =2 
+                radius =12 ,outline =rank_color ,width =2
                 )
                 draw .text ((level_badge_x ,level_badge_y ),level_text ,font =stats_font ,fill =(255 ,255 ,255 ))
 
 
-                info_spacing =30 
+                info_spacing =30
                 xp_text =f"💎 {format_number(xp)} XP"
                 msg_text =f"💬 {format_number(messages or 0)} msgs"
 
-                xp_x =info_x +level_width +info_spacing 
-                msg_x =xp_x +140 
+                xp_x =info_x +level_width +info_spacing
+                msg_x =xp_x +140
 
 
-                stats_bg_y =level_badge_y -2 
-                stats_bg_height =24 
+                stats_bg_y =level_badge_y -2
+                stats_bg_height =24
                 draw .rounded_rectangle (
                 (xp_x -5 ,stats_bg_y ,msg_x +150 ,stats_bg_y +stats_bg_height ),
                 radius =8 ,fill =(0 ,0 ,0 ,100 )
@@ -2779,10 +2765,10 @@ class Leveling (commands .Cog ):
                 draw .text ((msg_x ,level_badge_y ),msg_text ,font =stats_font ,fill =(255 ,200 ,150 ))
 
 
-                bar_x =width -margin_right -380 
-                bar_y =y +25 
-                bar_width =320 
-                bar_height =28 
+                bar_x =width -margin_right -380
+                bar_y =y +25
+                bar_width =320
+                bar_height =28
 
 
                 draw .rounded_rectangle ((bar_x ,bar_y ,bar_x +bar_width ,bar_y +bar_height ),
@@ -2797,11 +2783,11 @@ class Leveling (commands .Cog ):
                     if progress_width >0 :
 
                         for px in range (progress_width ):
-                            factor =px /progress_width if progress_width >0 else 0 
+                            factor =px /progress_width if progress_width >0 else 0
 
 
-                            base_color =rank_color 
-                            brightness =0.4 +0.6 *factor 
+                            base_color =rank_color
+                            brightness =0.4 +0.6 *factor
 
                             fill_r =min (255 ,int (base_color [0 ]*brightness ))
                             fill_g =min (255 ,int (base_color [1 ]*brightness ))
@@ -2813,18 +2799,18 @@ class Leveling (commands .Cog ):
 
                         draw .rounded_rectangle (
                         (bar_x +2 ,bar_y +2 ,bar_x +3 +progress_width ,bar_y +bar_height -2 ),
-                        radius =12 ,outline =rank_color ,width =2 
+                        radius =12 ,outline =rank_color ,width =2
                         )
 
 
-                percentage =(progress /needed *100 )if needed >0 else 100 
+                percentage =(progress /needed *100 )if needed >0 else 100
                 progress_text =f"{percentage:.1f}% to Level {level + 1}"
                 progress_bbox =draw .textbbox ((0 ,0 ),progress_text ,font =small_font )
                 progress_text_width =progress_bbox [2 ]-progress_bbox [0 ]
-                progress_text_x =bar_x +(bar_width -progress_text_width )//2 
+                progress_text_x =bar_x +(bar_width -progress_text_width )//2
 
 
-                text_bg_y =bar_y +bar_height +8 
+                text_bg_y =bar_y +bar_height +8
                 draw .rounded_rectangle (
                 (progress_text_x -12 ,text_bg_y -2 ,progress_text_x +progress_text_width +12 ,text_bg_y +18 ),
                 radius =8 ,fill =(0 ,0 ,0 ,180 )
@@ -2835,13 +2821,13 @@ class Leveling (commands .Cog ):
                 xp_progress_text =f"{format_number(progress)} / {format_number(needed)} XP"
                 xp_text_bbox =draw .textbbox ((0 ,0 ),xp_progress_text ,font =small_font )
                 xp_text_width =xp_text_bbox [2 ]-xp_text_bbox [0 ]
-                xp_text_x =bar_x +(bar_width -xp_text_width )//2 
+                xp_text_x =bar_x +(bar_width -xp_text_width )//2
 
                 draw .text ((xp_text_x ,bar_y +6 ),xp_progress_text ,font =small_font ,fill =(200 ,200 ,200 ))
 
 
-            footer_y =height -80 
-            footer_bg_height =50 
+            footer_y =height -80
+            footer_bg_height =50
 
 
             draw .rounded_rectangle (
@@ -2850,13 +2836,13 @@ class Leveling (commands .Cog ):
             )
             draw .rounded_rectangle (
             (60 ,footer_y ,width -60 ,footer_y +footer_bg_height ),
-            radius =15 ,outline =(100 ,100 ,120 ),width =2 
+            radius =15 ,outline =(100 ,100 ,120 ),width =2
             )
 
             footer_text =f"✨ Generated at {datetime.now(timezone.utc).strftime('%H:%M UTC')} • {len(top_users)} Active Members • {guild.name}"
             footer_bbox =draw .textbbox ((0 ,0 ),footer_text ,font =small_font )
             footer_width =footer_bbox [2 ]-footer_bbox [0 ]
-            footer_x =(width -footer_width )//2 
+            footer_x =(width -footer_width )//2
 
 
             draw .text ((footer_x +2 ,footer_y +17 ),footer_text ,font =small_font ,fill =(0 ,0 ,0 ,200 ))
@@ -2867,7 +2853,7 @@ class Leveling (commands .Cog ):
             img .save (img_bytes ,format ='PNG')
             img_bytes .seek (0 )
             img .close ()
-            return img_bytes 
+            return img_bytes
 
         except Exception as e :
             logger .error (f"Error creating leaderboard image: {e}")
@@ -2881,7 +2867,7 @@ class Leveling (commands .Cog ):
             for i ,(user_id ,xp ,messages )in enumerate (top_users ):
                 user =guild .get_member (user_id )
                 if not user :
-                    continue 
+                    continue
 
                 level =calculate_level_from_xp (xp )
 
@@ -2897,7 +2883,7 @@ class Leveling (commands .Cog ):
                 leaderboard_text +=f"{emoji} **{user.display_name}**\n"
                 leaderboard_text +=f"    Level {level:,} • {format_number(xp)} XP • {format_number(messages or 0)} messages\n\n"
 
-            return leaderboard_text 
+            return leaderboard_text
 
         except Exception as e :
             logger .error (f"Error creating text leaderboard: {e}")
@@ -2934,7 +2920,7 @@ class Leveling (commands .Cog ):
                 if result :
                     if result [0 ]==1 :
                         await ctx .send (f"{ZWARNING} Leveling system is already enabled!")
-                        return 
+                        return
 
                     await db .execute ("UPDATE leveling_settings SET enabled = 1 WHERE guild_id = ?",(ctx .guild .id ,))
                 else :
@@ -2957,7 +2943,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error enabling leveling system: {e}")
-            pass 
+            pass
 
     @level .command (name ="disable",description ="Disable the leveling system")
     @commands .has_permissions (administrator =True )
@@ -2970,11 +2956,11 @@ class Leveling (commands .Cog ):
 
                 if not result :
                     await ctx .send (f"{ZWARNING} Leveling system is not configured for this server!")
-                    return 
+                    return
 
                 if result [0 ]==0 :
                     await ctx .send (f"{ZWARNING} Leveling system is already disabled!")
-                    return 
+                    return
 
                 await db .execute ("UPDATE leveling_settings SET enabled = 0 WHERE guild_id = ?",(ctx .guild .id ,))
                 await db .commit ()
@@ -2994,13 +2980,13 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error disabling leveling system: {e}")
-            pass 
+            pass
 
     @level .command (name ="stats",description ="View detailed level statistics")
     async def stats (self ,ctx ,member :Optional [discord .Member ]=None ):
         """Display detailed user level statistics with rank card"""
-        member =member or ctx .author 
-        guild_id =ctx .guild .id 
+        member =member or ctx .author
+        guild_id =ctx .guild .id
 
         try :
 
@@ -3009,8 +2995,8 @@ class Leveling (commands .Cog ):
 
 
             current_level ,progress ,needed =get_level_progress (xp )
-            next_level =level +1 
-            percentage =(progress /needed *100 )if needed >0 else 100 
+            next_level =level +1
+            percentage =(progress /needed *100 )if needed >0 else 100
 
 
             async with aiosqlite .connect ("db/leveling.db")as db :
@@ -3021,8 +3007,8 @@ class Leveling (commands .Cog ):
                     total_members =(await cursor .fetchone ())[0 ]
 
 
-            avg_xp_per_message =(xp /messages )if messages >0 else 0 
-            xp_to_next_level =needed -progress 
+            avg_xp_per_message =(xp /messages )if messages >0 else 0
+            xp_to_next_level =needed -progress
 
 
             embed =discord .Embed (
@@ -3038,7 +3024,7 @@ class Leveling (commands .Cog ):
             f"**Total XP:** {format_number(xp)}\n"
             f"**Server Rank:** #{rank:,} / {total_members:,}\n"
             f"**Messages Sent:** {format_number(messages)}",
-            inline =True 
+            inline =True
             )
 
 
@@ -3048,7 +3034,7 @@ class Leveling (commands .Cog ):
             f"**Percentage:** {percentage:.1f}%\n"
             f"**XP Needed:** {format_number(xp_to_next_level)}\n"
             f"**Progress Bar:** {get_progress_bar(progress, needed, 15)}",
-            inline =True 
+            inline =True
             )
 
 
@@ -3058,37 +3044,37 @@ class Leveling (commands .Cog ):
             f"**XP for Level {level}:** {format_number(calculate_xp_for_level(level))}\n"
             f"**XP for Level {next_level}:** {format_number(calculate_xp_for_level(next_level))}\n"
             f"**Total Levels Gained:** {level - 1:,}",
-            inline =True 
+            inline =True
             )
 
 
-            percentile =((total_members -rank +1 )/total_members *100 )if total_members >0 else 0 
+            percentile =((total_members -rank +1 )/total_members *100 )if total_members >0 else 0
 
 
             if rank ==1 :
                 tier ="🏆 Champion"
-                tier_color =0xFFD700 
+                tier_color =0xFFD700
             elif rank <=3 :
                 tier ="🥇 Elite"
-                tier_color =0xC0C0C0 
+                tier_color =0xC0C0C0
             elif rank <=10 :
                 tier ="⭐ Expert"
-                tier_color =0xCD7F32 
+                tier_color =0xCD7F32
             elif percentile >=90 :
                 tier ="💎 Advanced"
-                tier_color =0x00FFFF 
+                tier_color =0x00FFFF
             elif percentile >=70 :
                 tier ="🔥 Experienced"
-                tier_color =0xFF4500 
+                tier_color =0xFF4500
             elif percentile >=50 :
                 tier ="⚡ Intermediate"
-                tier_color =0xFFFF00 
+                tier_color =0xFFFF00
             elif percentile >=25 :
                 tier ="🌟 Beginner"
-                tier_color =0x90EE90 
+                tier_color =0x90EE90
             else :
                 tier ="🌱 Newcomer"
-                tier_color =0x98FB98 
+                tier_color =0x98FB98
 
             embed .add_field (
             name ="🏅 Rank Information",
@@ -3096,11 +3082,11 @@ class Leveling (commands .Cog ):
             f"**Percentile:** Top {100-percentile:.1f}%\n"
             f"**Users Below:** {total_members - rank:,}\n"
             f"**Users Above:** {rank - 1:,}",
-            inline =False 
+            inline =False
             )
 
 
-            embed .color =tier_color 
+            embed .color =tier_color
 
 
             embed .set_thumbnail (url =member .display_avatar .url )
@@ -3108,7 +3094,7 @@ class Leveling (commands .Cog ):
 
             embed .set_footer (
             text =f"Requested by {ctx.author.display_name} • {ctx.guild.name}",
-            icon_url =ctx .author .display_avatar .url 
+            icon_url =ctx .author .display_avatar .url
             )
 
 
@@ -3122,7 +3108,7 @@ class Leveling (commands .Cog ):
                 try :
                     rank_card .close ()
                 except :
-                    pass 
+                    pass
             else :
 
                 await ctx .send (embed =embed )
@@ -3132,7 +3118,7 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error in level stats command: {e}")
-            pass 
+            pass
 
     @level .command (name ="channel",description ="Set the level-up announcement channel")
     @commands .has_permissions (administrator =True )
@@ -3161,5 +3147,5 @@ class Leveling (commands .Cog ):
 
         except Exception as e :
             logger .error (f"Error setting level channel: {e}")
-            pass 
+            pass
 

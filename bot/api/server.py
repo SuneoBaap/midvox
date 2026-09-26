@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -47,7 +33,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """
     Initializes the FastAPI application for the CodeX Bot Dashboard.
-    The bot instance will be attached to app.state.bot in CodeX.py at runtime.
+    The bot instance is attached to app.state.bot by midvox.py at runtime.
     """
     app = FastAPI(
         title=f"{BRAND_NAME} Bot API",
@@ -62,7 +48,7 @@ def create_app() -> FastAPI:
         start_time = time.time()
         response = await call_next(request)
         process_time = time.time() - start_time
-        
+
         log_data = {
             "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
             "method": request.method,
@@ -71,7 +57,7 @@ def create_app() -> FastAPI:
             "duration_ms": round(process_time * 1000, 2),
             "client_ip": request.client.host if request.client else "unknown"
         }
-        
+
         logger.info(json.dumps(log_data))
         return response
 

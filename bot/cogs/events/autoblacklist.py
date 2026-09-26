@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import ZWARNING
 from core import midvox, Cog
@@ -29,7 +15,7 @@ class AutoBlacklist(Cog):
         self.spam_window = timedelta(minutes=10)
         self.db_path = 'db/block.db'
         self.bot_user_id = self.client.user.id if self.client.user else None
-        self.guild_command_tracking = {}  
+        self.guild_command_tracking = {}
 
     async def add_to_blacklist(self, user_id=None, guild_id=None, channel=None):
         try:
@@ -44,7 +30,7 @@ class AutoBlacklist(Cog):
                             title=f"{ZWARNING} Guild Blacklisted",
                             description=(
                                 f"This guild has been blacklisted due to spamming or automation. "
-                                f"If you believe this is a mistake, please contact our [Support Server](https://discord.gg/codexdev) with any proof if possible."
+                                f"If you believe this is a mistake, please contact our [Support Server](https://github.com/suneo779/midvox) with any proof if possible."
                             ),
                             color=0x8A9A5B
                         )
@@ -61,9 +47,9 @@ class AutoBlacklist(Cog):
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 '''
-                SELECT COUNT(DISTINCT user_id) FROM user_blacklist 
+                SELECT COUNT(DISTINCT user_id) FROM user_blacklist
                 WHERE timestamp >= ?
-                ''', 
+                ''',
                 (datetime.utcnow() - self.spam_window,)
             ) as cursor:
                 count = await cursor.fetchone()
@@ -80,36 +66,36 @@ class AutoBlacklist(Cog):
         if message.author.bot:
             return
 
-        
+
         guild_id = message.guild.id if message.guild else None
         if guild_id:
             if guild_id not in self.guild_command_tracking:
                 self.guild_command_tracking[guild_id] = []
 
-            
+
             self.guild_command_tracking[guild_id].append(datetime.utcnow())
 
-            
+
             self.guild_command_tracking[guild_id] = [
                 timestamp for timestamp in self.guild_command_tracking[guild_id] if timestamp >= datetime.utcnow() - timedelta(seconds=2)
             ]
 
-            
+
             if len(self.guild_command_tracking[guild_id]) > 8:
-                
+
                 await self.add_to_blacklist(guild_id=guild_id, channel=message.channel)
                 embed = discord.Embed(
                     title=f"{ZWARNING} Guild Blacklisted",
                     description=(
                         f"The guild has been blacklisted for excessive command usage. "
-                        f"If you believe this is a mistake, please contact our [Support Server](https://discord.gg/codexdev)."
+                        f"If you believe this is a mistake, please contact our [Support Server](https://github.com/suneo779/midvox)."
                     ),
                     color=0x8A9A5B
                 )
                 await message.channel.send(embed=embed)
                 return
 
-        
+
         bucket = self.spam_cd_mapping.get_bucket(message)
         retry = bucket.update_rate_limit()
 
@@ -123,7 +109,7 @@ class AutoBlacklist(Cog):
                     await self.add_to_blacklist(user_id=message.author.id)
                     embed = discord.Embed(
                         title=f"{ZWARNING} User Blacklisted",
-                        description=f"**{message.author.mention} has been blacklisted for repeatedly mentioning me. If you believe this is a mistake, please contact our [Support Server](https://discord.gg/codexdev) with any proof if possible.**",
+                        description=f"**{message.author.mention} has been blacklisted for repeatedly mentioning me. If you believe this is a mistake, please contact our [Support Server](https://github.com/suneo779/midvox) with any proof if possible.**",
                         color=0x8A9A5B
                     )
                     await message.channel.send(embed=embed)
@@ -155,7 +141,7 @@ class AutoBlacklist(Cog):
                 await self.add_to_blacklist(user_id=ctx.author.id)
                 embed = discord.Embed(
                     title=f"{ZWARNING} User Blacklisted",
-                    description=f"**{ctx.author.mention} has been blacklisted for spamming commands. If you believe this is a mistake, please contact our [Support Server](https://discord.gg/codexdev) with any proof if possible.**",
+                    description=f"**{ctx.author.mention} has been blacklisted for spamming commands. If you believe this is a mistake, please contact our [Support Server](https://github.com/suneo779/midvox) with any proof if possible.**",
                     color=0x8A9A5B
                 )
                 await ctx.reply(embed=embed)

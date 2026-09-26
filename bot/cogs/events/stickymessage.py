@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 import aiosqlite
 import json
@@ -40,9 +26,9 @@ class StickyMessageListener(commands.Cog):
         async with aiosqlite.connect("db/stickymessages.db") as db:
             cursor = await db.execute("""
                 SELECT id, message_type, message_content, embed_data, last_message_id,
-                       enabled, delay_seconds, auto_delete_after, ignore_bots, 
+                       enabled, delay_seconds, auto_delete_after, ignore_bots,
                        ignore_commands, trigger_count, current_count
-                FROM sticky_messages 
+                FROM sticky_messages
                 WHERE guild_id = ? AND channel_id = ? AND enabled = 1
             """, (message.guild.id, message.channel.id))
             sticky_data = await cursor.fetchone()
@@ -86,7 +72,7 @@ class StickyMessageListener(commands.Cog):
                 if new_sticky_msg:
                     async with aiosqlite.connect("db/stickymessages.db") as db:
                         await db.execute("""
-                            UPDATE sticky_messages 
+                            UPDATE sticky_messages
                             SET last_message_id = ?
                             WHERE guild_id = ? AND channel_id = ?
                         """, (new_sticky_msg.id, message.guild.id, message.channel.id))
@@ -119,7 +105,7 @@ class StickyMessageListener(commands.Cog):
     async def update_counter(self, guild_id, channel_id, new_count):
         async with aiosqlite.connect("db/stickymessages.db") as db:
             await db.execute("""
-                UPDATE sticky_messages 
+                UPDATE sticky_messages
                 SET current_count = ?
                 WHERE guild_id = ? AND channel_id = ?
             """, (new_count, guild_id, channel_id))

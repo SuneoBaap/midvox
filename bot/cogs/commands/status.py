@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import DND, ICON_BROWSER, IDLE, LOADING_ALT1, MOBILE, OFFLINE, ONLINE, PC
 from discord.ext import commands
@@ -110,13 +96,13 @@ class Status(commands.Cog):
         draw_mask = ImageDraw.Draw(mask)
         draw_mask.ellipse((0, 0, 160, 160), fill=255)
 
-        base_img.paste(album_img, (30, 30), mask) 
+        base_img.paste(album_img, (30, 30), mask)
 
         font_path = 'utils/arial.ttf'
         font = ImageFont.truetype(font_path, 40)
 
         truncated_song_name = song_name if len(song_name) <= 60 else song_name[:57] + "..."
-        song_name_position = (220, 70) 
+        song_name_position = (220, 70)
         draw.text(song_name_position, truncated_song_name, font=font, fill="white")
 
         output = BytesIO()

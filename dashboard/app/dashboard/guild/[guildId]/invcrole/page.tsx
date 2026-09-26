@@ -1,19 +1,3 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 CodeX Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/codexdev                      ║
- * ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
- * ║   github   ──  https://github.com/RayExo                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -53,7 +37,7 @@ export default function InvcRolePage({ params }: { params: { guildId: string } }
 
   const handleSave = async () => {
     setSaving(true);
-    const promise = api.updateInvcRole(params.guildId, { 
+    const promise = api.updateInvcRole(params.guildId, {
       role_id: config.role_id,
       enabled: config.enabled
     });
@@ -95,7 +79,7 @@ export default function InvcRolePage({ params }: { params: { guildId: string } }
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-[#111111] border border-[#1A1A1A] rounded-[6px] overflow-hidden shadow-xl p-8 space-y-8">
-            
+
             {/* Status & Toggle */}
             <div className="flex items-center justify-between p-6 bg-[#131313] rounded-[6px] border border-[#1A1A1A]">
               <div className="flex items-center gap-4">
@@ -114,8 +98,8 @@ export default function InvcRolePage({ params }: { params: { guildId: string } }
                     {config.enabled ? 'Live' : 'Off'}
                   </span>
                 </div>
-                <Switch 
-                  checked={config.enabled} 
+                <Switch
+                  checked={config.enabled}
                   onCheckedChange={(checked) => setConfig({ ...config, enabled: checked })}
                   className="data-[state=checked]:bg-emerald-500"
                 />
@@ -123,7 +107,7 @@ export default function InvcRolePage({ params }: { params: { guildId: string } }
             </div>
 
             {/* Role Selector */}
-            <div className={cn("p-6 border rounded-[6px] space-y-4 transition-all duration-300", 
+            <div className={cn("p-6 border rounded-[6px] space-y-4 transition-all duration-300",
               config.enabled ? "bg-[#131313] border-[#1A1A1A] opacity-100" : "bg-[#0F0F0F]/20 border-[#111111] opacity-40 pointer-events-none grayscale")}>
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-primary/20 text-primary rounded-xl">

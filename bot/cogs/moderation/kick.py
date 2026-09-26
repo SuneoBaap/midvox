@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK
 from discord.ext import commands
@@ -61,7 +47,7 @@ class Kick(commands.Cog):
 
         # --- Kick the member ---
         await member.kick(reason=f"Action by {ctx.author.name} | Reason: {reason}")
-        
+
         # --- Create and send the simplified confirmation embed ---
         member_avatar_url = member.avatar.url if member.avatar else None
 
@@ -73,7 +59,7 @@ class Kick(commands.Cog):
         )
         embed.set_author(name=f"Successfully Kicked {member.name}")
         embed.set_footer(text=f"Action by {ctx.author.name}", icon_url=ctx.author.avatar.url if ctx.author.avatar else None)
-        
+
         if member_avatar_url:
             embed.set_thumbnail(url=member_avatar_url)
 

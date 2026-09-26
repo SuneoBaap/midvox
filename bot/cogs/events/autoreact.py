@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 import aiosqlite
@@ -52,11 +38,11 @@ class AutoReactListener(commands.Cog):
                 emoji_list = emojis.split()
                 for emoji in emoji_list:
                     try:
-                        
+
                         if re.match(r"<a?:\w+:\d+>", emoji):
                             emoji_obj = discord.PartialEmoji.from_str(emoji)
                         else:
-                            
+
                             emoji_obj = emoji
 
                         await message.add_reaction(emoji_obj)
@@ -66,7 +52,7 @@ class AutoReactListener(commands.Cog):
                         continue
                     except discord.errors.HTTPException:
                         continue
-                    
+
                 await self.add_rate_limit(message.author.id)
                 break
 

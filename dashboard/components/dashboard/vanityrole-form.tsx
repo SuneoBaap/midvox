@@ -1,19 +1,3 @@
-﻿/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
@@ -35,7 +19,7 @@ interface VanityRoleFormProps {
 export function VanityRoleForm({ initialSetups, channels, roles, guildId }: VanityRoleFormProps) {
   const [setups, setSetups] = useState<VanityRoleSetup[]>(initialSetups);
   const [saving, setSaving] = useState(false);
-  
+
   const textChannels = channels.filter(c => c.type === "0" || c.type === "text" || !c.type); // ensure text channels
 
   const [newVanity, setNewVanity] = useState("");
@@ -82,11 +66,11 @@ export function VanityRoleForm({ initialSetups, channels, roles, guildId }: Vani
 
   return (
     <div className="space-y-8">
-      
+
       {/* List Existing Ones */}
       <div className="bg-[#111111] border border-[#1A1A1A] rounded-[6px] shadow-xl p-8">
         <h3 className="text-xl font-bold text-slate-50 mb-6">Active Vanity Roles</h3>
-        
+
         {setups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-neutral-500">
             <Link2 className="h-12 w-12 mb-4 opacity-50 bg-[#1A1A1A] p-2 rounded-xl" />
@@ -101,9 +85,9 @@ export function VanityRoleForm({ initialSetups, channels, roles, guildId }: Vani
                 <div key={idx} className="bg-[#0F0F0F] p-6 rounded-[6px] border border-[#1A1A1A] relative group">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="font-bold text-lg text-primary">{setup.vanity}</h4>
-                    <Button 
-                      variant="destructive" 
-                      size="icon" 
+                    <Button
+                      variant="destructive"
+                      size="icon"
                       onClick={() => handleDelete(setup.vanity)}
                       disabled={saving}
                       className="opacity-0 group-hover:opacity-100 transition-opacity"
@@ -138,14 +122,14 @@ export function VanityRoleForm({ initialSetups, channels, roles, guildId }: Vani
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-3">
             <label className="text-sm font-bold text-neutral-300">Vanity Code</label>
-            <Input 
+            <Input
               value={newVanity}
               onChange={(e) => setNewVanity(e.target.value)}
               placeholder="e.g. zyx"
               className="h-12 bg-[#111111] border-[#1A1A1A]"
             />
           </div>
-          
+
           <div className="space-y-3">
             <label className="text-sm font-bold text-neutral-300">Reward Role</label>
             <Select
@@ -185,7 +169,7 @@ export function VanityRoleForm({ initialSetups, channels, roles, guildId }: Vani
           </div>
         </div>
 
-        <Button 
+        <Button
           onClick={handleCreate}
           disabled={saving}
           className="w-full h-14 mt-8 font-bold gap-2 text-base"

@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands, ui, File
@@ -142,7 +128,7 @@ class Minecraft(commands.Cog):
         except Exception:
             pass
         return None, {"online": False}, None
-    
+
     async def create_status_image(self, status_data, ip, port, server_type, server_icon_b64):
         try:
             bg = Image.open(BACKGROUND_PATH).convert("RGBA")
@@ -180,17 +166,17 @@ class Minecraft(commands.Cog):
         file = await self.create_status_image(status, ip, port, server_type, favicon)
         is_online = status.get("online", False)
         embed = discord.Embed(title=f"{EMOJI_STATUS_ONLINE if is_online else EMOJI_STATUS_OFFLINE} Minecraft Server Status", color=discord.Color.dark_green() if is_online else discord.Color.red())
-        
+
         default_port = 25565 if server_type != 'bedrock' else 19132
         full_ip = f"{ip}:{port}" if port and port != default_port else ip
         type_emoji_map = {'java': EMOJI_JAVA, 'bedrock': EMOJI_BEDROCK, 'velocity': EMOJI_PROXY, 'bungeecord': EMOJI_PROXY}
         type_emoji = type_emoji_map.get(server_type, EMOJI_INFO)
-        
+
         info_value = (f"**IP:** `{full_ip}`\n"
                       f"**Type:** {type_emoji} {server_type.capitalize()}\n"
                       f"**Version:** `{status.get('version', 'Unknown')}`\n")
         embed.add_field(name=f"{EMOJI_INFO} Server Information", value=info_value, inline=False)
-        
+
         players_online = status.get('players_online', 0)
         players_max = status.get('players_max', 0)
         player_list_str = f"**Online:** `{players_online}/{players_max}`\n"
@@ -202,12 +188,12 @@ class Minecraft(commands.Cog):
                 player_list_str += f"*...and {len(player_names) - 10} more*"
         elif is_online:
              player_list_str += "*Player list is hidden or unavailable.*"
-        
+
         embed.add_field(name=f"{EMOJI_PLAYERS} Players", value=player_list_str, inline=False)
-        
+
         if file:
             embed.set_image(url="attachment://status.png")
-        
+
         embed.set_footer(text="Last updated")
         embed.timestamp = datetime.utcnow()
         view = MinecraftView(self.bot, server_type, ip, port, user_id)
@@ -268,7 +254,7 @@ class Minecraft(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         removed = await self.delete_status_message(interaction.guild.id)
         await interaction.followup.send(f"{EMOJI_SUCCESS} Minecraft status panel removed." if removed else f"{EMOJI_WARNING} No setup found.", ephemeral=True)
-            
+
     @minecraft.command(name="status", description="Get a one-time status of the configured server.")
     async def status_slash(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False)

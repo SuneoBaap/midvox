@@ -52,12 +52,28 @@ RUN npm init -y \
 # deployment to one service while retaining Cobalt's own processing runtime.
 FROM ghcr.io/imputnet/cobalt:11.7.1 AS cobalt
 
+# Build and prune the dashboard outside the production image. The runtime only
+# needs Node itself plus the compiled application and production dependencies.
+FROM node:24-bookworm-slim AS dashboard_builder
+WORKDIR /build/dashboard
+COPY dashboard/package.json ./
+RUN npm install --no-audit --no-fund
+COPY dashboard/ ./
+ARG NEXT_PUBLIC_API_URL=/api/v1
+ARG NEXT_PUBLIC_DASHBOARD_API_KEY
+ARG NEXT_PUBLIC_ADMIN_IDS
+ARG NEXT_PUBLIC_BRAND_NAME=MidVox
+ARG NEXT_PUBLIC_BRAND_NAME_WORD=MV
+ARG DISCORD_CLIENT_ID
+ARG NEXT_PUBLIC_DISCORD_CLIENT_ID
+RUN NEXT_PUBLIC_DISCORD_CLIENT_ID="${NEXT_PUBLIC_DISCORD_CLIENT_ID:-$DISCORD_CLIENT_ID}" npm run build \
+    && npm prune --omit=dev
+
 FROM python:3.12-slim-bookworm
 
 # Python runs the bot, Node serves the dashboard, and the bundled Cobalt
 # runtime handles YouTube Shorts inside the same container.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=warp_tools /usr/local/bin/wgcf /usr/local/bin/wgcf
 COPY --from=warp_tools /usr/local/bin/wireproxy /usr/local/bin/wireproxy
 COPY --from=discord_desktop /opt/Discord /opt/Discord
@@ -81,9 +97,7 @@ RUN python /tmp/patch_cobalt_youtube.py \
 # makes a Railway builder/configuration mistake visible in Build Logs.
 RUN test -e /opt/cobalt/src/cobalt.js \
     || (echo 'Cobalt image was not copied: expected /opt/cobalt/src/cobalt.js' >&2; find /opt/cobalt -maxdepth 3 -type f -print >&2; exit 1)
-RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-    && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
-    && apt-get update \
+RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
         libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
@@ -107,22 +121,7 @@ WORKDIR /app
 COPY bot/requirements.txt bot/requirements.txt
 RUN python -m pip install -r bot/requirements.txt
 
-COPY dashboard/package.json dashboard/package.json
-RUN cd dashboard && npm install --no-audit --no-fund
-
-COPY dashboard/ dashboard/
-# Next.js embeds public variables during the build. Railway supplies these args.
-ARG NEXT_PUBLIC_API_URL=/api/v1
-ARG NEXT_PUBLIC_DASHBOARD_API_KEY
-ARG NEXT_PUBLIC_ADMIN_IDS
-ARG NEXT_PUBLIC_BRAND_NAME=MidVox
-ARG NEXT_PUBLIC_BRAND_NAME_WORD=MV
-ARG DISCORD_CLIENT_ID
-ARG NEXT_PUBLIC_DISCORD_CLIENT_ID
-RUN cd dashboard \
-    && NEXT_PUBLIC_DISCORD_CLIENT_ID="${NEXT_PUBLIC_DISCORD_CLIENT_ID:-$DISCORD_CLIENT_ID}" npm run build \
-    && npm prune --omit=dev
-
+COPY --from=dashboard_builder /build/dashboard dashboard/
 COPY bot/ bot/
 COPY start.sh start.sh
 RUN sed -i 's/\r$//' start.sh && bash -n start.sh

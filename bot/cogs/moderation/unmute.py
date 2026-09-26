@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import DELETE, TICK, ZWARNING
 from discord.ext import commands
@@ -24,7 +10,7 @@ from datetime import timedelta
       #  super().__init__(timeout=120)
       #  self.user = user
         #self.author = author
-      #  self.message = None  
+      #  self.message = None
 
   #  async def interaction_check(self, interaction: discord.Interaction) -> bool:
       #  if interaction.user != self.author:
@@ -47,7 +33,7 @@ from datetime import timedelta
       #  modal = MuteReasonModal(user=self.user, author=self.author, view=self)
       #  await interaction.response.send_modal(modal)
 
-        
+
      #   for item in self.children:
         #    if item.label != "Delete":
               #  item.disabled = True
@@ -84,7 +70,7 @@ from datetime import timedelta
           #  await interaction.response.send_message(f"Failed to mute {self.user.mention}. I lack the permissions.", ephemeral=True)
          #   return
 
-        
+
      #   try:
         #    await self.user.send(f"{ZWARNING} You have been muted in **{interaction.guild.name}** for {time_str}. Reason: {reason}")
          #   dm_status = "Yes"
@@ -94,7 +80,7 @@ from datetime import timedelta
            # dm_status = "No"
 
       #  success_embed = discord.Embed(
-         #   description=f"** Target User:** [{self.user}](https://discord.com/users/{self.user.id})\n**User Mention:** {self.user.mention}\n**Reason:** {reason}\n **DM Sent:** {dm_status}", 
+         #   description=f"** Target User:** [{self.user}](https://discord.com/users/{self.user.id})\n**User Mention:** {self.user.mention}\n**Reason:** {reason}\n **DM Sent:** {dm_status}",
           #  color=0x8A9A5B
       #  )
        # success_embed.set_author(name=f"Muted {self.user.name}", icon_url=self.user.avatar.url if self.user.avatar else self.user.default_avatar.url)
@@ -105,7 +91,7 @@ from datetime import timedelta
 
        # await interaction.response.edit_message(embed=success_embed, view=self.view)
 
-        
+
        # for item in self.view.children:
            # if item.label != "Delete":
               #  item.disabled = True
@@ -123,12 +109,12 @@ from datetime import timedelta
                 #duration = int(duration_str[:-1])
                # return duration * 86400
            # else:
-                
+
               #  duration = int(duration_str)
              #   if duration > 60:
-                   # return (duration // 60) * 3600  
+                   # return (duration // 60) * 3600
               #  else:
-                 #   return duration * 60  
+                 #   return duration * 60
        # except ValueError:
        #     return None
 
@@ -168,7 +154,7 @@ class Unmute(commands.Cog):
         try:
             await user.edit(timed_out_until=None)
 
-            
+
             try:
                 await user.send(f"{TICK} You have been unmuted in **{ctx.guild.name}**.")
                 dm_status = "Yes"
@@ -186,7 +172,7 @@ class Unmute(commands.Cog):
         embed = discord.Embed(
             description=f"**{TICK} | Successfully Unmuted [{user}](https://discord.com/users/{user.id})**",
             color=self.color
-        )        
+        )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         embed.set_author(name=f"Successfully Unmuted {user.name}", icon_url=self.get_user_avatar(user))
     #    embed.add_field(name=" Moderator:", value=ctx.author.mention, inline=False)

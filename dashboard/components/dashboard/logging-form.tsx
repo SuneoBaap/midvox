@@ -1,23 +1,7 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
+import {
   MessageSquare,
   UserPlus,
   ShieldAlert,
@@ -122,7 +106,7 @@ export function LoggingForm({ initialConfig, channels, guildId }: LoggingFormPro
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-8 lg:min-w-[320px]">
                      <div className="w-full sm:w-48 lg:w-56">
                         <p className="text-[10px] font-black uppercase text-neutral-600 mb-2 tracking-widest pl-1">Destination</p>
-                        <Select 
+                        <Select
                           value={config.log_channels[cat.id]?.toString() || ""}
                           onValueChange={(val) => handleChannelChange(cat.id, val)}
                           options={channelOptions}
@@ -140,8 +124,8 @@ export function LoggingForm({ initialConfig, channels, guildId }: LoggingFormPro
                              {config.log_enabled[cat.id] ? "Active" : "Silent"}
                            </span>
                         </div>
-                        <Switch 
-                          checked={!!config.log_enabled[cat.id]} 
+                        <Switch
+                          checked={!!config.log_enabled[cat.id]}
                           onCheckedChange={(val) => handleToggle(cat.id, val)}
                         />
                      </div>

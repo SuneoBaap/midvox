@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import os
 import sys
 import subprocess
@@ -78,19 +64,19 @@ async def update_stats():
         try:
             servers = len(client.guilds)
             users = sum(guild.member_count for guild in client.guilds if guild.member_count is not None)
-            
+
             server_channel = client.get_channel(SERVER_COUNT_CHANNEL_ID)
             user_channel = client.get_channel(USER_COUNT_CHANNEL_ID)
-            
+
             if server_channel:
                 await server_channel.edit(name=f"Servers: {servers}")
-            
+
             if user_channel:
                 await user_channel.edit(name=f"Users: {users}")
-                
+
         except Exception as e:
             print(f"Error updating stats: {e}")
-        
+
         await asyncio.sleep(600) # Update every 10 minutes
 
 _initial_ready_done = False
@@ -103,13 +89,13 @@ async def on_ready():
     if _initial_ready_done:
         return
     _initial_ready_done = True
-    
+
     print("""
         \033[1;31m
  ██████╗ ██████╗ ██████╗ ███████╗██╗  ██╗
 ██╔════╝██╔═══██╗██╔══██╗██╔════╝╚██╗██╔╝
-██║     ██║   ██║██║  ██║█████╗   ╚███╔╝ 
-██║     ██║   ██║██║  ██║██╔══╝   ██╔██╗ 
+██║     ██║   ██║██║  ██║█████╗   ╚███╔╝
+██║     ██║   ██║██║  ██║██╔══╝   ██╔██╗
 ╚██████╗╚██████╔╝██████╔╝███████╗██╔╝ ██╗
  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
         \033[0m
@@ -185,10 +171,10 @@ async def on_command_completion(context: commands.Context) -> None:
             embed.add_field(name="Channel", value=f"{context.channel.mention} (`{context.channel.id}`)", inline=False)
         else:
             embed.add_field(name="User (DM)", value=f"{context.author.mention} (`{context.author.id}`)", inline=False)
-        
+
         embed.timestamp = discord.utils.utcnow()
         embed.set_footer(text=f"{BRAND_NAME} Development™ ❤️", icon_url=client.user.display_avatar.url)
-        
+
         try:
             await webhook.send(embed=embed)
         except Exception as e:
@@ -204,7 +190,7 @@ async def spotify(ctx: Context, user: discord.Member = None):
 
     if not spotify_activity:
         return await ctx.send(f"{user.name} is not listening to Spotify.")
-    
+
     embed = discord.Embed(
         title=f"{user.name}'s Spotify",
         description=f"**Listening to:** {spotify_activity.title}",
@@ -223,7 +209,7 @@ async def make_invite(ctx: Context, guild_id: int = None):
     """Creates an invite for a specified server (owner only)."""
     if guild_id is None:
         return await ctx.send("Please provide a Guild ID.")
-        
+
     guild = client.get_guild(guild_id)
     if not guild:
         return await ctx.send("Invalid Guild ID. I am not in that server.")
@@ -242,7 +228,7 @@ async def make_invite(ctx: Context, guild_id: int = None):
                 return await ctx.send(f"Invite for **{guild.name}** (from #{channel.name}):\n{invite.url}")
             except Exception:
                 continue
-                
+
     await ctx.send(f"I don't have 'Create Instant Invite' permission in any channel in **{guild.name}**.")
 
 
@@ -253,7 +239,7 @@ async def create_hook(ctx: Context, *, name: str = None):
     """Creates a webhook in the current channel."""
     if name is None:
         return await ctx.send("Please provide a name for the webhook.")
-    
+
     try:
         webhook = await ctx.channel.create_webhook(name=name, reason=f"Created by {ctx.author}")
         embed = discord.Embed(
@@ -309,19 +295,19 @@ async def reaction(ctx: Context):
     emojis = ["🍪", "🎉", "🧋", "🍒", "🍑", "💸", "🌙", "💕"]
     correct_emoji = random.choice(emojis)
     random.shuffle(emojis)
-    
+
     embed = discord.Embed(
         title="Reaction Test",
         description="I will show an emoji in a few seconds. Get ready to click it!",
         color=0x8A9A5B
     )
     message = await ctx.send(embed=embed)
-    
+
     for emoji in emojis:
         await message.add_reaction(emoji)
-        
+
     await asyncio.sleep(random.uniform(2.0, 7.0))
-    
+
     embed.description = f"**GET THE {correct_emoji} EMOJI!**"
     await message.edit(embed=embed)
     start_time = time.time()
@@ -337,7 +323,7 @@ async def reaction(ctx: Context):
         reaction, user = await client.wait_for("reaction_add", timeout=15.0, check=check)
         end_time = time.time()
         reaction_time = end_time - start_time
-        
+
         embed.description = f"{user.mention} got the {correct_emoji} in **{reaction_time:.2f} seconds**!"
         await message.edit(embed=embed)
     except asyncio.TimeoutError:
@@ -370,10 +356,6 @@ def keep_alive():
     server.start()
 
 keep_alive()
-
-# --- Cloudflare Tunnel (HTTPS for API) ---
-from utils.tunnel import start_tunnel
-start_tunnel()
 
 # --- Main Bot Execution ---
 async def main():
@@ -432,3 +414,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+"""MidVox application entrypoint.
+
+Made and maintained by Suneo.
+"""

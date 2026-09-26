@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 import aiosqlite
@@ -66,7 +52,7 @@ class AntiEveryone(commands.Cog):
             if whitelist_status and whitelist_status[0]:
                 return
 
-            
+
             if not await self.can_message_delete(guild.id, 'mention_everyone'):
                 return
 
@@ -78,11 +64,11 @@ class AntiEveryone(commands.Cog):
 
     async def timeout_user(self, user):
         retries = 3
-        duration = 60 * 60  
+        duration = 60 * 60
         while retries > 0:
             try:
                 await user.edit(timed_out_until=discord.utils.utcnow() + timedelta(seconds=duration), reason="Mentioned Everyone/Here | Unwhitelisted User")
-                return  
+                return
             except discord.Forbidden:
                 return
             except discord.HTTPException as e:
@@ -113,8 +99,8 @@ class AntiEveryone(commands.Cog):
                 async for msg in channel.history(limit=100):
                     if msg.mention_everyone:
                         await msg.delete()
-                        await asyncio.sleep(3)  
-                return  
+                        await asyncio.sleep(3)
+                return
             except discord.Forbidden:
                 return
             except discord.HTTPException as e:

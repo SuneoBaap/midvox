@@ -1,19 +1,3 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
@@ -106,7 +90,7 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
         <div className="bg-[#111111] border border-[#1A1A1A] rounded-[6px] shadow-xl p-8 space-y-8">
-          
+
           <div className="flex items-center justify-between p-6 bg-[#131313] rounded-[6px] border border-[#1A1A1A]">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/20 text-primary rounded-xl">
@@ -117,8 +101,8 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
                 <p className="text-sm text-neutral-400 mt-1">Send a direct message when a user gets/loses a role.</p>
               </div>
             </div>
-            <Switch 
-              checked={config.dm_enabled} 
+            <Switch
+              checked={config.dm_enabled}
               onCheckedChange={toggleDM}
               className="scale-125"
             />
@@ -129,12 +113,12 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
               <Plus className="h-5 w-5 text-primary" />
               Create New Reaction Role
             </h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-neutral-400">Message ID</label>
-                <Input 
-                  placeholder="e.g. 1234567890" 
+                <Input
+                  placeholder="e.g. 1234567890"
                   value={newRR.message_id}
                   onChange={(e) => setNewRR({ ...newRR, message_id: e.target.value })}
                   className="bg-[#0F0F0F] h-10"
@@ -142,8 +126,8 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-neutral-400">Emoji</label>
-                <Input 
-                  placeholder="e.g. âœ…" 
+                <Input
+                  placeholder="e.g. âœ…"
                   value={newRR.emoji}
                   onChange={(e) => setNewRR({ ...newRR, emoji: e.target.value })}
                   className="bg-[#0F0F0F] h-10"
@@ -168,9 +152,9 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
                 </Select>
               </div>
             </div>
-            <Button 
-              onClick={handleAdd} 
-              disabled={loadingAction} 
+            <Button
+              onClick={handleAdd}
+              disabled={loadingAction}
               className="w-full gap-2"
               variant="secondary"
             >
@@ -193,7 +177,7 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
               ) : (
                 config.roles.map((rr: any, idx: number) => {
                   const roleName = roles.find(r => r.id === rr.role_id.toString())?.name || "Unknown Role";
-                  
+
                   return (
                     <div key={idx} className="flex items-center justify-between p-4 bg-[#131313] rounded-xl border border-[#1A1A1A]">
                       <div className="flex items-center gap-6">
@@ -210,9 +194,9 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
                           <span className="text-sm font-medium text-primary">{roleName}</span>
                         </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(rr.message_id, rr.emoji)}
                         disabled={loadingAction}
                         className="text-red-400 hover:text-red-500 hover:bg-red-400/10 h-8 w-8 p-0"

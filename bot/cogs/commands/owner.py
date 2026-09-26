@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from __future__ import annotations
 from discord.ext import commands
 from discord import *
@@ -72,7 +58,7 @@ BACK_COMPAT_BADGE_DICT = DISCORD_BADGE_EMOJIS
 db_folder = 'db'
 db_file = 'badges.db'
 db_path = os.path.join(db_folder, db_file)
-FONT_PATH = os.path.join('utils', 'arial.ttf') 
+FONT_PATH = os.path.join('utils', 'arial.ttf')
 
 # --- Database Setup ---
 os.makedirs(db_folder, exist_ok=True)
@@ -141,7 +127,7 @@ class Owner(commands.Cog):
         self.bot_owner_ids = BOT_OWNER_IDS
         self.client.loop.create_task(self.setup_database())
         self.client.loop.create_task(self.load_staff())
-        
+
 
     async def setup_database(self):
         async with aiosqlite.connect(self.db_path) as db:
@@ -152,7 +138,7 @@ class Owner(commands.Cog):
             ''')
             await db.commit()
 
-    
+
 
     async def load_staff(self):
         await self.client.wait_until_ready()
@@ -239,7 +225,7 @@ class Owner(commands.Cog):
 
     @commands.command(name="getinvite", aliases=["gi", "guildinvite"])
     @commands.is_owner()
-    async def getinvite(self, ctx: Context, guild= discord.Guild):   
+    async def getinvite(self, ctx: Context, guild= discord.Guild):
         if not guild:
             await ctx.send("Invalid server.")
             return
@@ -332,7 +318,7 @@ class Owner(commands.Cog):
             await user.send(message)
             await ctx.send(f"{TICK} | Successfully Sent a DM to **{user}**")
         except discord.Forbidden:
-            await ctx.send("This user might be having DMs blocked or it's a bot account...")           
+            await ctx.send("This user might be having DMs blocked or it's a bot account...")
 
 
 
@@ -354,13 +340,13 @@ class Owner(commands.Cog):
             else:
                 await ctx.send(f"{TICK} | Successfully removed nickname")
         except Exception as err:
-            await ctx.send(err) 
+            await ctx.send(err)
 
 
     @commands.command(name="ownerban", aliases=["forceban", "dna"])
     @commands.is_owner()
     async def _ownerban(self, ctx: Context, user_id: int, *, reason: str = "No reason provided"):
-        
+
         member = ctx.guild.get_member(user_id)
         if member:
             try:
@@ -591,7 +577,7 @@ class Owner(commands.Cog):
 
 
 
-    
+
 
 
     @commands.group()
@@ -664,12 +650,12 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @commands.bot_has_permissions(manage_messages=True)
     async def _purgebot(self, ctx, prefix=None, search=100):
-        
+
         await ctx.message.delete()
-        
+
         def predicate(m):
             return (m.webhook_id is None and m.author.bot) or (prefix and m.content.startswith(prefix))
-        
+
         await do_removal(ctx, search, predicate)
 
 
@@ -680,12 +666,12 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @commands.bot_has_permissions(manage_messages=True)
     async def purguser(self, ctx, member: discord.Member, search=100):
-        
+
         await ctx.message.delete()
-        
+
         await do_removal(ctx, search, lambda e: e.author == member)
 
-        
+
 # p2
 class Badges(commands.Cog):
     """Handles the profile and badge display system."""
@@ -697,11 +683,11 @@ class Badges(commands.Cog):
         font_title = ImageFont.truetype(FONT_PATH, 22)
         font_text = ImageFont.truetype(FONT_PATH, 18)
         font_badge = ImageFont.truetype(FONT_PATH, 20)
-        
+
         BG_COLOR = (30, 31, 34)
         BOX_COLOR = (43, 45, 49)
         TEXT_COLOR = (255, 255, 255)
-        
+
         W, H = (850, 450)
         img = Image.new('RGB', (W, H), BG_COLOR)
         draw = ImageDraw.Draw(img)
@@ -724,14 +710,14 @@ class Badges(commands.Cog):
 
         # --- Right Column (Bot Badges) ---
         draw.text((320, 30), "Badges:", font=font_title, fill=TEXT_COLOR)
-        
+
         badge_priority = [
-            "owner", "developer", "staff", "partner", "sponsor", 
+            "owner", "developer", "staff", "partner", "sponsor",
             "vip", "friend", "early", "bug", "family"
         ]
-        
+
         active_badges = [name for name in badge_priority if user_bot_badges.get(name) == 1]
-        
+
         col_width, row_height, gap_x, gap_y = 220, 50, 20, 15
         start_x, start_y = 320, 70
 
@@ -739,10 +725,10 @@ class Badges(commands.Cog):
         for i in range(10):
             col = i % 2
             row = i // 2
-            
+
             x = start_x + col * (col_width + gap_x)
             y = start_y + row * (row_height + gap_y)
-            
+
             # Always draw the empty block
             draw.rectangle((x, y, x + col_width, y + row_height), fill=BOX_COLOR)
 
@@ -767,7 +753,7 @@ class Badges(commands.Cog):
     @commands.cooldown(1, 8, commands.BucketType.user)
     async def profile(self, ctx: commands.Context, member: discord.Member = None):
         member = member or ctx.author
-        
+
         loading_embed = discord.Embed(
             title="{LOADINGRED} Loading Profile...",
             color=0x8A9A5B
@@ -776,12 +762,12 @@ class Badges(commands.Cog):
 
         c.execute("SELECT * FROM badges WHERE user_id = ?", (member.id,))
         db_badges_data = c.fetchone()
-        
+
         user_bot_badges = {}
         if db_badges_data:
             column_names = [desc[0] for desc in c.description]
             user_bot_badges = dict(zip(column_names, db_badges_data))
-        
+
         # Default "Family" badge for everyone
         user_bot_badges['family'] = 1
 
@@ -790,7 +776,7 @@ class Badges(commands.Cog):
             file = await loop.run_in_executor(None, self.generate_profile_image, member, user_bot_badges)
         except Exception as e:
             error_embed = discord.Embed(
-                title="Error", 
+                title="Error",
                 description=f"Failed to create profile image: {e}",
                 color=0x8A9A5B
             )
@@ -799,27 +785,27 @@ class Badges(commands.Cog):
         embed = discord.Embed(color=0x8A9A5B)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_author(name=f"◇ {member.name}'s Profile", icon_url=self.bot.user.display_avatar.url)
-        
+
         description = (
             f"**◇ Account Created**: <t:{int(member.created_at.timestamp())}:D>\n"
             f"**◇ Joined Server**: <t:{int(member.joined_at.timestamp())}:D>\n"
             f"**◇ User ID**: `{member.id}`\n\n"
         )
-        
+
         badge_list = []
         user = await self.bot.fetch_user(member.id)
         if user.banner or (user.avatar and user.avatar.is_animated()):
             badge_list.append(f"{DISCORD_BADGE_EMOJIS.get('nitro', '💎')} Nitro Subscriber")
         if member.premium_since:
             badge_list.append(f"{DISCORD_BADGE_EMOJIS.get('boost', '✨')} Server Booster")
-            
+
         for flag in user.public_flags.all():
              if flag.name in DISCORD_BADGE_EMOJIS:
                 badge_list.append(f"{DISCORD_BADGE_EMOJIS[flag.name]} {flag.name.replace('_', ' ').title()}")
 
         if badge_list:
             description += "**Official Badges:**\n" + "\n".join(badge_list)
-        
+
         embed.description = description
         embed.set_image(url="attachment://profile.png")
         embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=ctx.author.display_avatar.url)
@@ -831,4 +817,3 @@ async def setup(client):
     if not hasattr(client, 'session'):
         client.session = aiohttp.ClientSession()
     await client.add_cog(Badges(client))
-    

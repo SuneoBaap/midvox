@@ -1,21 +1,5 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 CodeX Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/codexdev                      ║
- * ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
- * ║   github   ──  https://github.com/RayExo                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 import React from "react";
-import { 
+import {
   BellRing,
   ChevronRight
 } from "lucide-react";
@@ -53,10 +37,10 @@ export default async function LoggingPage({ params }: { params: { guildId: strin
         </div>
       </div>
 
-      <LoggingForm 
-        initialConfig={loggingData} 
-        channels={channelsData} 
-        guildId={params.guildId} 
+      <LoggingForm
+        initialConfig={loggingData}
+        channels={channelsData}
+        guildId={params.guildId}
       />
     </div>
   );

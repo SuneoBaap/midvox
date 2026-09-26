@@ -1,9 +1,3 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║   © 2026 CodeX Devs — All Rights Reserved                       ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 import type { Metadata } from "next";
 import { Space_Grotesk, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";

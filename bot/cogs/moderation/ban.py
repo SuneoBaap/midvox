@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK, ZWARNING
 from discord.ext import commands
@@ -122,10 +108,10 @@ class Ban(commands.Cog):
         ))
         container.add_item(ui.Separator())
         container.add_item(ui.TextDisplay(f"*Requested by {ctx.author} • {discord.utils.format_dt(discord.utils.utcnow(), 'R')}*"))
-        
+
         view = ui.LayoutView()
         view.add_item(container)
-        
+
         message = await ctx.send(view=view)
 
 async def setup(bot):

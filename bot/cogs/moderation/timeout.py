@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, DELETE, TICK, ZWARNING
 from discord.ext import commands
@@ -25,7 +11,7 @@ from utils.Tools import *
     #    super().__init__(timeout=120)
       #  self.user = user
     #    self.author = author
-      #  self.message = None  
+      #  self.message = None
       #  self.color = discord.Color.from_rgb(255, 0, 0)
 
   #  async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -54,7 +40,7 @@ from utils.Tools import *
      #   super().__init__(timeout=60)
        # self.user = user
       #  self.author = author
-      #  self.message = None  
+      #  self.message = None
 
    # async def interaction_check(self, interaction: discord.Interaction) -> bool:
       #  if interaction.user != self.author:
@@ -201,21 +187,21 @@ class Mute(commands.Cog):
       #  embed.add_field(name=" Moderator:", value=ctx.author.mention, inline=False)
         embed.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
         embed.timestamp = discord.utils.utcnow()
-        
+
         #view = TimeoutView(user=user, author=ctx.author)
         message = await ctx.send(embed=embed)
        # view.message = message
 
     @mute.error
     async def mute_error(self, ctx, error):
-        
+
         if isinstance(error, commands.BotMissingPermissions):
             embed = discord.Embed(title=f"{CROSS}> Access Denied", description="I don't have permission to mute members.", color=self.color)
             await ctx.send(embed=embed)
         elif isinstance(error, discord.Forbidden):
             embed = discord.Embed(title=f"{CROSS} Missing Permissions", description="I can't mute this user as they might have higher privileges (e.g., Admin).", color=self.color)
             await ctx.send(embed=embed)
-            
+
         else:
             embed = discord.Embed(title=f"{CROSS} Unexpected Error", description=str(error), color=self.color)
             await ctx.send(embed=embed)

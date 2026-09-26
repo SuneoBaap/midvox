@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from __future__ import annotations
 from core import midvox
 from colorama import Fore, Style, init
@@ -64,12 +50,12 @@ from .commands.np import NoPrefix
 from .commands.owner2 import Global
 from .commands.qr import QR
 from .commands.vanityroles import VanityRoles
-from .commands.reactionroles import ReactionRoles 
+from .commands.reactionroles import ReactionRoles
 from .commands.messages import Messages
 from .commands.fastgreet import FastGreet
 from .commands.counting import Counting
 from .commands.j2c import JoinToCreate
-from .commands.ai import AI 
+from .commands.ai import AI
 from .commands.dms import StaffDMCog
 from .commands.booster import Booster
 from .commands.leveling import Leveling
@@ -97,14 +83,14 @@ from .events.mention import Mention
 from .events.react import React
 from .events.autoreact import AutoReactListener
 #from .events.topgg import TopGG
-from .events.ai import AIResponses 
+from .events.ai import AIResponses
 from .events.stickymessage import StickyMessageListener
 
 ########-------HELP-------########
 from .midvox.antinuke import _antinuke
 from .midvox.extra import _extra
 from .midvox.general import _general
-from .midvox.automod import _automod 
+from .midvox.automod import _automod
 from .midvox.moderation import _moderation
 #from .midvox.inviteTracker import _inviteTracker
 #from .midvox.music import _music
@@ -112,18 +98,18 @@ from .midvox.fun import _fun
 from .midvox.games import _games
 from .midvox.ignore import _ignore
 from .midvox.server import _server
-from .midvox.voice import _voice 
-from .midvox.welcome import _welcome 
+from .midvox.voice import _voice
+from .midvox.welcome import _welcome
 from .midvox.giveaway import _giveaway
 from .midvox.ticket import _ticket
 #from .axon.vanityroles import Vanityroles69999
 from .midvox.logging import _logging
 from .midvox.vanity import _vanity
-from .midvox.inviteTracker import inviteTracker 
+from .midvox.inviteTracker import inviteTracker
 from .midvox.counting import _Counting
 from .midvox.j2c import _J2C
 from .midvox.ai import _ai
-from .midvox.booster import __boost 
+from .midvox.booster import __boost
 from .midvox.leveling import _leveling
 from .midvox.sticky import _sticky
 from .midvox.verify import _verify
@@ -151,14 +137,6 @@ from .antinuke.antirlup import AntiRoleUpdate
 from .antinuke.antiwebhook import AntiWebhookUpdate
 from .antinuke.antiwebhookcr import AntiWebhookCreate
 from .antinuke.antiwebhookdl import AntiWebhookDelete
-
-#Extra Optional Events 
-
-#from .antinuke.antiemocr import AntiEmojiCreate
-#from .antinuke.antiemodl import AntiEmojiDelete
-#from .antinuke.antiemoup import AntiEmojiUpdate
-#from .antinuke.antisticker import AntiSticker
-#from .antinuke.antiunban import AntiUnban
 
 ############ AUTOMOD ############
 from .automod.antispam import AntiSpam
@@ -193,12 +171,12 @@ async def setup(bot: midvox):
         Help, General, Moderation, Automod, Welcomer, Fun, Games, Extra,
         Voice, Owner, Customrole, afk, Embed, Media, Ignore, TicketCog, Logging,
         Invcrole, Steal, Timer,
-        Blacklist, Block, Nightmode, Badges, Antinuke, Whitelist, 
+        Blacklist, Block, Nightmode, Badges, Antinuke, Whitelist,
         Unwhitelist, Extraowner, Blackjack, Slots, Guild, Errors, Autorole2, Autorole, greet, AutoResponder,
         Mention, AutoRole, React, AntiMemberUpdate, AntiBan, AntiBotAdd,
         AntiChannelCreate, AntiChannelDelete, AntiChannelUpdate, AntiEveryone, AntiGuildUpdate,
         AntiIntegration, AntiKick, AntiPrune, AntiRoleCreate, AntiRoleDelete,
-        AntiRoleUpdate, AntiWebhookUpdate, AntiWebhookCreate, 
+        AntiRoleUpdate, AntiWebhookUpdate, AntiWebhookCreate,
         AntiWebhookDelete, AntiSpam, AntiCaps, AntiLink, AntiInvite, AntiMassMention, Stats, Status, NoPrefix, AutoReaction, AutoReactListener, Ban, Unban, Mute, Unmute, Lock, Unlock, Hide, Unhide, Kick, Warn, Role, Message, Moderation, TopCheck, Snipe, Global, QR, VanityRoles, ReactionRoles, Messages, TranslateCog, FastGreet, Jail, inviteTracker,Counting,AI
     ]
 
@@ -270,14 +248,14 @@ async def setup(bot: midvox):
   await bot.add_cog(_antinuke(bot))
   await bot.add_cog(_extra(bot))
   await bot.add_cog(_general(bot))
-  await bot.add_cog(_automod(bot))  
+  await bot.add_cog(_automod(bot))
   await bot.add_cog(_moderation(bot))
   #await bot.add_cog(_music(bot))
   await bot.add_cog(_fun(bot))
   await bot.add_cog(_games(bot))
   await bot.add_cog(_ignore(bot))
   await bot.add_cog(_server(bot))
-  await bot.add_cog(_voice(bot))   
+  await bot.add_cog(_voice(bot))
   await bot.add_cog(_welcome(bot))
   await bot.add_cog(_giveaway(bot))
   await bot.add_cog(_ticket(bot))
@@ -298,7 +276,7 @@ async def setup(bot: midvox):
   await bot.add_cog(_birth(bot))
 
 
-  
+
   #await bot.add_cog(AutoBlacklist(bot))
   await bot.add_cog(Guild(bot))
   await bot.add_cog(Errors(bot))
@@ -335,7 +313,7 @@ async def setup(bot: midvox):
   await bot.add_cog(AntiWebhookDelete(bot))
 
 
-#Extra Optional Events 
+#Extra Optional Events
 
   #await bot.add_cog(AntiEmojiCreate(bot))
   #await bot.add_cog(AntiEmojiDelete(bot))
@@ -372,7 +350,7 @@ async def setup(bot: midvox):
   await bot.add_cog(Moderation(bot))
   await bot.add_cog(TopCheck(bot))
   await bot.add_cog(Snipe(bot))
-  
+
 
 
   for cog in cogs_to_load:

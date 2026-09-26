@@ -25,7 +25,6 @@ numpy
 openai
 yt-dlp
 wavelink
-pycloudflared
 mcstatus
 deep-translator==1.11.4
 langdetect

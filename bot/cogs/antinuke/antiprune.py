@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 import aiosqlite
@@ -29,12 +15,12 @@ class AntiPrune(commands.Cog):
                 now = datetime.datetime.now(pytz.utc)
                 created_at = entry.created_at
                 difference = (now - created_at).total_seconds() * 1000
-                    
+
                 if difference >= 3600000:
                     return  None
 
                 return entry
-    
+
         except Exception:
             pass
         return None
@@ -54,7 +40,7 @@ class AntiPrune(commands.Cog):
                 return
 
             executor = log_entry.user
-            
+
 
             if executor.id in {guild.owner_id, self.bot.user.id}:
                 return

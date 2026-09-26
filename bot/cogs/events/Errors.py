@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 import json
 import aiosqlite
@@ -28,7 +14,7 @@ class Errors(Cog):
   async def on_command_error(self, ctx: Context, error):
     if ctx.command is None:
       return
-    
+
 
     if isinstance(error, commands.CommandNotFound):
       return
@@ -76,7 +62,7 @@ class Errors(Cog):
     if isinstance(error, commands.CommandOnCooldown):
       embed = discord.Embed(color=0x8A9A5B, description=f"**{ctx.author.mention} Couldown is here Bro Tryy commands in {error.retry_after:.2f} seconds**.")
       embed.set_author(name="Cooldown", icon_url=self.client.user.avatar.url)
-      
+
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
       await ctx.reply(embed=embed, delete_after=10)
       return
@@ -84,7 +70,7 @@ class Errors(Cog):
     if isinstance(error, commands.MaxConcurrencyReached):
       embed = discord.Embed(color=0x8A9A5B, description=f"{ctx.author.mention} This command is already in progress. Please let it finish and try again afterward.")
       embed.set_author(name="Command in Progress.", icon_url=self.client.user.avatar.url)
-      
+
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
       await ctx.reply(embed=embed, delete_after=10)
       ctx.command.reset_cooldown(ctx)
@@ -95,7 +81,7 @@ class Errors(Cog):
       fmt = "{}, and {}".format(", ".join(missing[:-1]), missing[-1]) if len(missing) > 2 else " and ".join(missing)
       embed = discord.Embed(color=0x8A9A5B, description=f"**Ops! You don't have {fmt} Permission to run the {ctx.command.name} command!**")
       embed.set_author(name="Missing Permissions", icon_url=self.client.user.avatar.url)
-      
+
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
       await ctx.reply(embed=embed, delete_after=7)
       ctx.command.reset_cooldown(ctx)

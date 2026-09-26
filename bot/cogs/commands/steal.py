@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 from discord.ui import View, Button
@@ -86,7 +72,7 @@ class Steal(commands.Cog):
             sanitized_name = self.sanitize_name(name)
             response = requests.get(url)
             img = BytesIO(response.content)
-            emoji = "⭐"  
+            emoji = "⭐"
             await ctx.guild.create_sticker(name=sanitized_name, description="Added by bot", file=discord.File(img, filename="sticker.png"), emoji=emoji)
             await ctx.send(embed=discord.Embed(title="Steal", description=f"Added sticker \"**{sanitized_name}**\"!", color=0x8A9A5B))
         except Exception as e:
@@ -94,7 +80,7 @@ class Steal(commands.Cog):
 
     def sanitize_name(self, name):
         sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', name)
-        return sanitized[:32]  
+        return sanitized[:32]
 
     def has_emoji_slot(self, guild, animated):
         normal_emojis = [emoji for emoji in guild.emojis if not emoji.animated]
@@ -138,13 +124,13 @@ class Steal(commands.Cog):
 
             @discord.ui.button(label="Steal as Emoji", style=discord.ButtonStyle.primary)
             async def steal_as_emoji(self, interaction: discord.Interaction, button: discord.ui.Button):
-                
+
                 if interaction.user.id != self.ctx.author.id:
                     await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
                     return
                 await interaction.response.defer()
                 for sticker in self.stickers:
-                    
+
                     if sticker.format in [discord.StickerFormatType.png, discord.StickerFormatType.apng, discord.StickerFormatType.lottie]:
                         animated = sticker.format == discord.StickerFormatType.apng
                         await self.bot.cogs['Steal'].add_emoji(self.ctx, sticker.url, sticker.name.replace(' ', '_'), animated=animated)
@@ -164,7 +150,7 @@ class Steal(commands.Cog):
 
             @discord.ui.button(label="Steal as Sticker", style=discord.ButtonStyle.success)
             async def steal_as_sticker(self, interaction: discord.Interaction, button: discord.ui.Button):
-                
+
                 if interaction.user.id != self.ctx.author.id:
                     await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
                     return

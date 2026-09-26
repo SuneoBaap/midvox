@@ -1,19 +1,3 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 CodeX Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/codexdev                      ║
- * ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
- * ║   github   ──  https://github.com/RayExo                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -117,7 +101,7 @@ export default function JoinDMPage({ params }: { params: { guildId: string } }) 
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            The bot will automatically attach &quot;Sent from [Server Name]&quot; to the end of your message. 
+            The bot will automatically attach &quot;Sent from [Server Name]&quot; to the end of your message.
             Ensure your bot has permissions to DM members (usually by being in the same server and not being blocked).
           </p>
         </CardContent>

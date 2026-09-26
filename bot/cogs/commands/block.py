@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, TICK
 from discord.ext import commands
@@ -51,7 +37,7 @@ class Block(commands.Cog):
             )
         ''')
         await db.commit()
-      
+
 
 
   @commands.group(name="blacklist", aliases=["bl"], invoke_without_command=True)
@@ -155,7 +141,7 @@ class Block(commands.Cog):
         await db.execute('DELETE FROM guild_blacklist WHERE guild_id = ?', (guild_id,))
         await db.commit()
         await ctx.reply(view=CV2(f"{TICK} Guild Unblacklisted", f"Guild with ID `{guild_id}` has been removed from the blacklist."))
-        
+
 
   @guild.command(name="show", aliases=["list"], help="Shows the list of blacklisted guilds")
   @commands.is_owner()
@@ -189,4 +175,3 @@ class Block(commands.Cog):
       await paginator.paginate()
 
 
- 

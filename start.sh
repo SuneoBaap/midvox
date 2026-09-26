@@ -46,11 +46,8 @@ if [ "${#MISSING_ENV[@]}" -gt 0 ]; then
   exit 1
 fi
 
-# Add Node.js binary to PATH (extracted during build into .node/)
-export PATH="$(dirname "$0")/.node/bin:$PATH"
-
 # Fail deployment immediately when the image is missing required runtimes.
-for runtime in python node npx; do
+for runtime in python node; do
   if ! command -v "$runtime" >/dev/null 2>&1; then
     echo "FATAL: $runtime is missing. Build from the repository-root Dockerfile." >&2
     exit 1
@@ -60,14 +57,16 @@ if [ ! -f dashboard/.next/BUILD_ID ]; then
   echo "FATAL: Dashboard is not built. Build from the repository-root Dockerfile." >&2
   exit 1
 fi
+if [ ! -f dashboard/node_modules/next/dist/bin/next ]; then
+  echo "FATAL: Dashboard runtime dependencies are missing." >&2
+  exit 1
+fi
 
 export PORT="${PORT:-8080}"
 export PYTHONUNBUFFERED=1
 
 export API_ENABLED=true
 export API_PORT=5001
-export TUNNEL_ENABLED=false
-
 ROOT="$(pwd)"
 
 # Start the official user-account desktop before WARP, Cobalt, the application
@@ -253,7 +252,7 @@ fi
   while true; do
     cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
     echo "Starting bot (API on port 5001)..."
-    python CodeX.py 2>&1 | tee "$ROOT/bot.log"
+    python midvox.py 2>&1 | tee "$ROOT/bot.log"
     echo "WARNING: Bot exited (code $?). Restarting in 2s..." >&2
     cd "$ROOT"
     sleep 2
@@ -275,7 +274,7 @@ done
 # Start Next.js dashboard on Railway/Render's public PORT.
 cd dashboard
 echo "Starting dashboard on port $PORT..."
-npx next start -p "$PORT" -H 0.0.0.0 &
+node node_modules/next/dist/bin/next start -p "$PORT" -H 0.0.0.0 &
 DASHBOARD_PID=$!
 
 echo "=== MidVox running ==="

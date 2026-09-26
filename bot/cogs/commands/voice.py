@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, TICK
 from discord.ext import commands
@@ -76,7 +62,7 @@ class Voice(commands.Cog):
     @ignore_check()
     @commands.has_permissions(administrator=True)
     #@commands.bot_has_permissions(move_members=True)
-    
+
     @commands.cooldown(1, 10, commands.BucketType.user)
     @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
     async def _kickall(self, ctx):
@@ -482,7 +468,7 @@ class Voice(commands.Cog):
             embed3.set_thumbnail(url="https://cdn.discordapp.com/emojis/1279464563150032991.png")
             await ctx.reply(embed=embed3)
 
-    
+
 
     @vc.command(name="pullall",
                 help="Move all members of ALL voice channels to a specified voice channel.",
@@ -564,7 +550,7 @@ class Voice(commands.Cog):
                                icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
         embed2.set_thumbnail(url="https://cdn.discordapp.com/emojis/1279464563150032991.png")
         return await ctx.reply(embed=embed2)
-        
+
 
     @vc.command(name="pull",
                 help="Pull a member from one voice channel to yours.",
@@ -751,4 +737,3 @@ class Voice(commands.Cog):
         embed2.set_thumbnail(url="https://cdn.discordapp.com/emojis/1279464563150032991.png")
         return await ctx.reply(embed=embed2)
 
- 

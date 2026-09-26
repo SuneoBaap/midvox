@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay, Separator, Container, Button, ActionRow
@@ -141,7 +127,7 @@ class afk(commands.Cog):
     async def set_afk(self, user, afk_type, reason, current_guild=None):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("DELETE FROM afk_guild WHERE user_id = ?", (user.id,))
-            
+
             await db.execute(
                 "INSERT OR REPLACE INTO afk (user_id, type, reason, time, mentions) VALUES (?, ?, ?, ?, 0)",
                 (user.id, afk_type, reason, int(time.time()))
@@ -152,14 +138,14 @@ class afk(commands.Cog):
                         await db.execute("INSERT OR IGNORE INTO afk_guild (user_id, guild_id) VALUES (?, ?)", (user.id, g.id))
             elif current_guild:
                 await db.execute("INSERT OR IGNORE INTO afk_guild (user_id, guild_id) VALUES (?, ?)", (user.id, current_guild.id))
-            
+
             await db.commit()
 
     async def clear_afk(self, message):
         async with aiosqlite.connect(DB_PATH) as db:
             cursor = await db.execute("SELECT 1 FROM afk_guild WHERE user_id = ? AND guild_id = ?", (message.author.id, message.guild.id))
             if not await cursor.fetchone():
-                return 
+                return
 
             cursor = await db.execute("SELECT type, time, mentions FROM afk WHERE user_id = ?", (message.author.id,))
             afk_data = await cursor.fetchone()
@@ -171,14 +157,14 @@ class afk(commands.Cog):
             if afk_type == 'global':
                 await db.execute("DELETE FROM afk WHERE user_id = ?", (message.author.id,))
                 await db.execute("DELETE FROM afk_guild WHERE user_id = ?", (message.author.id,))
-            else:  
+            else:
                 await db.execute("DELETE FROM afk_guild WHERE user_id = ? AND guild_id = ?", (message.author.id, message.guild.id))
                 cursor_check = await db.execute("SELECT 1 FROM afk_guild WHERE user_id = ?", (message.author.id,))
                 if not await cursor_check.fetchone():
                     await db.execute("DELETE FROM afk WHERE user_id = ?", (message.author.id,))
-            
+
             await db.commit()
-            
+
             view = AfkWelcomeBack(message.author, mentions, elapsed_time)
             try:
                 await message.reply(view=view, delete_after=10, mention_author=False)
@@ -205,12 +191,12 @@ class afk(commands.Cog):
                     cursor_main = await db.execute("SELECT reason, mentions, time FROM afk WHERE user_id = ?", (mentioned.id,))
                     afk_data = await cursor_main.fetchone()
                     if not afk_data: continue
-                    
+
                     reason, mentions, afk_time = afk_data
-                    
+
                     view = AfkMention(mentioned, afk_time, reason)
                     await message.reply(view=view, delete_after=10, mention_author=False)
-                    
+
                     new_mentions = mentions + 1
                     await db.execute("UPDATE afk SET mentions = ? WHERE user_id = ?", (new_mentions, mentioned.id))
                     await db.commit()
@@ -242,7 +228,7 @@ class afk(commands.Cog):
             return
 
         await self.set_afk(ctx.author, type_view.value, reason, ctx.guild)
-        
+
         success_view = AfkSuccess(type_view.value, reason)
         await msg.edit(view=success_view)
 

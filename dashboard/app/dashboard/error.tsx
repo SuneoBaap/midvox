@@ -1,19 +1,3 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useEffect } from "react";
@@ -37,14 +21,14 @@ export default function DashboardError({
       <div className="h-20 w-20 bg-red-500/10 rounded-[6px] flex items-center justify-center mb-6">
         <AlertTriangle className="h-10 w-10 text-red-500" />
       </div>
-      
+
       <h2 className="text-2xl font-black text-slate-50 mb-2 tracking-tight">System Fault Detected</h2>
       <p className="text-neutral-400 max-w-md mb-8">
         The neural link experienced an unexpected interruption. This could be due to a connection timeout or an internal API failure.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs">
-        <Button 
+        <Button
           onClick={() => reset()}
           className="flex-1 gap-2 h-12 font-bold"
         >
@@ -52,7 +36,7 @@ export default function DashboardError({
           Retry Connection
         </Button>
         <Link href="/dashboard" className="flex-1">
-          <Button 
+          <Button
             variant="outline"
             className="w-full gap-2 h-12 font-bold border-[#1A1A1A]"
           >
@@ -61,7 +45,7 @@ export default function DashboardError({
           </Button>
         </Link>
       </div>
-      
+
       {process.env.NODE_ENV === 'development' && (
         <pre className="mt-8 p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-[6px] text-left text-xs text-red-400 overflow-auto max-w-full font-mono">
           {error.message}

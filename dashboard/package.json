@@ -1,6 +1,8 @@
 {
-  "name": "codex-dashboard",
+  "name": "midvox-dashboard",
   "version": "0.1.0",
+  "description": "Web dashboard for the MidVox Discord bot",
+  "author": "Suneo",
   "private": true,
   "scripts": {
     "dev": "next dev",

@@ -1,24 +1,8 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Plus, 
+import {
+  Plus,
   ExternalLink,
   Mail,
   Zap,
@@ -86,9 +70,9 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
   };
 
   const handleAddCategory = () => {
-    setEditingCategory({ 
-      index: -1, 
-      data: { name: "", emoji: "ðŸ“©", staff_roles: [], button_style: 2, discord_category_id: "" } 
+    setEditingCategory({
+      index: -1,
+      data: { name: "", emoji: "ðŸ“©", staff_roles: [], button_style: 2, discord_category_id: "" }
     });
     setIsAdding(true);
   };
@@ -149,8 +133,8 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
               <div className="p-8 space-y-6">
                 <div className="space-y-2">
                    <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Category Name</label>
-                   <Input 
-                      value={editingCategory.data.name} 
+                   <Input
+                      value={editingCategory.data.name}
                       onChange={(e) => setEditingCategory({...editingCategory, data: {...editingCategory.data, name: e.target.value}})}
                       placeholder="e.g. Bug Reports"
                    />
@@ -158,20 +142,20 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Emoji Icon</label>
-                    <Input 
-                        value={editingCategory.data.emoji || ""} 
+                    <Input
+                        value={editingCategory.data.emoji || ""}
                         onChange={(e) => setEditingCategory({...editingCategory, data: {...editingCategory.data, emoji: e.target.value}})}
                         placeholder="e.g. ðŸ›"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Staff Roles (IDs)</label>
-                    <Input 
-                        value={editingCategory.data.staff_roles.join(", ")} 
+                    <Input
+                        value={editingCategory.data.staff_roles.join(", ")}
                         onChange={(e) => {
                           const roles = e.target.value.split(",").map(id => id.trim()).filter(id => id && !isNaN(Number(id))).map(Number);
                           setEditingCategory({
-                            ...editingCategory, 
+                            ...editingCategory,
                             data: { ...editingCategory.data, staff_roles: roles }
                           })
                         }}
@@ -183,7 +167,7 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Button Style</label>
-                    <Select 
+                    <Select
                       value={String(editingCategory.data.button_style || 2)}
                       onValueChange={(val) => setEditingCategory({
                         ...editingCategory,
@@ -203,17 +187,17 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Discord Category ID</label>
-                    <Input 
-                        value={editingCategory.data.discord_category_id || ""} 
+                    <Input
+                        value={editingCategory.data.discord_category_id || ""}
                         onChange={(e) => setEditingCategory({
-                          ...editingCategory, 
+                          ...editingCategory,
                           data: { ...editingCategory.data, discord_category_id: e.target.value }
                         })}
                         placeholder="Created tickets go here"
                     />
                   </div>
                 </div>
-                
+
                 <div className="pt-4 flex gap-3">
                    <Button variant="outline" className="flex-1" onClick={() => setEditingCategory(null)}>Cancel</Button>
                    <Button className="flex-1 gap-2" onClick={handleSaveCategory} disabled={saving || !editingCategory.data.name}>
@@ -242,16 +226,16 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
               <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
                 <div className="space-y-2">
                    <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Embed Title</label>
-                   <Input 
-                      value={editingEmbed.title || ""} 
+                   <Input
+                      value={editingEmbed.title || ""}
                       onChange={(e) => setEditingEmbed({...editingEmbed, title: e.target.value})}
                       placeholder="e.g. Support Department"
                    />
                 </div>
                 <div className="space-y-2">
                    <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Embed Description</label>
-                   <Textarea 
-                      value={editingEmbed.description || ""} 
+                   <Textarea
+                      value={editingEmbed.description || ""}
                       onChange={(e) => setEditingEmbed({...editingEmbed, description: e.target.value})}
                       placeholder="Open a ticket below to talk to our staff..."
                       className="h-24"
@@ -260,16 +244,16 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Color (Decimal)</label>
-                    <Input 
-                        value={editingEmbed.color || ""} 
+                    <Input
+                        value={editingEmbed.color || ""}
                         onChange={(e) => setEditingEmbed({...editingEmbed, color: e.target.value ? parseInt(e.target.value) : null})}
                         placeholder="e.g. 16711680 for Red"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Thumbnail URL</label>
-                    <Input 
-                        value={editingEmbed.thumbnail_url || ""} 
+                    <Input
+                        value={editingEmbed.thumbnail_url || ""}
                         onChange={(e) => setEditingEmbed({...editingEmbed, thumbnail_url: e.target.value})}
                         placeholder="Small top-right image"
                     />
@@ -277,13 +261,13 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 </div>
                 <div className="space-y-2">
                    <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Main Image URL</label>
-                   <Input 
-                      value={editingEmbed.image_url || ""} 
+                   <Input
+                      value={editingEmbed.image_url || ""}
                       onChange={(e) => setEditingEmbed({...editingEmbed, image_url: e.target.value})}
                       placeholder="Large bottom image"
                    />
                 </div>
-                
+
                 <div className="pt-4 flex gap-3">
                    <Button variant="outline" className="flex-1" onClick={() => setEditingEmbed(null)}>Cancel</Button>
                    <Button className="flex-1 gap-2" onClick={handleSaveEmbed} disabled={saving}>
@@ -309,31 +293,31 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Panel Channel ID</label>
-                <Input 
-                  value={config.panel_channel || ""} 
+                <Input
+                  value={config.panel_channel || ""}
                   onChange={(e) => setConfig({...config, panel_channel: e.target.value})}
                   placeholder="Where the ticket panel lives"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Logging Channel ID</label>
-                <Input 
-                  value={config.logging_channel || ""} 
+                <Input
+                  value={config.logging_channel || ""}
                   onChange={(e) => setConfig({...config, logging_channel: e.target.value})}
                   placeholder="Where transcripts go"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Closed Tickets Category ID</label>
-                <Input 
-                  value={config.closed_category || ""} 
+                <Input
+                  value={config.closed_category || ""}
                   onChange={(e) => setConfig({...config, closed_category: e.target.value})}
                   placeholder="Archive closed tickets here"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Panel Interaction Type</label>
-                <Select 
+                <Select
                   value={config.panel_type || "button"}
                   onValueChange={(val) => setConfig({...config, panel_type: val})}
                 >
@@ -348,8 +332,8 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <label className="text-xs font-black uppercase text-neutral-500 tracking-widest">Global Staff Role IDs</label>
-                <Input 
-                  value={config.staff_roles.join(", ")} 
+                <Input
+                  value={config.staff_roles.join(", ")}
                   onChange={(e) => {
                     const roles = e.target.value.split(",").map(id => id.trim()).filter(id => id && !isNaN(Number(id))).map(Number);
                     setConfig({...config, staff_roles: roles})
@@ -444,8 +428,8 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                   </p>
                </div>
             </div>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="w-full mt-6 py-5 text-xs font-bold uppercase tracking-wider"
               onClick={() => setEditingEmbed({...config.embed})}
             >

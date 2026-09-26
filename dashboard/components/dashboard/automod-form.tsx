@@ -1,23 +1,7 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
+import {
   Zap,
   Type,
   Link as LinkIcon,
@@ -104,8 +88,8 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between mb-4">
                <h3 className="text-sm font-black uppercase text-neutral-500 tracking-widest">Master Control</h3>
-               <Switch 
-                  checked={config.enabled} 
+               <Switch
+                  checked={config.enabled}
                   onCheckedChange={() => handleToggle('master')}
                />
             </div>
@@ -114,7 +98,7 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
               {RULES.map((rule) => {
                 const isEnabled = config.enabled && config.punishments?.[rule.id] !== undefined;
                 return (
-                  <div 
+                  <div
                     key={rule.id}
                     className={cn(
                       "p-6 rounded-[6px] border transition-all duration-300",
@@ -139,7 +123,7 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
                          {isEnabled && (
                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
                              <Gavel className="h-4 w-4 text-primary" />
-                             <Select 
+                             <Select
                                value={config.punishments[rule.id] || "delete"}
                                onValueChange={(val) => handlePunishmentChange(rule.id, val)}
                                options={PUNISHMENT_OPTIONS}
@@ -148,7 +132,7 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
                            </div>
                          )}
                          <div className="h-8 w-[1px] bg-[#1A1A1A] hidden sm:block" />
-                         <Switch 
+                         <Switch
                           disabled={!config.enabled}
                           checked={config.punishments?.[rule.id] !== undefined}
                           onCheckedChange={() => {
@@ -168,7 +152,7 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
               })}
             </div>
 
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={saving}
               className="w-full h-14 text-base font-bold gap-2"

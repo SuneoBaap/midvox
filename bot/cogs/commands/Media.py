@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 import aiosqlite
 from discord.ext import commands
@@ -24,7 +10,7 @@ class Media(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.infractions = defaultdict(list)
-        
+
 
     async def set_db(self):
         async with aiosqlite.connect('db/media.db') as db:
@@ -214,16 +200,16 @@ class Media(commands.Cog):
                 current_time = time.time()
                 self.infractions[message.author.id].append(current_time)
 
-                
+
                 self.infractions[message.author.id] = [
                     infraction for infraction in self.infractions[message.author.id]
                     if current_time - infraction <= 5
                 ]
 
-                if len(self.infractions[message.author.id]) >= 5:  
+                if len(self.infractions[message.author.id]) >= 5:
                     async with aiosqlite.connect('db/block.db') as block_db:
                         await block_db.execute('INSERT OR IGNORE INTO user_blacklist (user_id) VALUES (?)', (message.author.id,))
-                        
+
                         await block_db.commit()
 
                     desc = (

@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import ARROWRED
 from discord.ext import commands
@@ -157,7 +143,7 @@ class Tracking(commands.Cog):
             f"**Fake:** `{fake}`\n"
             f"**Left:** `{left}`\n"
             f"**Rejoins:** `{rejoin}`\n\n"
-            f"{EMOJI_INVITE} **Get {BotName} Premium Lifetime [Join Support Here](https://discord.gg/codexdev)**"
+            f"{EMOJI_INVITE} **Get {BotName} Premium Lifetime [Join Support Here](https://github.com/suneo779/midvox)**"
         )
         await ctx.send(view=CV2(f"Invite Log - {member.name}", desc))
 

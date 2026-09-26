@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, ICONS_WARNING, TICK
 from discord.ext import commands
@@ -76,7 +62,7 @@ class AutoReaction(commands.Cog):
             view = CV2(f"{CROSS} Invalid Trigger", "Triggers can only be one word.")
             return await ctx.reply(view=view)
 
-        
+
         emoji_list = re.findall(r"<a?:\w+:\d+>|[\u263a-\U0001f645]", emojis)
         if len(emoji_list) > 10:
             view = CV2(f"{CROSS} Too Many Emojis", "You can only set up to **10** emojis per trigger.")
@@ -92,7 +78,7 @@ class AutoReaction(commands.Cog):
             return await ctx.reply(view=view)
 
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("INSERT INTO autoreact (guild_id, trigger, emojis) VALUES (?, ?, ?)", 
+            await db.execute("INSERT INTO autoreact (guild_id, trigger, emojis) VALUES (?, ?, ?)",
                              (ctx.guild.id, trigger, " ".join(emoji_list)))
             await db.commit()
 

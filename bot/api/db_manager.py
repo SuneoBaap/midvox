@@ -1,24 +1,10 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import aiosqlite
 import asyncio
 from typing import Dict
 
 class DatabaseManager:
     """
-    A simple manager for persistent SQLite connections to avoid 
+    A simple manager for persistent SQLite connections to avoid
     opening/closing files on every API request.
     """
     def __init__(self):
@@ -31,7 +17,7 @@ class DatabaseManager:
         """
         async with self._lock:
             if db_path not in self._connections:
-                # We use check_same_thread=False because aiosqlite handles 
+                # We use check_same_thread=False because aiosqlite handles
                 # thread safety by running queries in a dedicated thread.
                 conn = await aiosqlite.connect(db_path, check_same_thread=False)
                 conn.row_factory = aiosqlite.Row

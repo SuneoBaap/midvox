@@ -1,31 +1,15 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { 
-  Bot, 
-  ChevronLeft, 
-  Search, 
-  ShieldCheck, 
-  Zap, 
-  Activity, 
-  Layers, 
+import {
+  Bot,
+  ChevronLeft,
+  Search,
+  ShieldCheck,
+  Zap,
+  Activity,
+  Layers,
   Sparkles,
   Search as SearchIcon,
   BookOpen,
@@ -82,11 +66,11 @@ export default function DocsPage() {
             </div>
             <span className="text-xl font-bold text-slate-50 font-display uppercase tracking-tighter hidden md:block">MidVox Docs</span>
           </Link>
-          
+
           <div className="hidden lg:flex items-center w-80 relative group">
             <SearchIcon className="absolute left-4 h-4 w-4 text-neutral-500 group-focus-within:text-red-500 transition-colors" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search documentation..."
               className="w-full bg-[#1A1A1A]/70 border border-[#1F1F1F] rounded-[6px] py-2.5 pl-12 pr-4 text-xs font-bold text-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-500/30 focus:bg-[#1A1A1A] transition-all"
             />
@@ -94,7 +78,7 @@ export default function DocsPage() {
         </div>
 
         <div className="flex items-center gap-4">
-           <button 
+           <button
              className="lg:hidden p-2 text-neutral-400"
              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
            >
@@ -128,8 +112,8 @@ export default function DocsPage() {
                       }}
                       className={cn(
                         "w-full flex flex-col items-start gap-1 p-4 rounded-[6px] transition-all text-left",
-                        activeTab === item.name 
-                          ? "bg-red-500/10 border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]" 
+                        activeTab === item.name
+                          ? "bg-red-500/10 border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]"
                           : "hover:bg-[#1A1A1A]/50 border border-transparent"
                       )}
                     >

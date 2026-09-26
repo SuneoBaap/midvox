@@ -1,23 +1,7 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
+import {
   ShieldAlert,
   Server,
   User,
@@ -119,15 +103,15 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black uppercase text-neutral-500 tracking-widest">Master Control</h3>
-              <Switch 
-                checked={config.status} 
+              <Switch
+                checked={config.status}
                 onCheckedChange={(val) => setConfig({ ...config, status: val })}
               />
             </div>
 
             <div className="space-y-4">
               {FEATURES.map((feature) => (
-                <div 
+                <div
                   key={feature.id}
                   className={cn(
                     "p-6 rounded-[6px] border transition-all duration-300",
@@ -166,10 +150,10 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
                 Whitelisted Users
               </h4>
-              
+
               <div className="flex gap-2 mb-4">
-                <Input 
-                  placeholder="User ID..." 
+                <Input
+                  placeholder="User ID..."
                   value={wlInput}
                   onChange={(e) => setWlInput(e.target.value)}
                   className="bg-[#0F0F0F]"
@@ -191,9 +175,9 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
                         </div>
                         <span className="text-sm font-mono text-neutral-300">{userId}</span>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleRemoveWhitelist(userId)}
                         disabled={saving}
                         className="text-red-400 hover:text-red-500 hover:bg-red-400/10 h-8 w-8 p-0"
@@ -206,7 +190,7 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={saving}
               className="w-full h-14 text-base font-bold gap-2"

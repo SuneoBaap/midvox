@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import TICK
 from discord.ext import commands
@@ -31,10 +17,10 @@ class Lock(commands.Cog):
     @commands.bot_has_permissions(manage_channels=True)
     async def lock_command(self, ctx: commands.Context, channel: discord.TextChannel = None):
         """Locks the specified channel or the current one if none is provided."""
-        
+
         # If no channel is specified, use the current channel
         channel = channel or ctx.channel
-        
+
         # Check if the channel is already locked
         if not channel.permissions_for(ctx.guild.default_role).send_messages:
             embed = discord.Embed(
@@ -58,7 +44,7 @@ class Lock(commands.Cog):
         #embed.set_author(name=f"Successfully Locked {channel.name}", icon_url="")
         embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
         #embed.set_thumbnail(url=ctx.author.display_avatar.url)
-        
+
         # Send the final message
         await ctx.send(embed=embed)
 

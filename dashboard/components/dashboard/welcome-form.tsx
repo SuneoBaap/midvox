@@ -1,23 +1,7 @@
-/**
- * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
- * â•‘                                                                  â•‘
- * â•‘   â–‘â–ˆâ–€â–€â–‘â–ˆâ–€â–ˆâ–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆ   â–‘â–ˆâ–€â–„â–‘â–ˆâ–€â–€â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€                     â•‘
- * â•‘   â–‘â–ˆâ–‘â–‘â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–„â–€â–„   â–‘â–ˆâ–‘â–ˆâ–‘â–ˆâ–€â–€â–‘â–€â–„â–€â–‘â–€â–€â–ˆ                     â•‘
- * â•‘   â–‘â–€â–€â–€â–‘â–€â–€â–€â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–€â–‘â–€   â–‘â–€â–€â–‘â–‘â–€â–€â–€â–‘â–‘â–€â–‘â–‘â–€â–€â–€                     â•‘
- * â•‘                                                                  â•‘
- * â•‘           Â© 2026 CodeX Devs â€” All Rights Reserved               â•‘
- * â•‘                                                                  â•‘
- * â•‘   discord  â”€â”€  https://discord.gg/codexdev                      â•‘
- * â•‘   youtube  â”€â”€  https://youtube.com/@CodeXDevs                   â•‘
- * â•‘   github   â”€â”€  https://github.com/RayExo                        â•‘
- * â•‘                                                                  â•‘
- * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- */
-
 "use client";
 
 import React, { useState } from "react";
-import { 
+import {
   Save,
   MessageSquare,
   Type,
@@ -76,7 +60,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
           <div className="space-y-4">
             <div>
               <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Response Type</label>
-              <Select 
+              <Select
                 value={config.welcome_type || "simple"}
                 onValueChange={(val) => setConfig({ ...config, welcome_type: val })}
                 options={typeOptions}
@@ -86,7 +70,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
 
             <div>
               <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Welcome Channel</label>
-              <Select 
+              <Select
                 value={config.channel_id || ""}
                 onValueChange={(val) => setConfig({ ...config, channel_id: val })}
                 options={channelOptions}
@@ -98,7 +82,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
             {config.welcome_type === "simple" && (
               <div>
                 <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Message Content</label>
-                <textarea 
+                <textarea
                   value={config.welcome_message || ""}
                   onChange={(e) => setConfig({ ...config, welcome_message: e.target.value })}
                   placeholder="Welcome {user} to {server_name}!"
@@ -112,7 +96,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Embed Title</label>
-                    <input 
+                    <input
                       type="text"
                       value={config.embed_data?.title || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, title: e.target.value }})}
@@ -122,7 +106,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                   </div>
                   <div>
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Embed Color (Hex)</label>
-                    <input 
+                    <input
                       type="text"
                       value={config.embed_data?.color || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, color: e.target.value }})}
@@ -131,10 +115,10 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Embed Description</label>
-                  <textarea 
+                  <textarea
                     value={config.embed_data?.description || ""}
                     onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, description: e.target.value }})}
                     placeholder="We're glad to have you here, {user}!"
@@ -145,7 +129,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Thumbnail URL</label>
-                    <input 
+                    <input
                       type="text"
                       value={config.embed_data?.thumbnail || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, thumbnail: e.target.value }})}
@@ -155,7 +139,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                   </div>
                   <div>
                     <label className="text-xs font-black uppercase text-neutral-500 tracking-widest pl-1">Image URL</label>
-                    <input 
+                    <input
                       type="text"
                       value={config.embed_data?.image || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, image: e.target.value }})}
@@ -168,7 +152,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
             )}
           </div>
 
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={saving}
             className="w-full h-14 text-base font-bold gap-2"
@@ -192,7 +176,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
             </div>
             <p className="text-[10px] text-neutral-500 italic text-center mt-4">You can use these variables in both message content and embeds to personalize welcomes.</p>
          </div>
-         
+
          <div className="bg-[#111111] border border-[#1A1A1A] rounded-[6px] p-6 shadow-xl">
             <h3 className="text-sm font-black uppercase text-neutral-500 tracking-widest mb-4">Auto Setup</h3>
             <Button onClick={() => setConfig({
@@ -205,8 +189,8 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                   color: "2f3136",
                   thumbnail: "{user_avatar}"
                 }
-              })} 
-              variant="outline" 
+              })}
+              variant="outline"
               className="w-full border-primary/50 hover:bg-primary/20 text-primary"
             >
               <LayoutTemplate className="w-4 h-4 mr-2" />

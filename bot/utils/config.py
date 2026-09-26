@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import os
 from dotenv import load_dotenv
 
@@ -22,9 +8,12 @@ BRAND_NAME = os.environ.get("brand_name", "MidVox")
 NAME       = BRAND_NAME
 BotName    = BRAND_NAME
 
-server     = "https://discord.gg/codexdev"
-serverLink = "https://discord.gg/codexdev"
-ch         = "https://discord.com/channels/699587669059174461/1271825678710476911"
+PROJECT_URL = os.getenv("PROJECT_URL", "https://github.com/suneo779/midvox")
+SUPPORT_URL = os.getenv("SUPPORT_URL", PROJECT_URL)
+
+# Compatibility aliases used by older command modules.
+server = SUPPORT_URL
+serverLink = SUPPORT_URL
 
 CMD_WEBHOOK_URL = os.getenv("CMD_WEBHOOK_URL")
 

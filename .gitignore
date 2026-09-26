@@ -1,85 +1,56 @@
-/myenv
-dashboard/node_modules
-dashboard/.next
-
-
-# Ignore Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Ignore virtual environments
-venv/
-.venv/
-env/
-ENV/
-
-# Ignore IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Ignore OS files
-.DS_Store
-Thumbs.db
-
-# Ignore logs
-*.log
-
-# Ignore build outputs
-dist/
-build/
-*.tsbuildinfo
-
-# Ignore temporary files
-*.tmp
-*.temp
-*.db-journal
-*.db-shm
-*.db-wal
-
-# Ignore Python packaging
-*.egg-info/
-.Python
-
-# Ignore Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Ignore environment variables
+# Secrets and local configuration
 .env
 .env.local
 .env.*.local
 cookies.json
 
-# Ignore binaries downloaded on demand by the optional tunnel helper
-/bot/bin/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+.venv/
+venv/
+env/
+ENV/
+myenv/
+.ipynb_checkpoints/
 
-# Ignore obsolete source backups and archives
+# Node and Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Logs, caches, and temporary runtime state
+*.log
+*.tmp
+*.temp
+*.db-journal
+*.db-shm
+*.db-wal
+dist/
+build/
+.node/
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Retired backups and downloaded helpers
 *_backup.*
 *_original.py
+*.zip
+*.rar
+/bot/bin/
 /bot/cogs/**/*.tar
 
-# Ignore images produced while commands run
+# Generated command assets
 /bot/data/[0-9]*.png
 /bot/data/pictures/album_image.png
 /bot/data/pictures/spotify_card_output.png
 /bot/data/ship/tmp_ship.png
-
-# Ignore node_modules
-node_modules/
-package-lock.json
-
-# Ignore Next.js build output
-.next/
-out/
-
-# Ignore Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.zip
-*.rar
-
-

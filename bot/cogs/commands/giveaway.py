@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from discord.ext import commands, tasks
 import datetime, pytz, time as t
 from discord.ui import Button, Select, View
@@ -77,7 +63,7 @@ class Giveaway(commands.Cog):
     async def cog_load(self) -> None:
         self.connection = await aiosqlite.connect(db_path)
         self.cursor = await self.connection.cursor()
-        await self.check_for_ended_giveaways() 
+        await self.check_for_ended_giveaways()
         self.GiveawayEnd.start()
 
     async def cog_unload(self) -> None:
@@ -212,7 +198,7 @@ class Giveaway(commands.Cog):
             f"{ARROWRED} Ends <t:{round(ends)}:R> (<t:{round(ends)}:f>)\n\n"
             f"{ARROWRED} React with {TADAA} to participate!"
         )
-        
+
         view = CV2(f"{TADAA} {prize}", desc)
 
         message = await ctx.send(f"{TADAA} **GIVEAWAY** {TADAA}", view=view)
@@ -226,8 +212,8 @@ class Giveaway(commands.Cog):
         await message.add_reaction(TADAA)
         await self.connection.commit()
 
-    
-                                    
+
+
 
     @commands.Cog.listener("on_message_delete")
     async def GiveawayMessageDelete(self, message):

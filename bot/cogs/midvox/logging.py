@@ -1,24 +1,10 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
-import discord 
+import discord
 from utils.emoji import CAST
-from discord .ext import commands 
+from discord .ext import commands
 
 class _logging (commands .Cog ):
     def __init__ (self ,bot ):
-        self .bot =bot 
+        self .bot =bot
 
     """Logging commands"""
 
@@ -26,7 +12,7 @@ class _logging (commands .Cog ):
 		      emoji =CAST
 		      label ="Logging Commands"
 		      description ="Shows you the commands of logging"
-		      return emoji ,label ,description 
+		      return emoji ,label ,description
 
     @commands .group ()
     async def __Logging__ (self ,ctx :commands .Context ):

@@ -1,25 +1,11 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
-import discord 
+import discord
 from utils.emoji import LEVEL_UP
-from discord .ext import commands 
+from discord .ext import commands
 
 
 class _leveling (commands .Cog ):
     def __init__ (self ,bot ):
-        self .bot =bot 
+        self .bot =bot
 
     """Leveling commands"""
 
@@ -27,7 +13,7 @@ class _leveling (commands .Cog ):
 		      emoji =LEVEL_UP
 		      label ="Leveling Commands"
 		      description ="Shows you the commands of leveling"
-		      return emoji ,label ,description 
+		      return emoji ,label ,description
 
     @commands .group ()
     async def __Leveling__ (self ,ctx :commands .Context ):

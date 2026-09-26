@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import CROSS, DISABLE, ENABLE, TICK, TICK_ALT
 from discord.ext import commands
@@ -67,7 +53,7 @@ class ShowRules(LayoutView):
 
         view = CV2("Enabled Automod Rules", enabled_rules, "Punishment type of each event is changeable except for Anti NSFW.")
         await interaction.response.send_message(view=view, ephemeral=True)
-        
+
 
 class ConfirmDisable(LayoutView):
     def __init__(self, author, title, *sections):
@@ -105,7 +91,7 @@ class ConfirmDisable(LayoutView):
         self.stop()
 
 
-        
+
 class Automod(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -116,12 +102,12 @@ class Automod(commands.Cog):
         async with aiosqlite.connect("db/automod.db") as db:
             roles_cursor = await db.execute("SELECT id FROM automod_ignored WHERE guild_id = ? AND type = 'role'", (guild_id,))
             channels_cursor = await db.execute("SELECT id FROM automod_ignored WHERE guild_id = ? AND type = 'channel'", (guild_id,))
-            
+
             exempt_roles = [discord.Object(id) for (id,) in await roles_cursor.fetchall()]
             exempt_channels = [discord.Object(id) for (id,) in await channels_cursor.fetchall()]
-            
+
             return exempt_roles, exempt_channels
-            
+
 
     async def is_automod_enabled(self, guild_id):
         async with aiosqlite.connect("db/automod.db") as db:
@@ -137,7 +123,7 @@ class Automod(commands.Cog):
     async def get_current_punishments(self, guild_id):
         async with aiosqlite.connect("db/automod.db") as db:
             async with db.execute(
-                "SELECT event, punishment FROM automod_punishments WHERE guild_id = ? AND event != 'Anti NSFW link'", 
+                "SELECT event, punishment FROM automod_punishments WHERE guild_id = ? AND event != 'Anti NSFW link'",
                 (guild_id,)
             ) as cursor:
                 return await cursor.fetchall()
@@ -148,7 +134,7 @@ class Automod(commands.Cog):
             result = await cursor.fetchone()
             return result is not None
 
-                
+
 
     async def init_db(self):
         async with aiosqlite.connect("db/automod.db") as db:
@@ -205,7 +191,7 @@ class Automod(commands.Cog):
         if ctx.author != ctx.guild.owner and ctx.author.top_role.position < ctx.guild.me.top_role.position:
             await ctx.send(view=CV2(f"{CROSS} Access Denied", "Your top role must be at the **same** position or **higher** than my top role."))
             return
-            
+
         if await self.is_automod_enabled(guild_id):
             await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"**{CROSS} Your Server already has Automoderation Enabled.**\n\nCurrent Status: {ENABLE} Enabled\nTo Disable use `{ctx.prefix}automod disable`"))
             return
@@ -239,7 +225,7 @@ class Automod(commands.Cog):
             if interaction.user != ctx.author:
                 await interaction.response.send_message("You are not allowed to interact with this button.", ephemeral=True)
                 return
-                
+
             await interaction.response.defer()
             await self.enable_automod(ctx, guild_id, events, interaction)
 
@@ -267,7 +253,7 @@ class Automod(commands.Cog):
         ))
 
         await ctx.send(view=view)
-        
+
 
     async def enable_automod(self, ctx, guild_id, selected_events, interaction):
 
@@ -277,7 +263,7 @@ class Automod(commands.Cog):
                 await db.execute("INSERT OR REPLACE INTO automod_punishments (guild_id, event, punishment) VALUES (?, ?, ?)", (guild_id, event, self.default_punishment))
             await db.commit()
 
-        
+
         if "Anti NSFW link" in selected_events:
             exempt_roles, exempt_channels = await self.get_exempt_roles_channels(guild_id)
             nsfw_keywords = ["porn", "xxx", "adult", "sex", "nsfw", "xnxx", "onlyfans", "brazzers", "xhamster", "xvideos", "pornhub", "redtube", "livejasmin", "youporn" , "tube8", "pornhat", "swxvid", "ixxx", "pornhat"]
@@ -303,7 +289,7 @@ class Automod(commands.Cog):
             except discord.HTTPException as e:
                 print(f"Automod rule-create error: {e}")
 
-        
+
         enable_logging_button = discord.ui.Button(label="Enable Automod Logging", style=discord.ButtonStyle.success)
 
         async def enable_logging_callback(interaction):
@@ -345,7 +331,7 @@ class Automod(commands.Cog):
         await interaction.edit_original_response(content=None, view=view)
 
 
-    
+
 
     @automod.command(name="punishment", aliases=["punish"], help="Set the punishment for automod events.")
     @blacklist_check()
@@ -359,7 +345,7 @@ class Automod(commands.Cog):
         if ctx.author != ctx.guild.owner and ctx.author.top_role.position < ctx.guild.me.top_role.position:
             await ctx.send(view=CV2(f"{CROSS} Access Denied", "Your top role must be at the **same** position or **higher** than my top role."))
             return
-            
+
         if not await self.is_automod_enabled(guild_id):
             await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"Uhh, looks like your server hasn\'t enabled Automoderation.\n\nCurrent Status:  {DISABLE} Disabled\nTo Enable use `{ctx.prefix}automod enable`"))
             return
@@ -391,7 +377,7 @@ class Automod(commands.Cog):
                         await button_interaction.response.send_message("You cannot interact with this button.", ephemeral=True)
                         return
 
-                    
+
                     for event in selected_events:
                         await self.update_punishments(guild_id, event, punishment)
 
@@ -421,7 +407,7 @@ class Automod(commands.Cog):
         if ctx.subcommand_passed is None:
             await ctx.send_help(ctx.command)
             ctx.command.reset_cooldown(ctx)
-            
+
 
     @ignore.command(name="channel", help="Add a channel to the whitelist.")
     @blacklist_check()
@@ -445,7 +431,7 @@ class Automod(commands.Cog):
             if await cursor.fetchone() is not None:
                 await ctx.send(view=CV2("__Channel Already Whitelisted!__", f"{CROSS} The channel {channel.mention} is already in the ignore list.\n\n➜ Use **{ctx.prefix}automod unignore channel {channel.mention}** to remove it."))
                 return
-                
+
             count_cursor = await db.execute("SELECT COUNT(*) FROM automod_ignored WHERE guild_id = ? AND type = 'channel'", (guild_id,))
             count = await count_cursor.fetchone()
 
@@ -455,14 +441,14 @@ class Automod(commands.Cog):
 
             await db.execute("INSERT OR REPLACE INTO automod_ignored (guild_id, type, id) VALUES (?, 'channel', ?)", (guild_id, channel.id))
             await db.commit()
-            
+
             if await self.is_anti_nsfw_enabled(guild_id):
                 try:
                     rules = await ctx.guild.fetch_automod_rules()
                     for rule in rules:
                         if rule.name == "Anti NSFW Links":
-                            exempt_channels = list(rule.exempt_channels)  
-                            exempt_channels.append(channel) 
+                            exempt_channels = list(rule.exempt_channels)
+                            exempt_channels.append(channel)
                             await rule.edit(
                                 exempt_channels=exempt_channels,
                                 reason="Channel exempted from Anti NSFW Links via automod ignore command"
@@ -471,7 +457,7 @@ class Automod(commands.Cog):
                 except discord.HTTPException:
                     pass
 
-                    
+
             await ctx.send(view=CV2(f"{TICK} Channel Whitelisted", f"The channel {channel.mention} has been added to the ignore list \n\n➜ Use `{ctx.prefix}automod ignore show` to view the ignore list."))
 
     @ignore.command(name="role", help="Add a role to the whitelist.")
@@ -493,11 +479,11 @@ class Automod(commands.Cog):
 
         async with aiosqlite.connect("db/automod.db") as db:
             cursor = await db.execute("SELECT 1 FROM automod_ignored WHERE guild_id = ? AND type = 'role' AND id = ?", (guild_id, role.id))
-            
+
             if await cursor.fetchone() is not None:
                 await ctx.send(view=CV2("__Role Already Whitelisted!__", f"{CROSS} The role {role.mention} is already in the ignore list.\n\n➜ Use **{ctx.prefix}automod unignore role {role.mention}** to remove it."))
                 return
-                
+
             count_cursor = await db.execute("SELECT COUNT(*) FROM automod_ignored WHERE guild_id = ? AND type = 'role'", (guild_id,))
             count = await count_cursor.fetchone()
 
@@ -514,8 +500,8 @@ class Automod(commands.Cog):
                     rules = await ctx.guild.fetch_automod_rules()
                     for rule in rules:
                         if rule.name == "Anti NSFW Links":
-                            exempt_roles = list(rule.exempt_roles)  
-                            exempt_roles.append(role) 
+                            exempt_roles = list(rule.exempt_roles)
+                            exempt_roles.append(role)
                             await rule.edit(
                                 exempt_roles=exempt_roles,
                                 reason="Role exempted from Anti NSFW Links via automod ignore command"
@@ -523,8 +509,8 @@ class Automod(commands.Cog):
                             break
                 except discord.HTTPException:
                     pass
-                    
-                    
+
+
             await ctx.send(view=CV2(f"{TICK} Role Whitelisted", f"The role {role.mention} has been added to the ignore list \n\n➜ Use `{ctx.prefix}automod ignore show` to view the ignore list."))
 
     @ignore.command(name="show", aliases=["view", "list", "config"], help="Show the whitelisted roles and channels.")
@@ -543,7 +529,7 @@ class Automod(commands.Cog):
         if not await self.is_automod_enabled(guild_id):
             await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"Uhh, looks like your server hasn\'t enabled Automoderation.\n\nCurrent Status:  {DISABLE} Disabled\nTo Enable use `{ctx.prefix}automod enable`"))
             return
-            
+
 
         async with aiosqlite.connect("db/automod.db") as db:
             cursor = await db.execute("SELECT type, id FROM automod_ignored WHERE guild_id = ?", (guild_id,))
@@ -596,7 +582,7 @@ class Automod(commands.Cog):
             await db.execute("DELETE FROM automod_ignored WHERE guild_id = ?", (guild_id,))
             await db.commit()
         await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"** {TICK} | All ignored channels and roles have been reset!**\n\nTo view current Automod settings use `{ctx.prefix}automod config`"))
-        
+
 
     @automod.group(name="unignore", aliases=["unwhitelist", "unwl"], invoke_without_command=True, help="Remove channels and roles from the whitelist.")
     @blacklist_check()
@@ -629,7 +615,7 @@ class Automod(commands.Cog):
                 rules = await ctx.guild.fetch_automod_rules()
                 for rule in rules:
                     if rule.name == "Anti NSFW Links":
-                        exempt_channels = list(rule.exempt_channels)  
+                        exempt_channels = list(rule.exempt_channels)
                         exempt_channels = [ch for ch in exempt_channels if ch.id != channel.id]
                         await rule.edit(
                             exempt_channels=exempt_channels,
@@ -638,7 +624,7 @@ class Automod(commands.Cog):
                         break
             except discord.HTTPException:
                 pass
-        
+
         async with aiosqlite.connect("db/automod.db") as db:
             result = await db.execute("DELETE FROM automod_ignored WHERE guild_id = ? AND type = 'channel' AND id = ?", (guild_id, channel.id))
             await db.commit()
@@ -647,7 +633,7 @@ class Automod(commands.Cog):
             await ctx.send(view=CV2(f"{TICK} Success", f"{channel.mention} has been removed from the automod ignore list."))
         else:
             await ctx.send(view=CV2(f"{CROSS} Error", f"{channel.mention} is not in the automod ignore list."))
-            
+
 
     @unignore.command(name="role", help="Remove a role from the whitelist.")
     @blacklist_check()
@@ -671,7 +657,7 @@ class Automod(commands.Cog):
                 rules = await ctx.guild.fetch_automod_rules()
                 for rule in rules:
                     if rule.name == "Anti NSFW Links":
-                        exempt_roles = list(rule.exempt_roles)  
+                        exempt_roles = list(rule.exempt_roles)
                         exempt_roles = [ch for ch in exempt_roles if ch.id != role.id]
                         await rule.edit(
                             exempt_roles=exempt_roles,
@@ -681,7 +667,7 @@ class Automod(commands.Cog):
             except discord.HTTPException:
                 pass
 
-        
+
         async with aiosqlite.connect("db/automod.db") as db:
             result = await db.execute("DELETE FROM automod_ignored WHERE guild_id = ? AND type = 'role' AND id = ?", (guild_id, role.id))
             await db.commit()
@@ -690,7 +676,7 @@ class Automod(commands.Cog):
             await ctx.send(view=CV2(f"{TICK} Success", f"{role.mention} has been removed from the automod ignore list."))
         else:
             await ctx.send(view=CV2(f"{CROSS} Error", f"{role.mention} is not in the automod ignore list."))
-    
+
 
     @automod.command(name="disable", help="Disable Automod in the server.")
     @blacklist_check()
@@ -704,11 +690,11 @@ class Automod(commands.Cog):
         if ctx.author != ctx.guild.owner and ctx.author.top_role.position < ctx.guild.me.top_role.position:
             await ctx.send(view=CV2(f"{CROSS} Access Denied", "Your top role must be at the **same** position or **higher** than my top role."))
             return
-            
+
         if not await self.is_automod_enabled(guild_id):
             await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"Uhh, looks like your server hasn\'t enabled Automoderation.\n\nCurrent Status:  {DISABLE} Disabled\nTo Enable use `{ctx.prefix}automod enable`"))
             return
-            
+
         view = ConfirmDisable(ctx.author, "Disable Automod Confirmation", "**Are you sure you want to disable Automod?**\n\nThis will remove all custom event settings, punishments, ignored roles/channels, & logging channel data.", "Click 'Yes' to disable Automod or 'No' to cancel.")
         message = await ctx.send(view=view)
 
@@ -718,7 +704,7 @@ class Automod(commands.Cog):
             await message.edit(view=CV2("Automod Disable Cancelled", "You took too long to respond. Automod disable process has been canceled."))
 
         elif view.value:
-            
+
             async with aiosqlite.connect("db/automod.db") as db:
                 await db.execute("DELETE FROM automod WHERE guild_id = ?", (guild_id,))
                 await db.execute("DELETE FROM automod_punishments WHERE guild_id = ?", (guild_id,))
@@ -738,12 +724,12 @@ class Automod(commands.Cog):
 
 
             await message.edit(view=CV2(f"{TICK_ALT} Automod Disabled", f"Automod has been successfully disabled for **{ctx.guild.name}.** \nAll settings, punishments, and logs have been removed.\n\nCurrent Status:  {DISABLE} Disabled\n➜ To Re-enable use `{ctx.prefix}automod enable`."))
-            
+
 
         else:
             await message.edit(view=CV2("Automod Disable Cancelled", "Automod disable process has been canceled."))
 
-        
+
 
     @automod.command(name="config", aliases=["settings", "show", "view"], help="View Automod settings.")
     @blacklist_check()
@@ -757,7 +743,7 @@ class Automod(commands.Cog):
         if ctx.author != ctx.guild.owner and ctx.author.top_role.position < ctx.guild.me.top_role.position:
             await ctx.send(view=CV2(f"{CROSS} Access Denied", "Your top role must be at the **same** position or **higher** than my top role."))
             return
-            
+
         if not await self.is_automod_enabled(guild_id):
             await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"Uhh, looks like your server hasn\'t enabled Automoderation.\n\nCurrent Status:  {DISABLE} Disabled\nTo Enable use `{ctx.prefix}automod enable`"))
             return
@@ -779,7 +765,7 @@ class Automod(commands.Cog):
                 items_str.append("**Logging Channel**: Deleted Channel")
         else:
             items_str.append("**Logging Channel**: No logging channel")
-        
+
         await ctx.send(view=CV2(f"Enabled Automod Events & their punishment type for {ctx.guild.name}", "\n".join(items_str), "Manage punishment type for events by executing `automod punishment` command."))
 
 
@@ -798,7 +784,7 @@ class Automod(commands.Cog):
         if not await self.is_automod_enabled(guild_id):
             await ctx.send(view=CV2(f"Automod Settings for {ctx.guild.name}", f"Uhh, looks like your server hasn\'t enabled Automoderation.\n\nCurrent Status:  {DISABLE} Disabled\nTo Enable use `{ctx.prefix}automod enable`"))
             return
-            
+
         async with aiosqlite.connect("db/automod.db") as db:
             await db.execute("INSERT OR REPLACE INTO automod_logging (guild_id, log_channel) VALUES (?, ?)", (guild_id, channel.id))
             await db.commit()

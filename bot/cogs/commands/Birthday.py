@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from discord.ext import commands, tasks
 import json
@@ -62,15 +48,15 @@ class Birthdays(commands.Cog):
     async def birthday_setup(self, ctx: commands.Context, channel: discord.TextChannel, role: discord.Role):
         db = read_db('jsondb/birthday_logs.json')
         guild_id = str(ctx.guild.id)
-        
+
         if guild_id not in db:
             db[guild_id] = {"birthday_channel_id": channel.id, "birthday_role_id": role.id}
         else:
             db[guild_id]["birthday_channel_id"] = channel.id
             db[guild_id]["birthday_role_id"] = role.id
-        
+
         write_db('jsondb/birthday_logs.json', db)
-        
+
         await ctx.send(view=CV2("Birthday Setup", f"Birthday log channel set to {channel.mention} and birthday role set to {role.mention}."))
 
     @commands.command(
@@ -86,7 +72,7 @@ class Birthdays(commands.Cog):
         try:
             msg = await self.client.wait_for('message', timeout=60.0, check=check)
             day = msg.content.strip().zfill(2)
-            
+
             if not day.isdigit() or int(day) not in range(1, 32):
                 await ctx.send(view=CV2("Error", "Invalid day entered. Please enter a number between 01 and 31."))
                 return
@@ -94,7 +80,7 @@ class Birthdays(commands.Cog):
             await ctx.send(view=CV2("Birthday Setup", "Please enter your birth month (MM):"))
             msg = await self.client.wait_for('message', timeout=60.0, check=check)
             month = msg.content.strip().zfill(2)
-            
+
             if not month.isdigit() or int(month) not in range(1, 13):
                 await ctx.send(view=CV2("Error", "Invalid month entered. Please enter a number between 01 and 12."))
                 return
@@ -102,7 +88,7 @@ class Birthdays(commands.Cog):
             await ctx.send(view=CV2("Birthday Setup", "Please enter your birth year (YYYY):"))
             msg = await self.client.wait_for('message', timeout=60.0, check=check)
             year = msg.content.strip()
-            
+
             if not year.isdigit() or len(year) != 4:
                 await ctx.send(view=CV2("Error", "Invalid year entered. Please enter a valid year in YYYY format."))
                 return
@@ -111,7 +97,7 @@ class Birthdays(commands.Cog):
             db = read_db('jsondb/birthdays.json')
             db[str(ctx.author.id)] = date
             write_db('jsondb/birthdays.json', db)
-            
+
             await ctx.send(view=CV2("Success", f"Your birthday has been set to {date}."))
         except asyncio.TimeoutError:
             await ctx.send(view=CV2("Error", "You took too long to respond. Please try again."))
@@ -122,7 +108,7 @@ class Birthdays(commands.Cog):
     @commands.guild_only()
     async def remove_birthday(self, ctx: commands.Context):
         db = read_db('jsondb/birthdays.json')
-        
+
         if str(ctx.author.id) in db:
             del db[str(ctx.author.id)]
             write_db('jsondb/birthdays.json', db)
@@ -153,7 +139,7 @@ class Birthdays(commands.Cog):
     @commands.guild_only()
     async def check_birthday(self, ctx: commands.Context):
         db = read_db('jsondb/birthdays.json')
-        
+
         if str(ctx.author.id) in db:
             date = db[str(ctx.author.id)]
             await ctx.send(view=CV2("Your Birthday", f"Your birthday is set to {date}."))

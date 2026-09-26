@@ -1,34 +1,20 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
-from __future__ import annotations 
-import discord 
+from __future__ import annotations
+import discord
 from utils.emoji import CROSS, NITRO_BOOST, TICK, TIMER
-import asyncio 
-import logging 
-import aiosqlite 
-import json 
-from discord .ext import commands 
+import asyncio
+import logging
+import aiosqlite
+import json
+from discord .ext import commands
 from utils .Tools import *
-from discord .ext .commands import Context 
-from discord import app_commands 
-import time 
-import datetime 
-import re 
+from discord .ext .commands import Context
+from discord import app_commands
+import time
+import datetime
+import re
 from typing import *
-from time import strftime 
-from core import Cog ,midvox ,Context 
+from time import strftime
+from core import Cog ,midvox ,Context
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 from utils.cv2 import CV2, build_container
 
@@ -50,7 +36,7 @@ datefmt ="%H:%M:%S",
 
 class Booster (Cog ):
     def __init__ (self ,bot : MidVox ):
-        self .bot =bot 
+        self .bot =bot
         self .color =0x8A9A5B
         self .db_path ="db/boost.db"
         self .bot .loop .create_task (self .setup_database ())
@@ -62,11 +48,11 @@ class Booster (Cog ):
         r'localhost|'
         r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
         r'(?::\d+)?'
-        r'(?:/?|[/?]\S+)$',re .IGNORECASE 
+        r'(?:/?|[/?]\S+)$',re .IGNORECASE
         )
 
 
- 
+
     async def setup_database (self ):
         """Initialize boost database tables"""
         async with aiosqlite .connect (self .db_path )as db :
@@ -95,14 +81,14 @@ class Booster (Cog ):
                 "ping":False ,
                 "image":"",
                 "thumbnail":"",
-                "autodel":0 
+                "autodel":0
                 },
                 "boost_roles":{
                 "roles":[]
                 }
                 }
                 await self .update_boost_config (guild_id ,default_config )
-                return default_config 
+                return default_config
 
     async def update_boost_config (self ,guild_id :int ,config :dict ):
         """Update boost configuration for a guild"""
@@ -116,9 +102,9 @@ class Booster (Cog ):
     def is_authorized (self ,ctx )->bool :
         """Check if user is authorized to use admin commands"""
         return (
-        ctx .author ==ctx .guild .owner 
-        or ctx .author .guild_permissions .administrator 
-        or ctx .author .top_role .position >=ctx .guild .me .top_role .position 
+        ctx .author ==ctx .guild .owner
+        or ctx .author .guild_permissions .administrator
+        or ctx .author .top_role .position >=ctx .guild .me .top_role .position
         )
 
 
@@ -152,7 +138,7 @@ class Booster (Cog ):
         for old ,new in replacements .items ():
             message =message .replace (old ,new )
 
-        return message 
+        return message
 
     async def send_permission_error (self ,ctx ):
         """Send permission error embed"""
@@ -180,15 +166,15 @@ class Booster (Cog ):
     async def _boost_thumbnail (self ,ctx ,thumbnail_url :str ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         if not self .url_pattern .match (thumbnail_url ):
             await ctx.send(view=CV2("Error", f"{CROSS} Please provide a valid URL."))
 
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
-        data ["boost"]["thumbnail"]=thumbnail_url 
+        data ["boost"]["thumbnail"]=thumbnail_url
         await self .update_boost_config (ctx .guild .id ,data )
 
         await ctx.send(view=CV2("Success", f"{TICK} Successfully updated the boost thumbnail URL."))
@@ -203,15 +189,15 @@ class Booster (Cog ):
     async def _boost_image (self ,ctx ,*,image_url :str ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         if not self .url_pattern .match (image_url ):
             await ctx.send(view=CV2("Error", f"{CROSS} Please provide a valid URL."))
 
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
-        data ["boost"]["image"]=image_url 
+        data ["boost"]["image"]=image_url
         await self .update_boost_config (ctx .guild .id ,data )
 
         await ctx.send(view=CV2("Success", f"{TICK} Successfully updated the boost image URL."))
@@ -226,15 +212,15 @@ class Booster (Cog ):
     async def _boost_autodel (self ,ctx ,seconds :int ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         if seconds <0 :
             await ctx.send(view=CV2("Error", f"{CROSS} Auto-delete timer must be 0 or greater."))
 
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
-        data ["boost"]["autodel"]=seconds 
+        data ["boost"]["autodel"]=seconds
         await self .update_boost_config (ctx .guild .id ,data )
 
         description =f"{TICK} Successfully set auto-delete timer to {seconds} seconds."
@@ -253,7 +239,7 @@ class Booster (Cog ):
     async def _boost_message (self ,ctx ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
         variables_text = (
             "Send your boost message in this channel now.\n\n**Available Variables:**\n"
             "```\n"
@@ -280,17 +266,17 @@ class Booster (Cog ):
         await ctx.send(view=CV2(f"{TICK} Boost Message Setup", variables_text))
 
         def check (m ):
-            return m .author ==ctx .author and m .channel ==ctx .channel 
+            return m .author ==ctx .author and m .channel ==ctx .channel
 
         try :
             message =await self .bot .wait_for ('message',check =check ,timeout =60.0 )
         except asyncio .TimeoutError :
             await ctx.send(view=CV2("Timeout", f"{TIMER} Timeout! Please try again."))
 
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
-        data ["boost"]["message"]=message .content 
+        data ["boost"]["message"]=message .content
         await self .update_boost_config (ctx .guild .id ,data )
 
         await ctx.send(view=CV2("Success", f"{TICK} Successfully updated the boost message."))
@@ -305,7 +291,7 @@ class Booster (Cog ):
     async def _boost_embed (self ,ctx ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
         data ["boost"]["embed"]=not data ["boost"]["embed"]
@@ -324,7 +310,7 @@ class Booster (Cog ):
     async def _boost_ping (self ,ctx ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
         data ["boost"]["ping"]=not data ["boost"]["ping"]
@@ -354,18 +340,18 @@ class Booster (Cog ):
     async def _boost_channel_add (self ,ctx ,channel :discord .TextChannel ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
         channels =data ["boost"]["channel"]
 
         if len (channels )>=3 :
             await ctx.send(view=CV2("Error", f"{CROSS} Maximum boost channel limit reached (3 channels)."))
-            return 
+            return
 
         if str (channel .id )in channels :
             await ctx.send(view=CV2("Error", f"{CROSS} This channel is already in the boost channels list."))
-            return 
+            return
 
         channels .append (str (channel .id ))
         await self .update_boost_config (ctx .guild .id ,data )
@@ -382,18 +368,18 @@ class Booster (Cog ):
     async def _boost_channel_remove (self ,ctx ,channel :discord .TextChannel ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
         channels =data ["boost"]["channel"]
 
         if not channels :
             await ctx.send(view=CV2("Error", f"{CROSS} No boost channels are currently set up."))
-            return 
+            return
 
         if str (channel .id )not in channels :
             await ctx.send(view=CV2("Error", f"{CROSS} This channel is not in the boost channels list."))
-            return 
+            return
 
         channels .remove (str (channel .id ))
         await self .update_boost_config (ctx .guild .id ,data )
@@ -411,7 +397,7 @@ class Booster (Cog ):
 
         if not channels :
             await ctx.send(view=CV2("Error", f"{CROSS} Please set up a boost channel first using `boost channel add #channel`."))
-            return 
+            return
 
 
         formatted_message =self .format_boost_message (data ["boost"]["message"],ctx .author ,ctx .guild )
@@ -421,7 +407,7 @@ class Booster (Cog ):
         if not channel :
             await ctx.send(view=CV2("Error", f"{CROSS} The configured boost channel no longer exists."))
 
-            return 
+            return
 
         try :
             if data ["boost"]["embed"]:
@@ -461,7 +447,7 @@ class Booster (Cog ):
         if not channels :
             await ctx.send(view=CV2("Error", f"{CROSS} Please set up a boost channel first using `boost channel add #channel`."))
 
-            return 
+            return
 
         channel_mentions =[]
         for channel_id in channels :
@@ -494,22 +480,22 @@ class Booster (Cog ):
     async def _boost_reset (self ,ctx ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
 
         if not data ["boost"]["channel"]:
             await ctx.send(view=CV2("Error", f"{CROSS} No boost configuration found to reset."))
-            return 
+            return
 
 
         data ["boost"]["channel"]=[]
         data ["boost"]["image"]=""
         data ["boost"]["message"]="{user.mention} just boosted {server.name}! 🎉"
         data ["boost"]["thumbnail"]=""
-        data ["boost"]["embed"]=True 
-        data ["boost"]["ping"]=False 
-        data ["boost"]["autodel"]=0 
+        data ["boost"]["embed"]=True
+        data ["boost"]["ping"]=False
+        data ["boost"]["autodel"]=0
 
         await self .update_boost_config (ctx .guild .id ,data )
 
@@ -540,7 +526,7 @@ class Booster (Cog ):
 
         if not role_ids :
             await ctx.send(view=CV2(f"Boost Roles - {ctx.guild.name}", "No boost roles configured."))
-            return 
+            return
 
         roles =[]
         for role_id in role_ids :
@@ -561,18 +547,18 @@ class Booster (Cog ):
     async def _boostrole_add (self ,ctx ,role :discord .Role ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
         roles =data ["boost_roles"]["roles"]
 
         if len (roles )>=10 :
             await ctx.send(view=CV2("Error", f"{CROSS} Maximum boost role limit reached (10 roles)."))
-            return 
+            return
 
         if str (role .id )in roles :
             await ctx.send(view=CV2("Error", f"{CROSS} {role.mention} is already a boost role."))
-            return 
+            return
 
         roles .append (str (role .id ))
         await self .update_boost_config (ctx .guild .id ,data )
@@ -589,18 +575,18 @@ class Booster (Cog ):
     async def _boostrole_remove (self ,ctx ,role :discord .Role ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
         roles =data ["boost_roles"]["roles"]
 
         if not roles :
             await ctx.send(view=CV2("Error", f"{CROSS} No boost roles are currently configured."))
-            return 
+            return
 
         if str (role .id )not in roles :
             await ctx.send(view=CV2("Error", f"{CROSS} {role.mention} is not a boost role."))
-            return 
+            return
 
         roles .remove (str (role .id ))
         await self .update_boost_config (ctx .guild .id ,data )
@@ -617,13 +603,13 @@ class Booster (Cog ):
     async def _boostrole_reset (self ,ctx ):
         if not self .is_authorized (ctx ):
             await self .send_permission_error (ctx )
-            return 
+            return
 
         data =await self .get_boost_config (ctx .guild .id )
 
         if not data ["boost_roles"]["roles"]:
             await ctx.send(view=CV2("Error", f"{CROSS} No boost roles are currently configured."))
-            return 
+            return
 
         data ["boost_roles"]["roles"]=[]
         await self .update_boost_config (ctx .guild .id ,data )

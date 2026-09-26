@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import DELETE, TICK, ZWARNING
 from discord.ext import commands
@@ -23,7 +9,7 @@ from utils.Tools import *
        # super().__init__(timeout=120)
       #  self.user = user
       #  self.author = author
-       # self.message = None  
+       # self.message = None
        # self.color = discord.Color.from_rgb(255, 0, 0)
 
   #  async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -55,7 +41,7 @@ from utils.Tools import *
      #   super().__init__(timeout=60)
       #  self.user = user
        # self.author = author
-       # self.message = None  
+       # self.message = None
 
   #  async def interaction_check(self, interaction: discord.Interaction) -> bool:
        # if interaction.user != self.author:
@@ -123,7 +109,7 @@ from utils.Tools import *
        #     pass
      #   except discord.HTTPException:
         #    pass
-            
+
 
 class Unban(commands.Cog):
     def __init__(self, bot):
@@ -154,7 +140,7 @@ class Unban(commands.Cog):
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
             #view = AlreadyUnbannedView(user=user, author=ctx.author)
             message = await ctx.send(embed=embed)
-            #view.message = message 
+            #view.message = message
             return
 
         try:

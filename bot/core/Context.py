@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from __future__ import annotations
 
 from discord.ext import commands
@@ -58,7 +44,7 @@ class Context(commands.Context):
             try:
                 async with context.typing():
                     await func(*args, **kwargs)
-            except discord.Forbidden:  
+            except discord.Forbidden:
                 await func(*args, **kwargs)
 
         return wrapped
@@ -75,7 +61,7 @@ class Context(commands.Context):
             try:
                 await self.author.send(
                     "bot dont have perms to send msg in that channel")
-            except discord.Forbidden:  
+            except discord.Forbidden:
                 pass
             return
         return await super().send(_animate_status_icons(content), **kwargs)
@@ -87,7 +73,7 @@ class Context(commands.Context):
             try:
                 await self.author.send(
                     "bot dont have perms to send msg in that channel")
-            except discord.Forbidden:  
+            except discord.Forbidden:
                 pass
             return
         return await super().reply(_animate_status_icons(content), **kwargs)

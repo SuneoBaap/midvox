@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import asyncio
 import difflib
 import os
@@ -204,7 +190,7 @@ class CountryGuesser:
         # Check if the time has exceeded the timeout
         #if asyncio.get_event_loop().time() - start_time > timeout:
             #return await self.end_game(ctx)  # Call end_game when timeout occurs
-          
+
 
         return await self.end_game(ctx)
 
@@ -226,12 +212,11 @@ class CountryGuesser:
             embed.description = "The game was manually ended."
         else:
             embed.description = f"Time's up! No one guessed the country. The correct answer was `{self.country.title()}`."
-          
+
         return await ctx.send(embed=embed)
 
-    
+
     async def end_game_manually(self, ctx: commands.Context):
         await self.end_game(ctx, manual_end=True)
 
 
-    

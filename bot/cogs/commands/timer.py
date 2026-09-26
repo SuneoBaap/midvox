@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import time
 import discord
 from discord.ext import commands
@@ -113,7 +99,7 @@ class Timer(commands.Cog):
                         reactants.pop(reactants.index(self.client.user))
                         for user in reactants:
                             list_thingy.append(user.id)
-                            x = '<@!' + str(user.id) + '>' 
+                            x = '<@!' + str(user.id) + '>'
                             output_list_thingy.append(x)
                         if output_list_thingy != []:
                             final = ', '.join(map(str, output_list_thingy))
@@ -125,4 +111,3 @@ class Timer(commands.Cog):
         except ValueError:
             await ctx.send(f"Invalid time input.", delete_after=5)
 
- 

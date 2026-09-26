@@ -1,24 +1,10 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot, limiter
 from api.db_manager import db_manager
 from api.schemas import (
-    GuildSummary, GuildDetails, PrefixConfig, AutomodConfig, 
-    TicketConfig, LevelingConfig, LoggingConfig, TicketEmbed, 
-    TicketCategory, LevelingEmbedStyle, PrefixUpdate, 
+    GuildSummary, GuildDetails, PrefixConfig, AutomodConfig,
+    TicketConfig, LevelingConfig, LoggingConfig, TicketEmbed,
+    TicketCategory, LevelingEmbedStyle, PrefixUpdate,
     AutomodUpdate, LevelingUpdate, LoggingUpdate, TicketUpdate,
     LeaderboardEntry, DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
     AntiNukeConfig, AntiNukeUpdate, VerificationConfig, VerificationUpdate,
@@ -67,7 +53,7 @@ async def get_guild_details(guild_id: int, bot: "midvox" = Depends(get_bot)):
     guild = bot.get_guild(guild_id)
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")
-        
+
     return GuildDetails(
         id=str(guild.id),
         name=guild.name,
@@ -103,7 +89,7 @@ async def update_guild_prefix(guild_id: int, data: PrefixUpdate):
         (guild_id, data.prefix)
     )
     await db.commit()
-    
+
     return {"status": "success", "guild_id": guild_id, "new_prefix": data.prefix}
 
 
@@ -185,7 +171,7 @@ async def patch_guild_automod(guild_id: int, data: AutomodUpdate):
         )
 
     await db.commit()
-    
+
     return {"status": "success", "guild_id": guild_id}
 
 @router.get("/{guild_id}/tickets", response_model=TicketConfig, summary="Get Ticket config", description="Retrieves the support ticket system setup, categories, and staff roles.")
@@ -194,17 +180,17 @@ async def get_guild_tickets(guild_id: int):
     Retrieves the ticket system configuration for a specific guild.
     """
     db = await db_manager.get_connection('db/ticket.db')
-    
+
     # Get basic config
     cursor = await db.execute(
-        "SELECT panel_channel_id, panel_message_id, logging_channel_id, panel_type, embed_title, embed_description, embed_color, embed_image_url, embed_thumbnail_url, closed_category_id FROM guild_configs WHERE guild_id = ?", 
+        "SELECT panel_channel_id, panel_message_id, logging_channel_id, panel_type, embed_title, embed_description, embed_color, embed_image_url, embed_thumbnail_url, closed_category_id FROM guild_configs WHERE guild_id = ?",
         (guild_id,)
     )
     config_row = await cursor.fetchone()
-    
+
     # Get categories and identify staff roles
     cursor = await db.execute(
-        "SELECT name, emoji, notified_roles, button_style, discord_category_id FROM ticket_categories WHERE guild_id = ?", 
+        "SELECT name, emoji, notified_roles, button_style, discord_category_id FROM ticket_categories WHERE guild_id = ?",
         (guild_id,)
     )
     categories_rows = await cursor.fetchall()
@@ -229,7 +215,7 @@ async def get_guild_tickets(guild_id: int):
 
     # Get open ticket count
     cursor = await db.execute(
-        "SELECT COUNT(*) FROM open_tickets WHERE guild_id = ?", 
+        "SELECT COUNT(*) FROM open_tickets WHERE guild_id = ?",
         (guild_id,)
     )
     count_row = await cursor.fetchone()
@@ -260,7 +246,7 @@ async def patch_guild_tickets(guild_id: int, data: TicketUpdate):
     Updates the ticket system configuration for a specific guild.
     """
     db = await db_manager.get_connection('db/ticket.db')
-    
+
     # Initialize config row if not exists
     cursor = await db.execute("SELECT guild_id FROM guild_configs WHERE guild_id = ?", (guild_id,))
     if not await cursor.fetchone():
@@ -268,16 +254,16 @@ async def patch_guild_tickets(guild_id: int, data: TicketUpdate):
 
     if data.panel_channel is not None:
         await db.execute("UPDATE guild_configs SET panel_channel_id = ? WHERE guild_id = ?", (data.panel_channel, guild_id))
-    
+
     if data.logging_channel is not None:
         await db.execute("UPDATE guild_configs SET logging_channel_id = ? WHERE guild_id = ?", (data.logging_channel, guild_id))
-        
+
     if data.closed_category is not None:
         await db.execute("UPDATE guild_configs SET closed_category_id = ? WHERE guild_id = ?", (data.closed_category, guild_id))
 
     if data.panel_type is not None:
         await db.execute("UPDATE guild_configs SET panel_type = ? WHERE guild_id = ?", (data.panel_type, guild_id))
-        
+
     if data.embed_title is not None:
         await db.execute("UPDATE guild_configs SET embed_title = ? WHERE guild_id = ?", (data.embed_title, guild_id))
 
@@ -321,7 +307,7 @@ async def get_guild_leveling(guild_id: int):
     db = await db_manager.get_connection('db/leveling.db')
     cursor = await db.execute("SELECT * FROM leveling_settings WHERE guild_id = ?", (guild_id,))
     row = await cursor.fetchone()
-    
+
     if not row:
         return LevelingConfig(
             guild_id=guild_id,
@@ -356,10 +342,10 @@ async def patch_guild_leveling(guild_id: int, data: LevelingUpdate):
     db = await db_manager.get_connection('db/leveling.db')
     # We use a series of updates or a single dynamic update.
     # For simplicity and robustness with INSERT OR REPLACE:
-    
+
     cursor = await db.execute("SELECT * FROM leveling_settings WHERE guild_id = ?", (guild_id,))
     row = await cursor.fetchone()
-    
+
     if not row:
         # Create default entry first if it doesn't exist
         await db.execute("INSERT INTO leveling_settings (guild_id) VALUES (?)", (guild_id,))
@@ -367,16 +353,16 @@ async def patch_guild_leveling(guild_id: int, data: LevelingUpdate):
 
     if data.enabled is not None:
         await db.execute("UPDATE leveling_settings SET enabled = ? WHERE guild_id = ?", (1 if data.enabled else 0, guild_id))
-    
+
     if data.xp_per_message is not None:
         await db.execute("UPDATE leveling_settings SET xp_per_message = ? WHERE guild_id = ?", (data.xp_per_message, guild_id))
-        
+
     if data.cooldown is not None:
         await db.execute("UPDATE leveling_settings SET cooldown_seconds = ? WHERE guild_id = ?", (data.cooldown, guild_id))
-        
+
     if data.level_up_channel is not None:
         await db.execute("UPDATE leveling_settings SET channel_id = ? WHERE guild_id = ?", (data.level_up_channel, guild_id))
-        
+
     if data.embed_color is not None:
         try:
             # Convert hex to int
@@ -387,7 +373,7 @@ async def patch_guild_leveling(guild_id: int, data: LevelingUpdate):
             raise HTTPException(status_code=400, detail="Invalid hex color format.")
 
     await db.commit()
-    
+
     return {"status": "success", "guild_id": guild_id}
 
 
@@ -395,25 +381,25 @@ async def patch_guild_leveling(guild_id: int, data: LevelingUpdate):
 async def get_guild_welcome(guild_id: int):
     import aiosqlite
     import json
-    
+
     async with aiosqlite.connect("db/welcome.db") as db:
         async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
     if not row:
         return WelcomeConfig(
             guild_id=guild_id,
         )
-        
+
     welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration = row
-    
+
     embed_parsed = None
     if embed_data:
         try:
             embed_parsed = WelcomeEmbedData(**json.loads(embed_data))
         except:
             pass
-            
+
     return WelcomeConfig(
         guild_id=guild_id,
         welcome_type=welcome_type,
@@ -427,12 +413,12 @@ async def get_guild_welcome(guild_id: int):
 async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
     import aiosqlite
     import json
-    
+
     async with aiosqlite.connect("db/welcome.db") as db:
         # Get existing or create
         async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
         if not row:
             await db.execute(
                 "INSERT INTO welcome (guild_id, welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration) VALUES (?, ?, ?, ?, ?, ?)",
@@ -440,34 +426,34 @@ async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
             )
         else:
             wt, wm, chid, ed, auth_del = row
-            
+
             new_wt = data.welcome_type if data.welcome_type is not None else wt
             new_wm = data.welcome_message if data.welcome_message is not None else wm
             new_chid = data.channel_id if data.channel_id is not None else chid
             new_auth_del = data.auto_delete_duration if data.auto_delete_duration is not None else auth_del
-            
+
             new_ed = ed
             if data.embed_data is not None:
                 new_ed = json.dumps(data.embed_data.dict())
-                
+
             await db.execute(
                 "UPDATE welcome SET welcome_type = ?, welcome_message = ?, channel_id = ?, embed_data = ?, auto_delete_duration = ? WHERE guild_id = ?",
                 (new_wt, new_wm, new_chid, new_ed, new_auth_del, guild_id)
             )
-            
+
         await db.commit()
-        
+
     return {"status": "success", "guild_id": guild_id}
 
 
 @router.get("/{guild_id}/antinuke", response_model=AntiNukeConfig, summary="Get AntiNuke config")
 async def get_guild_antinuke(guild_id: int):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/anti.db") as db:
         async with db.execute("SELECT status FROM antinuke WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-        
+
         whitelisted = []
         # Need to check if table exists first since it's created by the cog
         cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='whitelisted_users'")
@@ -475,7 +461,7 @@ async def get_guild_antinuke(guild_id: int):
             async with db.execute("SELECT user_id FROM whitelisted_users WHERE guild_id = ?", (guild_id,)) as wl_cursor:
                 wl_rows = await wl_cursor.fetchall()
                 whitelisted = [str(r[0]) for r in wl_rows]
-            
+
     return AntiNukeConfig(
         guild_id=guild_id,
         status=bool(row[0]) if row else False,
@@ -485,13 +471,13 @@ async def get_guild_antinuke(guild_id: int):
 @router.patch("/{guild_id}/antinuke", summary="Update AntiNuke config")
 async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/anti.db") as db:
         if data.status is not None:
             # Get existing or create
             async with db.execute("SELECT status FROM antinuke WHERE guild_id = ?", (guild_id,)) as cursor:
                 row = await cursor.fetchone()
-                
+
             if not row:
                 await db.execute(
                     "INSERT INTO antinuke (guild_id, status) VALUES (?, ?)",
@@ -502,7 +488,7 @@ async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
                     "UPDATE antinuke SET status = ? WHERE guild_id = ?",
                     (data.status, guild_id)
                 )
-        
+
         if data.add_whitelist:
             # Only add if table exists to avoid errors
             cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='whitelisted_users'")
@@ -515,7 +501,7 @@ async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
                             await db.execute("INSERT INTO whitelisted_users (guild_id, user_id, ban, kick, prune, botadd, serverup, memup, chcr, chdl, chup, rlcr, rlup, rldl, meneve, mngweb, mngstemo) VALUES (?, ?, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True)", (guild_id, user_id))
                 except ValueError:
                     pass
-                    
+
         if data.remove_whitelist:
             cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='whitelisted_users'")
             if await cursor.fetchone():
@@ -524,20 +510,20 @@ async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
                     await db.execute("DELETE FROM whitelisted_users WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
                 except ValueError:
                     pass
-            
+
         await db.commit()
-        
+
     return {"status": "success", "guild_id": guild_id}
 
 
 @router.get("/{guild_id}/verification", response_model=VerificationConfig, summary="Get Verification config")
 async def get_guild_verification(guild_id: int):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/verification.db") as db:
         async with db.execute("SELECT verification_channel_id, verified_role_id, log_channel_id, verification_method, enabled FROM verification_config WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
     if row:
         def _to_str(v):
             return str(v) if v else None
@@ -561,11 +547,11 @@ async def get_guild_verification(guild_id: int):
 @router.patch("/{guild_id}/verification", summary="Update Verification config")
 async def patch_guild_verification(guild_id: int, data: VerificationUpdate):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/verification.db") as db:
         async with db.execute("SELECT * FROM verification_config WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
         if not row:
             await db.execute(
                 "INSERT INTO verification_config (guild_id, verification_channel_id, verified_role_id, log_channel_id, verification_method, enabled) VALUES (?, ?, ?, ?, ?, ?)",
@@ -576,16 +562,16 @@ async def patch_guild_verification(guild_id: int, data: VerificationUpdate):
                 "UPDATE verification_config SET verification_channel_id = COALESCE(?, verification_channel_id), verified_role_id = COALESCE(?, verified_role_id), log_channel_id = COALESCE(?, log_channel_id), verification_method = COALESCE(?, verification_method), enabled = COALESCE(?, enabled) WHERE guild_id = ?",
                 (data.verification_channel_id, data.verified_role_id, data.log_channel_id, data.verification_method, data.enabled, guild_id)
             )
-            
+
         await db.commit()
-        
+
     return {"status": "success", "guild_id": guild_id}
 
 
 @router.get("/{guild_id}/vanityroles", response_model=List[VanityRoleSetup], summary="Get Vanity Roles setups")
 async def get_guild_vanityroles(guild_id: int):
     import aiosqlite
-    
+
     setups = []
     async with aiosqlite.connect("db/vanity.db") as db:
         async with db.execute("SELECT vanity, role_id, log_channel_id FROM vanity_roles WHERE guild_id = ?", (guild_id,)) as cursor:
@@ -601,31 +587,31 @@ async def get_guild_vanityroles(guild_id: int):
 @router.post("/{guild_id}/vanityroles", summary="Add/Update a Vanity Role setup")
 async def post_guild_vanityroles(guild_id: int, data: VanityRoleSetup):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/vanity.db") as db:
         await db.execute(
             "INSERT OR REPLACE INTO vanity_roles (guild_id, vanity, role_id, log_channel_id, current_status) VALUES (?, ?, ?, ?, NULL)",
             (guild_id, data.vanity.lower(), data.role_id, data.log_channel_id)
         )
         await db.commit()
-        
+
     return {"status": "success", "vanity": data.vanity}
 
 @router.delete("/{guild_id}/vanityroles/{vanity}", summary="Delete a Vanity Role setup")
 async def delete_guild_vanityroles(guild_id: int, vanity: str):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/vanity.db") as db:
         await db.execute("DELETE FROM vanity_roles WHERE guild_id = ? AND vanity = ?", (guild_id, vanity.lower()))
         await db.commit()
-        
+
     return {"status": "success"}
 
 
 @router.get("/{guild_id}/autorole", response_model=AutoRoleConfig, summary="Get AutoRole config")
 async def get_guild_autorole(guild_id: int):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/autorole.db") as db:
         # Ensure table exists
         await db.execute("""
@@ -636,30 +622,30 @@ async def get_guild_autorole(guild_id: int):
             )
         """)
         await db.commit()
-        
+
         async with db.execute("SELECT bots, humans FROM autorole WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
     if row:
         bots_str, humans_str = row
         try:
             bots = [r.strip() for r in bots_str.replace('[','').replace(']','').split(',') if r.strip()]
         except Exception:
             bots = []
-            
+
         try:
             humans = [r.strip() for r in humans_str.replace('[','').replace(']','').split(',') if r.strip()]
         except Exception:
             humans = []
-            
+
         return AutoRoleConfig(guild_id=str(guild_id), bots=bots, humans=humans)
-        
+
     return AutoRoleConfig(guild_id=str(guild_id), bots=[], humans=[])
 
 @router.patch("/{guild_id}/autorole", summary="Update AutoRole config")
 async def patch_guild_autorole(guild_id: int, data: AutoRoleUpdate):
     import aiosqlite
-    
+
     async with aiosqlite.connect("db/autorole.db") as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS autorole (
@@ -668,7 +654,7 @@ async def patch_guild_autorole(guild_id: int, data: AutoRoleUpdate):
                 humans TEXT NOT NULL DEFAULT '[]'
             )
         """)
-        
+
         # Build the bracket-format strings the bot cog expects
         if data.bots is not None:
             bots_str = str([int(b) for b in data.bots if b and b.isdigit()])
@@ -677,20 +663,20 @@ async def patch_guild_autorole(guild_id: int, data: AutoRoleUpdate):
             async with db.execute("SELECT bots FROM autorole WHERE guild_id = ?", (guild_id,)) as cursor:
                 old = await cursor.fetchone()
             bots_str = old[0] if old else '[]'
-            
+
         if data.humans is not None:
             humans_str = str([int(h) for h in data.humans if h and h.isdigit()])
         else:
             async with db.execute("SELECT humans FROM autorole WHERE guild_id = ?", (guild_id,)) as cursor:
                 old = await cursor.fetchone()
             humans_str = old[0] if old else '[]'
-            
+
         await db.execute(
             "INSERT OR REPLACE INTO autorole (guild_id, bots, humans) VALUES (?, ?, ?)",
             (guild_id, bots_str, humans_str)
         )
         await db.commit()
-        
+
     return {"status": "success"}
 
 
@@ -698,11 +684,11 @@ async def patch_guild_autorole(guild_id: int, data: AutoRoleUpdate):
 async def get_guild_welcome(guild_id: int):
     import aiosqlite
     import json
-    
+
     async with aiosqlite.connect("db/welcome.db") as db:
         async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
     if row:
         w_type, w_msg, channel_id, embed_data_str, auto_del = row
         edata = None
@@ -720,33 +706,33 @@ async def get_guild_welcome(guild_id: int):
             embed_data=edata,
             auto_delete_duration=auto_del
         )
-        
+
     return WelcomeConfig(guild_id=guild_id)
 
 @router.patch("/{guild_id}/welcome", summary="Update Welcome config")
 async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
     import aiosqlite
     import json
-    
+
     async with aiosqlite.connect("db/welcome.db") as db:
         async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-            
+
         current_type = row[0] if row else None
         current_msg = row[1] if row else None
         current_channel = row[2] if row else None
         current_embed_str = row[3] if row else None
         current_auto = row[4] if row else None
-        
+
         new_type = data.welcome_type if data.welcome_type is not None else current_type
         new_msg = data.welcome_message if data.welcome_message is not None else current_msg
         new_channel = data.channel_id if data.channel_id is not None else current_channel
         new_auto = data.auto_delete_duration if data.auto_delete_duration is not None else current_auto
-        
+
         new_embed_str = current_embed_str
         if data.embed_data is not None:
             new_embed_str = data.embed_data.json(exclude_none=True)
-            
+
         if not row:
             await db.execute(
                 "INSERT INTO welcome (guild_id, welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration) VALUES (?, ?, ?, ?, ?, ?)",
@@ -757,7 +743,7 @@ async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
                 "UPDATE welcome SET welcome_type=?, welcome_message=?, channel_id=?, embed_data=?, auto_delete_duration=? WHERE guild_id=?",
                 (new_type, new_msg, new_channel, new_embed_str, new_auto, guild_id)
             )
-            
+
         await db.commit()
     return {"status": "success", "guild_id": guild_id}
 
@@ -805,13 +791,13 @@ async def get_guild_j2c(guild_id: int):
         except aiosqlite.OperationalError:
             pass
         await db.commit()
-        
+
         async with db.execute("SELECT join_channel_id, control_channel_id, category_id FROM guild_setup WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
     if row:
         return J2CConfig(
-            guild_id=str(guild_id), 
-            join_channel_id=str(row[0]) if row[0] else None, 
+            guild_id=str(guild_id),
+            join_channel_id=str(row[0]) if row[0] else None,
             control_channel_id=str(row[1]) if row[1] else None,
             category_id=str(row[2]) if row[2] else None
         )
@@ -820,7 +806,7 @@ async def get_guild_j2c(guild_id: int):
 @router.patch("/{guild_id}/j2c", summary="Update J2C config")
 async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "midvox" = Depends(get_bot)):
     import aiosqlite
-    
+
     def to_id(val):
         if not val or val == "none": return None
         try: return int(val)
@@ -829,7 +815,7 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "midvox" = Depend
     join_ch = to_id(data.join_channel_id)
     ctrl_ch = to_id(data.control_channel_id)
     cat_ch = to_id(data.category_id)
-    
+
     async with aiosqlite.connect("j2c_data.db") as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS guild_setup (
@@ -844,14 +830,14 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "midvox" = Depend
             await db.execute("ALTER TABLE guild_setup ADD COLUMN category_id INTEGER")
         except aiosqlite.OperationalError:
             pass
-        
+
         async with db.execute("SELECT control_message_id FROM guild_setup WHERE guild_id = ?", (guild_id,)) as cursor:
             existing = await cursor.fetchone()
-        
+
         ctrl_msg_id = existing[0] if existing else None
-        
+
         await db.execute(
-            "INSERT OR REPLACE INTO guild_setup (guild_id, join_channel_id, control_channel_id, control_message_id, category_id) VALUES (?, ?, ?, ?, ?)", 
+            "INSERT OR REPLACE INTO guild_setup (guild_id, join_channel_id, control_channel_id, control_message_id, category_id) VALUES (?, ?, ?, ?, ?)",
             (guild_id, join_ch, ctrl_ch, ctrl_msg_id, cat_ch)
         )
         await db.commit()
@@ -881,7 +867,7 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "midvox" = Depend
                                     msg = await control_channel.fetch_message(ctrl_msg_id)
                                 except:
                                     pass
-                            
+
                             from cogs.commands.j2c import ControlPanelView
                             if msg:
                                 view = ControlPanelView(cog, guild)
@@ -903,7 +889,7 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "midvox" = Depend
 async def get_guild_joindm(guild_id: int):
     config_file = 'jsondb/joindm_messages.json'
     os.makedirs('jsondb', exist_ok=True)
-    
+
     if os.path.exists(config_file):
         try:
             with open(config_file, 'r') as f:
@@ -916,16 +902,16 @@ async def get_guild_joindm(guild_id: int):
                         data = {}
         except (json.JSONDecodeError, Exception):
             data = {}
-            
+
         return JoinDMConfig(guild_id=str(guild_id), message=data.get(str(guild_id)))
-    
+
     return JoinDMConfig(guild_id=str(guild_id))
 
 @router.patch("/{guild_id}/joindm", summary="Update JoinDM config")
 async def patch_guild_joindm(guild_id: int, data: JoinDMUpdate):
     config_file = 'jsondb/joindm_messages.json'
     os.makedirs('jsondb', exist_ok=True)
-    
+
     messages = {}
     if os.path.exists(config_file):
         try:
@@ -939,10 +925,10 @@ async def patch_guild_joindm(guild_id: int, data: JoinDMUpdate):
             messages = {}
 
     messages[str(guild_id)] = data.message
-    
+
     with open(config_file, 'w') as f:
         json.dump(messages, f, indent=2)
-        
+
     return {"status": "success"}
 
 @router.get("/{guild_id}/customroles", response_model=CustomRoleConfig, summary="Get CustomRoles config")
@@ -966,17 +952,17 @@ async def get_guild_customroles(guild_id: int):
 @router.patch("/{guild_id}/customroles", summary="Update CustomRoles config")
 async def patch_guild_customroles(guild_id: int, data: CustomRoleUpdate):
     import aiosqlite
-    
+
     # Convert string IDs to ints for DB INTEGER columns
     def to_int(val):
         if val is None: return None
         try: return int(val)
         except: return None
-    
+
     async with aiosqlite.connect('db/customrole.db') as db:
         async with db.execute("SELECT * FROM roles WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-        
+
         if not row:
             await db.execute(
                 "INSERT INTO roles (guild_id, staff, girl, vip, guest, frnd, reqrole) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -989,7 +975,7 @@ async def patch_guild_customroles(guild_id: int, data: CustomRoleUpdate):
             for field, value in data.dict(exclude_unset=True).items():
                 update_fields.append(f"{field} = ?")
                 params.append(to_int(value))
-            
+
             if update_fields:
                 query = f"UPDATE roles SET {', '.join(update_fields)} WHERE guild_id = ?"
                 params.append(guild_id)
@@ -1004,7 +990,7 @@ async def get_guild_logging(guild_id: int, bot: "midvox" = Depends(get_bot)):
     """
     cog = bot.get_cog("Logging")
     config = None
-    
+
     if cog and guild_id in cog.config_cache:
         config = cog.config_cache[guild_id]
     else:
@@ -1052,11 +1038,11 @@ async def patch_guild_logging(guild_id: int, data: LoggingUpdate, bot: "midvox" 
 
     # Get current config or defaults
     current_config = cog.config_cache.get(guild_id, {})
-    
+
     log_channels = current_config.get("log_channels", {})
     if data.log_channels is not None:
         log_channels.update(data.log_channels)
-        
+
     log_enabled = current_config.get("log_enabled", {})
     if data.log_enabled is not None:
         log_enabled.update(data.log_enabled)
@@ -1070,27 +1056,27 @@ async def patch_guild_logging(guild_id: int, data: LoggingUpdate, bot: "midvox" 
         current_config.get("ignore_users", []),
         current_config.get("auto_delete_duration")
     )
-    
+
     return {"status": "success", "guild_id": guild_id}
 
 @router.get("/{guild_id}/leveling/leaderboard", response_model=List[LeaderboardEntry], summary="Get leveling leaderboard", description="Returns top users by XP for a specific guild.")
 async def get_leveling_leaderboard(guild_id: int, bot: "midvox" = Depends(get_bot)):
     db = await db_manager.get_connection('db/leveling.db')
     cursor = await db.execute(
-        "SELECT user_id, xp FROM user_xp WHERE guild_id = ? ORDER BY xp DESC LIMIT 100", 
+        "SELECT user_id, xp FROM user_xp WHERE guild_id = ? ORDER BY xp DESC LIMIT 100",
         (guild_id,)
     )
     rows = await cursor.fetchall()
-    
+
     leaderboard = []
     guild = bot.get_guild(guild_id)
-    
+
     for row in rows:
         user_id = row["user_id"]
         xp = row["xp"]
         # Calculate level: sqrt(xp/100)
         level = int(math.sqrt(xp / 100)) if xp >= 0 else 0
-        
+
         # Try to get member name
         name = f"User {user_id}"
         if guild:
@@ -1103,14 +1089,14 @@ async def get_leveling_leaderboard(guild_id: int, bot: "midvox" = Depends(get_bo
                     name = user.name
                 except:
                     pass
-        
+
         leaderboard.append(LeaderboardEntry(
             user_id=str(user_id),
             name=name,
             level=level,
             xp=xp
         ))
-    
+
     return leaderboard
 
 @router.get("/{guild_id}/channels", response_model=List[DiscordChannel], summary="Get guild channels", description="Returns a list of all channels for the specific guild.")
@@ -1118,7 +1104,7 @@ async def get_guild_channels(guild_id: int, bot: "midvox" = Depends(get_bot)):
     guild = bot.get_guild(guild_id)
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")
-        
+
     # Match Discord's sidebar order. Channel positions are scoped by category,
     # so sorting the flat guild.channels list cannot reproduce the hierarchy.
     ordered_channels = []
@@ -1146,7 +1132,7 @@ async def get_guild_roles(guild_id: int, bot: "midvox" = Depends(get_bot)):
     guild = bot.get_guild(guild_id)
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")
-        
+
     roles = []
     for role in guild.roles:
         # Avoid @everyone role if desired, but frontend might need filtering. Let's return all.
@@ -1208,7 +1194,7 @@ async def get_guild_invcrole(guild_id: int):
 
     cursor = await db.execute("SELECT role_id, enabled FROM vcroles WHERE guild_id = ?", (guild_id,))
     row = await cursor.fetchone()
-    
+
     role_id = str(row['role_id']) if row and row['role_id'] and row['role_id'] != 0 else None
     enabled = bool(row['enabled']) if row else False
     return InvcConfig(guild_id=str(guild_id), role_id=role_id, enabled=enabled)
@@ -1216,14 +1202,14 @@ async def get_guild_invcrole(guild_id: int):
 @router.patch("/{guild_id}/invcrole", summary="Update Invc Role config")
 async def patch_guild_invcrole(guild_id: int, data: InvcUpdate):
     db = await db_manager.get_connection('db/invc.db')
-    
+
     # Get existing row to merge
     cursor = await db.execute("SELECT role_id, enabled FROM vcroles WHERE guild_id = ?", (guild_id,))
     row = await cursor.fetchone()
-    
+
     current_role = row['role_id'] if row else 0
     current_enabled = row['enabled'] if row else 0
-    
+
     # Update values only if they are provided in the request
     # If data.role_id is None, it could mean 'unset' (if sent as null) or 'no change' (if omitted).
     # Given our dashboard sends the full object, we treat None as unset if it matches our frontend's behavior.
@@ -1241,7 +1227,7 @@ async def patch_guild_invcrole(guild_id: int, data: InvcUpdate):
     if data.enabled is not None:
         new_enabled = 1 if data.enabled else 0
 
-    await db.execute("INSERT OR REPLACE INTO vcroles (guild_id, role_id, enabled) VALUES (?, ?, ?)", 
+    await db.execute("INSERT OR REPLACE INTO vcroles (guild_id, role_id, enabled) VALUES (?, ?, ?)",
                      (guild_id, new_role, new_enabled))
     await db.commit()
     return {"status": "success"}
@@ -1292,12 +1278,12 @@ async def patch_guild_autoreact(guild_id: int, data: AutoReactUpdate):
 async def get_guild_invites(guild_id: int):
     table_name = f"invites_{guild_id}"
     data_list = []
-    
+
     db = await db_manager.get_connection("db/invite.db")
     # Check if table exists
     async with db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)) as cursor:
         exists = await cursor.fetchone()
-    
+
     if exists:
         try:
             # Use a safer query that handles missing columns if necessary
@@ -1316,7 +1302,7 @@ async def get_guild_invites(guild_id: int):
     else:
         # If no tracking data yet, just return empty list
         pass
-    
+
     return InvitesLeaderboard(guild_id=str(guild_id), data=data_list)
 
 
@@ -1344,10 +1330,10 @@ async def get_guild_rr(guild_id: int):
     async with db.execute("SELECT dm_enabled FROM rr_settings WHERE guild_id = ?", (guild_id,)) as cursor:
         dm_row = await cursor.fetchone()
     dm_enabled = dm_row[0] == 1 if dm_row else True
-    
+
     async with db.execute("SELECT message_id, emoji, role_id FROM reaction_roles WHERE guild_id = ?", (guild_id,)) as cursor:
         rows = await cursor.fetchall()
-    
+
     roles_list = [
         ReactionRoleEntry(
             message_id=str(row[0]),
@@ -1355,7 +1341,7 @@ async def get_guild_rr(guild_id: int):
             role_id=str(row[2])
         ) for row in rows
     ]
-    
+
     return RRConfig(guild_id=str(guild_id), dm_enabled=dm_enabled, roles=roles_list)
 
 @router.patch("/{guild_id}/reactionroles", summary="Update Reaction Roles config")
@@ -1375,17 +1361,17 @@ async def patch_guild_rr(guild_id: int, data: RRUpdate):
             dm_enabled INTEGER DEFAULT 1
         )
     """)
-    
+
     if data.dm_enabled is not None:
         await db.execute("INSERT OR REPLACE INTO rr_settings (guild_id, dm_enabled) VALUES (?, ?)",
                          (guild_id, 1 if data.dm_enabled else 0))
-    
+
     if data.add_role is not None:
         msg_id = int(data.add_role.message_id)
         role_id = int(data.add_role.role_id)
         await db.execute("INSERT INTO reaction_roles (guild_id, message_id, emoji, role_id) VALUES (?, ?, ?, ?)",
                          (guild_id, msg_id, data.add_role.emoji, role_id))
-    
+
     if data.remove_role_message_id is not None and data.remove_role_emoji is not None:
         msg_id = int(data.remove_role_message_id)
         await db.execute("DELETE FROM reaction_roles WHERE guild_id = ? AND message_id = ? AND emoji = ?",

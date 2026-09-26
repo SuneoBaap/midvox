@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 from __future__ import annotations
 import discord
 from utils.emoji import CROSS, ICONS_WARNING, TICK
@@ -69,28 +55,28 @@ class AutoRole(commands.Cog):
                 row = await cursor.fetchone()
                 if row:
                     bots, humans = row
-                    
+
                     bots = [int(role_id) for role_id in bots.replace('[', '').replace(']', '').replace(' ', '').split(',') if role_id]
                     humans = [int(role_id) for role_id in humans.replace('[', '').replace(']', '').replace(' ', '').split(',') if role_id]
-                      
+
                     return {"bots": bots, "humans": humans}
                 else:
                     return {"bots": [], "humans": []}
 
-    
+
 
     async def update_autorole(self, guild_id: int, data: Dict[str, List[int]]):
         async with aiosqlite.connect(DATABASE_PATH) as db:
             bots = ','.join(map(str, data['bots']))
             humans = ','.join(map(str, data['humans']))
-            
+
             await db.execute("INSERT OR REPLACE INTO autorole (guild_id, bots, humans) VALUES (?, ?, ?)",
                              (guild_id, bots, humans))
             await db.commit()
 
 
-        
-                
+
+
     @commands.group(name="autorole", invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
@@ -100,7 +86,7 @@ class AutoRole(commands.Cog):
         if ctx.subcommand_passed is None:
             await ctx.send_help(ctx.command)
             ctx.command.reset_cooldown(ctx)
-            
+
 
     @_autorole.command(name="config", help="Shows the current autorole configuration")
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -110,7 +96,7 @@ class AutoRole(commands.Cog):
     @ignore_check()
     @commands.has_permissions(administrator=True)
     async def _ar_config(self, ctx):
-        
+
         data = await self.get_autorole(ctx.guild.id)
         if data:
             fetched_humans = [ctx.guild.get_role(role_id) for role_id in data["humans"] if ctx.guild.get_role(role_id)]
@@ -230,7 +216,7 @@ class AutoRole(commands.Cog):
         async with aiosqlite.connect(DATABASE_PATH) as db:
             async with db.execute("SELECT humans FROM autorole WHERE guild_id = ?", (ctx.guild.id,)) as cursor:
                 data = await cursor.fetchone()
-        
+
         if data:
             humans = eval(data[0])
             if role.id in humans:
@@ -301,7 +287,7 @@ class AutoRole(commands.Cog):
         async with aiosqlite.connect(DATABASE_PATH) as db:
             async with db.execute("SELECT bots FROM autorole WHERE guild_id = ?", (ctx.guild.id,)) as cursor:
                 data = await cursor.fetchone()
-        
+
         if data:
             bots = eval(data[0])
             if role.id in bots:
@@ -349,5 +335,5 @@ class AutoRole(commands.Cog):
             view = CV2(f"{CROSS} Error", "No Autoroles set in this guild for bots.")
 
         await ctx.reply(view=view)
-        
+
 

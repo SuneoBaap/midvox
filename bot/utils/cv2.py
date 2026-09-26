@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 """
 Shared CV2 (Component V2) utilities for the bot.
 Provides a helper to build Container objects since Container()
@@ -78,16 +64,16 @@ class CV2Embed(CV2):
         self._footer = None
         super().__init__(title, self._description)
         self.color = kwargs.get("color", BOT_THEME_COLOR)
-    
+
     def _rebuild(self):
         self.clear_items()
         sections = [self._description] if self._description else []
         for name, value in self._fields:
             sections.append(f"**{name}**\n{value}")
-        
+
         if self._footer:
             sections.append(f"*{self._footer}*")
-            
+
         container = build_container(
             TextDisplay(f"**{animate_status_icons(self._title)}**"),
             *[item for s in sections for item in (Separator(visible=True), TextDisplay(animate_status_icons(s)))],
@@ -105,15 +91,15 @@ class CV2Embed(CV2):
             self._footer = text
             self._rebuild()
         return self
-        
+
     def set_thumbnail(self, url=None, **kwargs):
         return self
-        
+
     def set_author(self, name=None, url=None, icon_url=None, **kwargs):
         return self
-        
+
     def set_image(self, url=None, **kwargs):
         return self
-        
+
     def to_dict(self):
         return {"title": self._title, "description": self._description}

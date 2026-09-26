@@ -1,17 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║                                                                  ║
-# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-# ║                                                                  ║
-# ║            © 2026 CodeX Devs — All Rights Reserved              ║
-# ║                                                                  ║
-# ║   discord  ──  https://discord.gg/codexdev                      ║
-# ║   youtube  ──  https://youtube.com/@CodeXDevs                   ║
-# ║   github   ──  https://github.com/RayExo                        ║
-# ║                                                                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
 import discord
 from utils.emoji import ARROWRED, CROSS, DISABLE, ENABLE, MANAGER, TICK
 from discord.ext import commands
@@ -29,7 +15,7 @@ class Whitelist(commands.Cog):
         self.bot = bot
         self.bot.loop.create_task(self.initialize_db())
 
-    
+
     #@commands.Cog.listener()
     async def initialize_db(self):
         self.db = await aiosqlite.connect('db/anti.db')
@@ -176,7 +162,7 @@ class Whitelist(commands.Cog):
         try:
             interaction = await self.bot.wait_for("interaction", check=check, timeout=60.0)
             if interaction.data["custom_id"] == "catWl":
-                
+
                 await self.db.execute(
                     "UPDATE whitelisted_users SET ban = ?, kick = ?, prune = ?, botadd = ?, serverup = ?, memup = ?, chcr = ?, chdl = ?, chup = ?, rlcr = ?, rldl = ?, rlup = ?, meneve = ?, mngweb = ?, mngstemo = ? WHERE guild_id = ? AND user_id = ?",
                     (True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, ctx.guild.id, member.id)
@@ -207,7 +193,7 @@ class Whitelist(commands.Cog):
                 )
                 await interaction.response.edit_message(view=result)
             else:
-                
+
                 fields = {
                     'ban': 'Ban',
                     'kick': 'Kick',
@@ -225,7 +211,7 @@ class Whitelist(commands.Cog):
                     'mngweb': 'Manage Webhooks'
                 }
 
-                
+
                 status_lines = []
                 selected_values = interaction.data["values"]
                 for key, name in fields.items():
@@ -362,4 +348,3 @@ class Whitelist(commands.Cog):
         view = CV2(f"{TICK} Success", f"Removed all whitelisted members from {ctx.guild.name}")
         await ctx.send(view=view)
 
- 
