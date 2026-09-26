@@ -181,7 +181,7 @@ async def cdp_call(ws, request_id, method, params=None):
         payload["params"] = params
     await ws.send_json(payload)
     while True:
-        message = await ws.receive()
+        message = await asyncio.wait_for(ws.receive(), timeout=20)
         if message.type != aiohttp.WSMsgType.TEXT:
             raise RuntimeError("Discord desktop DevTools connection closed")
         response = json.loads(message.data)
@@ -189,12 +189,15 @@ async def cdp_call(ws, request_id, method, params=None):
             continue
         if response.get("error"):
             raise RuntimeError(response["error"].get("message") or "DevTools error")
-        return response.get("result") or {}
+        result = response.get("result") or {}
+        if result.get("exceptionDetails"):
+            # Never echo evaluated source: a login expression may contain a secret.
+            raise RuntimeError("Discord desktop JavaScript evaluation failed")
+        return result
 
 
 async def authenticate_desktop(session, target, debug_port):
     """Move the settled target to discord.com and hand it the user token."""
-    token_literal = json.dumps(TOKEN)
     try:
         async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
             await cdp_call(
@@ -230,44 +233,28 @@ async def authenticate_desktop(session, target, debug_port):
         raise RuntimeError("discord.com login target did not become available")
 
     async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
-        handoff = await cdp_call(
+        storage_id = {"securityOrigin": "https://discord.com", "isLocalStorage": True}
+        # Discord removes window.localStorage from the page. Write through CDP
+        # rather than evaluating JavaScript against that missing global.
+        await cdp_call(
             ws,
             2,
-            "Runtime.evaluate",
+            "DOMStorage.setDOMStorageItem",
             {
-                "expression": (
-                    "(() => {"
-                    f"const token = {token_literal};"
-                    "const expected = JSON.stringify(token);"
-                    "if (localStorage.getItem('token') !== expected) {"
-                    "const frame = document.createElement('iframe');"
-                    "frame.style.display = 'none';"
-                    "document.body.appendChild(frame);"
-                    "frame.contentWindow.localStorage.setItem("
-                    "'token', expected);"
-                    "frame.remove();"
-                    "return false;"
-                    "}"
-                    "return true;"
-                    "})()"
-                ),
-                "returnByValue": True,
+                "storageId": storage_id,
+                "key": "token",
+                "value": json.dumps(TOKEN),
             },
         )
-        token_reused = bool(handoff.get("result", {}).get("value"))
-        if not token_reused:
-            try:
-                await cdp_call(
-                    ws,
-                    3,
-                    "Page.navigate",
-                    {"url": "https://discord.com/channels/@me"},
-                )
-            except (aiohttp.ClientError, RuntimeError):
-                # Navigation commonly replaces the target before the command
-                # response arrives. The token write has already completed.
-                pass
-    return token_reused
+        stored = await cdp_call(
+            ws, 3, "DOMStorage.getDOMStorageItems", {"storageId": storage_id}
+        )
+        if dict(stored.get("entries", [])).get("token") != json.dumps(TOKEN):
+            raise RuntimeError("Discord desktop credential storage verification failed")
+        # Reload lets the client consume the stored credential during startup.
+        # Success here is only a handoff; Gateway READY is checked separately.
+        await cdp_call(ws, 4, "Page.reload", {})
+    return False
 
 
 async def relay_desktop_output(stream):
@@ -475,12 +462,7 @@ async def discord_desktop_client():
                     except asyncio.CancelledError:
                         raise
                     except (aiohttp.ClientError, RuntimeError, ValueError) as error:
-                        print(
-                            "[discord-desktop] authentication handoff failed: "
-                            f"{error}",
-                            flush=True,
-                        )
-                        token_reused = False
+                        raise RuntimeError("Desktop authentication handoff failed") from error
                     if token_reused:
                         print(
                             "[discord-desktop] existing discord.com authentication "
@@ -490,7 +472,7 @@ async def discord_desktop_client():
                     else:
                         print(
                             "[discord-desktop] token written on discord.com; "
-                            "opening authenticated desktop",
+                            "waiting for authenticated Gateway READY",
                             flush=True,
                         )
 
@@ -503,6 +485,8 @@ async def discord_desktop_client():
         except Exception as error:
             print(f"[discord-desktop] error: {error}", flush=True)
         finally:
+            with contextlib.suppress(OSError):
+                os.remove(USER_DESKTOP_READY_FILE)
             await stop_desktop_process(discord_process)
             if output_task:
                 output_task.cancel()
@@ -603,7 +587,7 @@ async def connect_presence():
                         )
                         mirrored_signature = signature
                         print(
-                            "[user-presence] ONLINE as Linux Desktop with "
+                            "[user-presence] Sent online presence with "
                             f"{len(mirrored)} mirrored activities from {source}",
                             flush=True,
                         )
@@ -739,15 +723,8 @@ if __name__ == "__main__":
                     return_exceptions=True,
                 )
                 raise RuntimeError("User-account presence fallback failed")
-            with contextlib.suppress(OSError):
-                with open(
-                    USER_DESKTOP_READY_FILE,
-                    "w",
-                    encoding="utf-8",
-                ) as ready_file:
-                    ready_file.write("fallback")
             print(
-                "[user-desktop] ONLINE through Linux Desktop fallback; "
+                "[user-presence] fallback Gateway ready; desktop login unconfirmed; "
                 "starting remaining services",
                 flush=True,
             )

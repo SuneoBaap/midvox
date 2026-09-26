@@ -74,7 +74,8 @@ ROOT="$(pwd)"
 # bot, and the dashboard. Wait for its authenticated Gateway READY event before
 # starting any other service.
 export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
-rm -f "$USER_DESKTOP_READY_FILE"
+export USER_PRESENCE_READY_FILE=/tmp/midvox-user-presence-ready
+rm -f "$USER_DESKTOP_READY_FILE" "$USER_PRESENCE_READY_FILE"
 if [ -n "${USER_TOKEN:-}" ]; then
   DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
   if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
@@ -92,7 +93,7 @@ if [ -n "${USER_TOKEN:-}" ]; then
       python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
       echo "WARNING: User presence sidecar exited (code $?). Restarting in 5s..." >&2
       cd "$ROOT"
-      rm -f "$USER_DESKTOP_READY_FILE"
+      rm -f "$USER_DESKTOP_READY_FILE" "$USER_PRESENCE_READY_FILE"
       sleep 5
     done
   ) &
@@ -101,7 +102,11 @@ if [ -n "${USER_TOKEN:-}" ]; then
   echo "Waiting for official user desktop Gateway READY..."
   for i in $(seq 1 120); do
     if [ -f "$USER_DESKTOP_READY_FILE" ]; then
-      echo "Official user desktop is online; starting remaining services."
+      echo "Official user desktop Gateway authenticated; starting remaining services."
+      break
+    fi
+    if [ -f "$USER_PRESENCE_READY_FILE" ]; then
+      echo "Fallback Gateway ready; desktop login unconfirmed. Starting remaining services."
       break
     fi
     if ! kill -0 "$BUMP_PID" 2>/dev/null; then
@@ -110,7 +115,7 @@ if [ -n "${USER_TOKEN:-}" ]; then
     fi
     sleep 1
   done
-  if [ ! -f "$USER_DESKTOP_READY_FILE" ]; then
+  if [ ! -f "$USER_DESKTOP_READY_FILE" ] && [ ! -f "$USER_PRESENCE_READY_FILE" ]; then
     echo "FATAL: User desktop or Linux Desktop fallback did not become ready within 120 seconds." >&2
     tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
     exit 1
