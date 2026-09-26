@@ -2,6 +2,7 @@
 import os
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -9,6 +10,16 @@ import bump_sidecar as sidecar
 
 
 class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
+    async def test_desktop_liveness_uses_the_process_group(self):
+        process = SimpleNamespace(pid=1234, returncode=0)
+
+        with patch.object(sidecar.os, "killpg") as killpg:
+            self.assertTrue(sidecar.desktop_process_group_alive(process))
+            killpg.assert_called_once_with(1234, 0)
+
+        with patch.object(sidecar.os, "killpg", side_effect=ProcessLookupError):
+            self.assertFalse(sidecar.desktop_process_group_alive(process))
+
     async def test_online_presence_is_green_and_not_idle(self):
         ws = AsyncMock()
         activities = [{"name": "Spotify", "type": 2}]

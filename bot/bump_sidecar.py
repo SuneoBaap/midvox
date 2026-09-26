@@ -441,6 +441,25 @@ async def stop_desktop_process(process):
             await process.wait()
 
 
+def desktop_process_group_alive(process) -> bool:
+    """Return whether any process from the launched desktop session remains.
+
+    Discord may close its DevTools listener or let its launcher process exit
+    while the detached Electron client and Gateway remain healthy.  Every
+    process inherits the new session/process group created at launch, making
+    the group the durable lifecycle signal.
+    """
+    if not process:
+        return False
+    try:
+        os.killpg(process.pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 async def discord_desktop_client():
     """Keep Discord's official desktop client open on a virtual display."""
     global SESSION_ID
@@ -611,38 +630,13 @@ async def discord_desktop_client():
                     keep_desktop_active(session, debug_port)
                 )
                 try:
-                    # Discord's Linux executable forks the real Electron client
-                    # and then lets the dbus-run-session launcher exit cleanly.
-                    # Watching that launcher PID caused us to kill and restart a
-                    # healthy client every few seconds.  The DevTools endpoint is
-                    # owned by the real browser process, so use it as the client
-                    # health signal instead.
-                    consecutive_health_failures = 0
-                    while True:
+                    # Discord can detach from its launcher and can close the
+                    # optional DevTools listener while its Gateway stays ready.
+                    # The inherited process group covers the actual Electron
+                    # client and is the reliable lifecycle signal.
+                    while desktop_process_group_alive(discord_process):
                         await asyncio.sleep(30)
-                        try:
-                            async with session.get(
-                                f"http://127.0.0.1:{debug_port}/json/version",
-                                timeout=aiohttp.ClientTimeout(total=10),
-                            ) as response:
-                                if response.status != 200:
-                                    raise RuntimeError(
-                                        "Discord DevTools health check returned "
-                                        f"HTTP {response.status}"
-                                    )
-                                await response.read()
-                            consecutive_health_failures = 0
-                        except (aiohttp.ClientError, asyncio.TimeoutError, RuntimeError) as error:
-                            consecutive_health_failures += 1
-                            print(
-                                "[discord-desktop] health check failed "
-                                f"({consecutive_health_failures}/3): {error}",
-                                flush=True,
-                            )
-                            if consecutive_health_failures >= 3:
-                                raise RuntimeError(
-                                    "Discord desktop DevTools became unavailable"
-                                ) from error
+                    raise RuntimeError("Discord desktop process group exited")
                 finally:
                     activity_task.cancel()
                     await asyncio.gather(activity_task, return_exceptions=True)
