@@ -9,6 +9,24 @@ import bump_sidecar as sidecar
 
 
 class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
+    async def test_online_presence_is_green_and_not_idle(self):
+        ws = AsyncMock()
+        activities = [{"name": "Spotify", "type": 2}]
+
+        await sidecar.publish_online(ws, activities)
+
+        ws.send_json.assert_awaited_once_with(
+            {
+                "op": 3,
+                "d": {
+                    "status": "online",
+                    "since": 0,
+                    "activities": activities,
+                    "afk": False,
+                },
+            }
+        )
+
     async def test_javascript_exception_is_not_success(self):
         import json
         from types import SimpleNamespace

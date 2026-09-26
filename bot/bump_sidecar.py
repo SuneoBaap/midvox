@@ -21,6 +21,7 @@ API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
+ONLINE_REFRESH_SECONDS = 240
 DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
     (
         path
@@ -172,6 +173,29 @@ async def heartbeat(ws, interval, sequence):
     while not ws.closed:
         await ws.send_json({"op": 1, "d": sequence[0]})
         await asyncio.sleep(interval)
+
+
+async def publish_online(ws, activities):
+    """Publish an explicit online presence without creating channel noise."""
+    await ws.send_json(
+        {
+            "op": 3,
+            "d": {
+                "status": "online",
+                "since": 0,
+                "activities": activities,
+                "afk": False,
+            },
+        }
+    )
+
+
+async def keep_online(ws, activities):
+    """Refresh the user presence every four minutes to prevent idle status."""
+    while not ws.closed:
+        await asyncio.sleep(ONLINE_REFRESH_SECONDS)
+        await publish_online(ws, activities())
+        print("[user-presence] refreshed online status", flush=True)
 
 
 async def cdp_call(ws, request_id, method, params=None):
@@ -563,10 +587,11 @@ async def connect_presence():
 
                     heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
                     mirrored_signature = None
+                    mirrored_activities = []
                     print("[user-presence] Gateway identified; waiting for READY", flush=True)
 
                     async def publish_mirrored_presence(source, data):
-                        nonlocal mirrored_signature
+                        nonlocal mirrored_activities, mirrored_signature
                         mirrored = mirrorable_session_activities(data, SESSION_ID)
                         signature = activities_signature(mirrored)
                         if mirrored_signature is not None and signature == mirrored_signature:
@@ -574,17 +599,8 @@ async def connect_presence():
                         # Re-apply presence after READY. Some Discord routing
                         # paths ignore the presence embedded in Identify until
                         # a separate OP3 Presence Update arrives.
-                        await ws.send_json(
-                            {
-                                "op": 3,
-                                "d": {
-                                    "status": "online",
-                                    "since": 0,
-                                    "activities": mirrored,
-                                    "afk": False,
-                                },
-                            }
-                        )
+                        await publish_online(ws, mirrored)
+                        mirrored_activities = mirrored
                         mirrored_signature = signature
                         print(
                             "[user-presence] Sent online presence with "
@@ -592,6 +608,9 @@ async def connect_presence():
                             flush=True,
                         )
 
+                    online_task = asyncio.create_task(
+                        keep_online(ws, lambda: mirrored_activities)
+                    )
                     try:
                         async for message in ws:
                             if message.type == aiohttp.WSMsgType.TEXT:
@@ -634,7 +653,12 @@ async def connect_presence():
                         with contextlib.suppress(OSError):
                             os.remove(USER_PRESENCE_READY_FILE)
                         heartbeat_task.cancel()
-                        await asyncio.gather(heartbeat_task, return_exceptions=True)
+                        online_task.cancel()
+                        await asyncio.gather(
+                            heartbeat_task,
+                            online_task,
+                            return_exceptions=True,
+                        )
         except Exception as e:
             print(f"[user-presence] error: {e}", flush=True)
 
@@ -682,10 +706,9 @@ if __name__ == "__main__":
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
-        # Prefer the known-working official desktop client because it carries
-        # connected Spotify activity. If its authentication does not reach READY,
-        # use the dedicated Linux Desktop Gateway so the user never stays
-        # offline.
+        # The official desktop carries connected Spotify activity. A lightweight
+        # companion Gateway session supplies /bump's session ID and refreshes
+        # the online presence every four minutes.
         desktop_task = asyncio.create_task(
             supervise("discord-desktop", discord_desktop_client)
         )
@@ -696,42 +719,35 @@ if __name__ == "__main__":
                 await desktop_task
             await asyncio.sleep(0.5)
 
-        fallback_task = None
+        presence_task = asyncio.create_task(
+            supervise("user-presence", connect_presence)
+        )
+        try:
+            await asyncio.wait_for(SESSION_READY.wait(), timeout=45)
+        except TimeoutError:
+            presence_task.cancel()
+            desktop_task.cancel()
+            await asyncio.gather(
+                presence_task,
+                desktop_task,
+                return_exceptions=True,
+            )
+            raise RuntimeError("User-account presence session failed")
+
         if os.path.isfile(USER_DESKTOP_READY_FILE):
             print(
-                "[user-desktop] official Gateway ready; starting /bump and "
-                "remaining services",
+                "[user-desktop] official Gateway ready; four-minute online "
+                "refresh active",
                 flush=True,
             )
         else:
             print(
-                "[user-desktop] official authentication did not become ready; "
-                "starting Linux Desktop presence fallback",
-                flush=True,
-            )
-            fallback_task = asyncio.create_task(
-                supervise("user-presence-fallback", connect_presence)
-            )
-            try:
-                await asyncio.wait_for(SESSION_READY.wait(), timeout=45)
-            except TimeoutError:
-                fallback_task.cancel()
-                desktop_task.cancel()
-                await asyncio.gather(
-                    fallback_task,
-                    desktop_task,
-                    return_exceptions=True,
-                )
-                raise RuntimeError("User-account presence fallback failed")
-            print(
-                "[user-presence] fallback Gateway ready; desktop login unconfirmed; "
-                "starting remaining services",
+                "[user-desktop] official client is still starting; online "
+                "presence refresh is active",
                 flush=True,
             )
 
-        tasks = [desktop_task]
-        if fallback_task:
-            tasks.append(fallback_task)
+        tasks = [desktop_task, presence_task]
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         await asyncio.gather(*tasks)
