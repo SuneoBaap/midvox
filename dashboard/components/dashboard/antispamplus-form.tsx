@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Ban, Save, RefreshCcw, Trash2, Plus, Info, MessageSquare, SmilePlus, UserX, Command, Hash, Users, Loader } from "lucide-react";
+import { Save, RefreshCcw, Trash2, Plus, Info, MessageSquare, SmilePlus, UserX, Command, Hash, Users, Flame, ShieldCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
 
 interface AntiSpamPlusFormProps {
   initialConfig: any;
@@ -36,6 +35,19 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
       re_window: config.re_window,
       re_cooldown: config.re_cooldown,
       re_delay: config.re_delay,
+      timeout_duration: config.timeout_duration,
+      heat_enabled: config.heat_enabled,
+      heat_threshold: config.heat_threshold,
+      heat_decay_per_second: config.heat_decay_per_second,
+      heat_timeout_minutes: config.heat_timeout_minutes,
+      heat_delete_messages: config.heat_delete_messages,
+      raid_trigger_users: config.raid_trigger_users,
+      raid_window_seconds: config.raid_window_seconds,
+      panic_minutes: config.panic_minutes,
+      join_gate_enabled: config.join_gate_enabled,
+      min_account_age_hours: config.min_account_age_hours,
+      block_no_avatar: config.block_no_avatar,
+      block_unverified_bots: config.block_unverified_bots,
     };
     const promise = api.updateAntiSpamPlus(guildId, data);
     toast.promise(promise, {
@@ -123,6 +135,90 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
         <div className="bg-[#111111] border border-[#1A1A1A] rounded-[32px] shadow-2xl p-8 space-y-10 relative">
+
+          {/* Adaptive Heat Protection */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-500/10 to-transparent rounded-[6px] border border-orange-500/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400"><Flame className="h-5 w-5" /></div>
+                <div>
+                  <h4 className="font-bold text-slate-50 text-sm">Adaptive Heat Protection</h4>
+                  <p className="text-xs text-neutral-400">Scores message speed, repetition, mentions, links, emoji and attachment floods</p>
+                </div>
+              </div>
+              <Switch checked={config.heat_enabled ?? true} onCheckedChange={(value) => updateField("heat_enabled", value)} />
+            </div>
+
+            {config.heat_enabled !== false && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pl-4 border-l-2 border-orange-500/20">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Heat threshold</label>
+                  <Input type="number" min={30} max={300} value={config.heat_threshold ?? 100} onChange={(e) => updateField("heat_threshold", parseInt(e.target.value) || 100)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Decay / second</label>
+                  <Input type="number" min={0.1} max={50} step={0.5} value={config.heat_decay_per_second ?? 6} onChange={(e) => updateField("heat_decay_per_second", parseFloat(e.target.value) || 6)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Timeout (minutes)</label>
+                  <Input type="number" min={1} max={10080} value={config.heat_timeout_minutes ?? 10} onChange={(e) => updateField("heat_timeout_minutes", parseInt(e.target.value) || 10)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Panic duration (minutes)</label>
+                  <Input type="number" min={1} max={1440} value={config.panic_minutes ?? 10} onChange={(e) => updateField("panic_minutes", parseInt(e.target.value) || 10)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Raid users</label>
+                  <Input type="number" min={2} max={50} value={config.raid_trigger_users ?? 3} onChange={(e) => updateField("raid_trigger_users", parseInt(e.target.value) || 3)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Raid window (seconds)</label>
+                  <Input type="number" min={5} max={300} value={config.raid_window_seconds ?? 30} onChange={(e) => updateField("raid_window_seconds", parseInt(e.target.value) || 30)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="col-span-2 flex items-center justify-between p-3 bg-[#131313] rounded-xl border border-[#1A1A1A]">
+                  <div>
+                    <p className="text-xs font-bold text-slate-100">Delete heated messages</p>
+                    <p className="text-[11px] text-neutral-500">Removes suspicious messages before timeout</p>
+                  </div>
+                  <Switch checked={config.heat_delete_messages ?? true} onCheckedChange={(value) => updateField("heat_delete_messages", value)} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[#1A1A1A]" />
+
+          {/* Join Gate */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-[#131313] rounded-[6px] border border-[#1A1A1A]">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400"><UserPlus className="h-5 w-5" /></div>
+                <div>
+                  <h4 className="font-bold text-slate-50 text-sm">Join Gate</h4>
+                  <p className="text-xs text-neutral-400">Reject risky new accounts and unauthorized bots before they enter</p>
+                </div>
+              </div>
+              <Switch checked={config.join_gate_enabled ?? false} onCheckedChange={(value) => updateField("join_gate_enabled", value)} />
+            </div>
+            {config.join_gate_enabled && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-4 border-l-2 border-emerald-500/20">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-neutral-400">Minimum account age (hours)</label>
+                  <Input type="number" min={1} max={8760} value={config.min_account_age_hours ?? 24} onChange={(e) => updateField("min_account_age_hours", parseInt(e.target.value) || 24)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#131313] rounded-xl border border-[#1A1A1A]">
+                  <span className="text-xs font-bold text-neutral-300">Require avatar</span>
+                  <Switch checked={config.block_no_avatar ?? false} onCheckedChange={(value) => updateField("block_no_avatar", value)} />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-[#131313] rounded-xl border border-[#1A1A1A]">
+                  <span className="text-xs font-bold text-neutral-300">Block unverified bots</span>
+                  <Switch checked={config.block_unverified_bots ?? true} onCheckedChange={(value) => updateField("block_unverified_bots", value)} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[#1A1A1A]" />
 
           {/* Message Deletion Toggle */}
           <div className="flex items-center justify-between p-4 bg-[#131313] rounded-[6px] border border-[#1A1A1A]">
@@ -306,17 +402,17 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
       <div className="space-y-6">
         <div className="bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 rounded-[6px] p-6 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-            <Ban className="h-32 w-32 text-primary" />
+            <ShieldCheck className="h-32 w-32 text-primary" />
           </div>
           <div className="flex items-center gap-2 mb-4">
             <Info className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-bold text-slate-50">How It Works</h3>
           </div>
           <ul className="text-xs text-neutral-500 space-y-2">
-            <li>â€¢ Messages from target users are auto-deleted.</li>
-            <li>â€¢ Blocked commands are removed instantly.</li>
-            <li>â€¢ Excluded channels are never affected.</li>
-            <li>â€¢ Reaction spam triggers cleanup.</li>
+            <li>• Heat rises from suspicious behavior and decays during normal use.</li>
+            <li>• Repeat offenders receive progressively longer timeouts.</li>
+            <li>• Multi-user raids trigger temporary panic protection.</li>
+            <li>• Join Gate can reject risky new accounts and bots.</li>
           </ul>
         </div>
 

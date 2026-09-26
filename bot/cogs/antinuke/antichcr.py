@@ -28,7 +28,7 @@ class AntiChannelCreate(commands.Cog):
         if not guild.me.guild_permissions.ban_members:
             return None
         try:
-            async for entry in guild.audit_logs(action=action, limit=1):
+            async for entry in guild.audit_logs(action=action, limit=5):
                 if entry.target.id == target_id:
                     now = datetime.datetime.now(pytz.utc)
                     if (now - entry.created_at).total_seconds() * 1000 >= 3600000:
@@ -80,10 +80,6 @@ class AntiChannelCreate(commands.Cog):
                 antinuke_status = await cursor.fetchone()
             if not antinuke_status or not antinuke_status[0]:
                 return
-
-            if not self.can_fetch_audit(guild.id, "channel_create"):
-                await self.move_role_below_bot(guild)
-                await asyncio.sleep(5)
 
             logs = await self.fetch_audit_logs(guild, discord.AuditLogAction.channel_create, channel.id, delay=2)
             if logs is None:

@@ -3,7 +3,6 @@ from utils.emoji import CROSS, EMOTE, TICK, ZSAFE, ZSETTINGS
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay, Separator, Container, Button, ActionRow
 import aiosqlite
-import asyncio
 from utils.Tools import *
 from utils.cv2 import CV2, build_container
 from utils.config import *
@@ -101,64 +100,39 @@ class Antinuke(commands.Cog):
           await setup_message.edit(view=view)
           return
 
-        await asyncio.sleep(1)
-        view = CV2(f"Antinuke Setup {EMOTE}",
-          f"{TICK} | Initializing Quick Setup!\n"
-          f"{TICK} Checking {BRAND_NAME}'s role position for optimal configuration...")
-        await setup_message.edit(view=view)
-
-        await asyncio.sleep(1)
-        view = CV2(f"Antinuke Setup {EMOTE}",
-          f"{TICK} | Initializing Quick Setup!\n"
-          f"{TICK} Checking {BRAND_NAME}'s role position for optimal configuration...\n"
-          f"{TICK} | Crafting and configuring the {BRAND_NAME} Supreme role...")
-        await setup_message.edit(view=view)
-
-        try:
-          role = await ctx.guild.create_role(
-            name=f"{BRAND_NAME} Supreme™",
-            color=0x8A9A5B,
-            permissions=discord.Permissions(administrator=True),
-            hoist=False,
-            mentionable=False,
-            reason="Antinuke setup Role Creation"
+        dangerous_roles_above = [
+          role for role in ctx.guild.roles
+          if role != ctx.guild.me.top_role
+          and role.position >= ctx.guild.me.top_role.position
+          and (
+            role.permissions.administrator
+            or role.permissions.ban_members
+            or role.permissions.kick_members
+            or role.permissions.manage_guild
+            or role.permissions.manage_channels
+            or role.permissions.manage_roles
+            or role.permissions.manage_webhooks
           )
-          await ctx.guild.me.add_roles(role)
-        except discord.Forbidden:
-          view = CV2("Antinuke Setup", f"{CROSS} | **Uh oh! I don't Have perms to enable antinuke**.")
-          await setup_message.edit(view=view)
-          return
-        except discord.HTTPException as e:
-          view = CV2("Antinuke Setup", f"{CROSS} | **Uh: HTTPException: {e}\nCheck Guild Audit Logs**.")
+        ]
+        if dangerous_roles_above:
+          view = CV2(
+            f"Antinuke Setup {EMOTE}",
+            f"{CROSS} Move my existing role above every admin/mod role, then run this command again."
+          )
           await setup_message.edit(view=view)
           return
 
-        await asyncio.sleep(1)
-        view = CV2(f"Antinuke Setup {EMOTE}",
-          f"{TICK} | Initializing Quick Setup!\n"
-          f"{TICK} Checking {BRAND_NAME}'s role position...\n"
-          f"{TICK} | Crafting the {BRAND_NAME} Supreme role...\n"
-          f"{TICK} | Ensuring precise placement of the {BRAND_NAME} Supreme™ role...")
+        view = CV2(
+          f"Antinuke Setup {EMOTE}",
+          f"{TICK} Administrator permission verified.\n"
+          f"{TICK} Role hierarchy verified.\n"
+          f"{TICK} Enabling rollback and threat response modules..."
+        )
         await setup_message.edit(view=view)
-
-        try:
-          await ctx.guild.edit_role_positions(positions={role: 1})
-        except discord.Forbidden:
-          view = CV2("Antinuke Setup", f"{CROSS} | Ops! I don't have sufficient perms to move role.")
-          await setup_message.edit(view=view)
-          return
-        except discord.HTTPException as e:
-          view = CV2("Antinuke Setup", f"{CROSS} | Setup failed: HTTPException: {e}.")
-          await setup_message.edit(view=view)
-          return
-
-        await asyncio.sleep(1)
-        await asyncio.sleep(1)
 
         await self.db.execute('INSERT OR REPLACE INTO antinuke (guild_id, status) VALUES (?, ?)', (guild_id, True))
         await self.db.commit()
 
-        await asyncio.sleep(1)
         await setup_message.delete()
 
         modules = (

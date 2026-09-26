@@ -2,11 +2,14 @@ import discord
 from discord.ext import commands
 import aiosqlite
 import asyncio
+import json
 import os
 import time
 from collections import defaultdict, deque
+from datetime import timedelta
 from utils.Tools import *
 from utils.mongo import MongoManager, has_valid_mongo_uri
+from utils.security_heat import calculate_message_heat
 
 
 CONFIG_DEFAULTS = {
@@ -17,6 +20,18 @@ CONFIG_DEFAULTS = {
     "re_cooldown": 20,
     "re_delay": 0.35,
     "timeout_duration": 1,
+    "heat_enabled": True,
+    "heat_threshold": 100,
+    "heat_decay_per_second": 6.0,
+    "heat_timeout_minutes": 10,
+    "heat_delete_messages": True,
+    "raid_trigger_users": 3,
+    "raid_window_seconds": 30,
+    "panic_minutes": 10,
+    "join_gate_enabled": False,
+    "min_account_age_hours": 24,
+    "block_no_avatar": False,
+    "block_unverified_bots": True,
 }
 
 
@@ -36,6 +51,26 @@ def _doc_to_config(doc):
         "re_cooldown": _int(doc.get("re_cooldown", 20), 20),
         "re_delay": float(doc.get("re_delay", 0.35) or 0.35),
         "timeout_duration": _int(doc.get("timeout_duration", 1), 1),
+        "heat_enabled": bool(doc.get("heat_enabled", True)),
+        "heat_threshold": _int(doc.get("heat_threshold", 100), 100),
+        "heat_decay_per_second": float(
+            doc.get("heat_decay_per_second", 6.0) or 6.0
+        ),
+        "heat_timeout_minutes": _int(
+            doc.get("heat_timeout_minutes", 10), 10
+        ),
+        "heat_delete_messages": bool(doc.get("heat_delete_messages", True)),
+        "raid_trigger_users": _int(doc.get("raid_trigger_users", 3), 3),
+        "raid_window_seconds": _int(doc.get("raid_window_seconds", 30), 30),
+        "panic_minutes": _int(doc.get("panic_minutes", 10), 10),
+        "join_gate_enabled": bool(doc.get("join_gate_enabled", False)),
+        "min_account_age_hours": _int(
+            doc.get("min_account_age_hours", 24), 24
+        ),
+        "block_no_avatar": bool(doc.get("block_no_avatar", False)),
+        "block_unverified_bots": bool(
+            doc.get("block_unverified_bots", True)
+        ),
         "target_users": [str(u) for u in doc.get("target_users", [])],
         "blocked_commands": [str(c).lower() for c in doc.get("blocked_commands", [])],
         "excluded_channels": [str(c) for c in doc.get("excluded_channels", [])],
@@ -51,6 +86,11 @@ class AntiSpamPlus(commands.Cog):
         self.user_data = defaultdict(deque)
         self.message_reactions = defaultdict(lambda: defaultdict(int))
         self.cooldown = {}
+        self.heat_state = {}
+        self.channel_activity = {}
+        self.raid_events = defaultdict(deque)
+        self.panic_until = {}
+        self.config_cache = {}
         bot.loop.create_task(self._seed_blocked_commands())
         bot.loop.create_task(self._mongo_watch())
 
@@ -246,6 +286,9 @@ class AntiSpamPlus(commands.Cog):
             """CREATE TABLE IF NOT EXISTS target_channels (
                 guild_id INTEGER, channel_id INTEGER, PRIMARY KEY (guild_id, channel_id)
             )""",
+            """CREATE TABLE IF NOT EXISTS advanced_config (
+                guild_id INTEGER PRIMARY KEY, config_json TEXT NOT NULL
+            )""",
         ]
         for t in tables:
             await db.execute(t)
@@ -329,7 +372,27 @@ class AntiSpamPlus(commands.Cog):
                             f"SELECT {key} FROM {table} WHERE guild_id = ?", (gid,)
                         )
                         lists[table] = [r[0] for r in await c.fetchall()]
-                if not self._sqlite_row_meaningful(
+                async with self._sqlite_conn() as db:
+                    advanced_cursor = await db.execute(
+                        "SELECT config_json FROM advanced_config WHERE guild_id = ?",
+                        (gid,),
+                    )
+                    advanced_row = await advanced_cursor.fetchone()
+                advanced = {}
+                if advanced_row:
+                    try:
+                        advanced = json.loads(advanced_row[0])
+                    except (TypeError, ValueError):
+                        advanced = {}
+                advanced_changed = any(
+                    advanced.get(key, default) != default
+                    for key, default in CONFIG_DEFAULTS.items()
+                    if key not in {
+                        "delete_messages", "delete_delay", "re_limit", "re_window",
+                        "re_cooldown", "re_delay", "timeout_duration",
+                    }
+                )
+                if not advanced_changed and not self._sqlite_row_meaningful(
                     row,
                     lists["blocked_commands"],
                     lists["target_users"],
@@ -347,6 +410,7 @@ class AntiSpamPlus(commands.Cog):
                     "re_cooldown": row[5],
                     "re_delay": row[6],
                     "timeout_duration": row[7],
+                    **advanced,
                     "target_users": [str(u) for u in lists["target_users"]],
                     "blocked_commands": [
                         str(c).lower() for c in lists["blocked_commands"]
@@ -402,7 +466,7 @@ class AntiSpamPlus(commands.Cog):
             )
             target_channels = [r[0] for r in await cursor.fetchall()]
 
-            return {
+            config = {
                 "guild_id": guild_id,
                 "delete_messages": bool(row[1]),
                 "delete_delay": row[2],
@@ -416,6 +480,19 @@ class AntiSpamPlus(commands.Cog):
                 "excluded_channels": [str(c) for c in excluded_channels],
                 "target_channels": [str(c) for c in target_channels],
             }
+            cursor = await db.execute(
+                "SELECT config_json FROM advanced_config WHERE guild_id = ?",
+                (guild_id,),
+            )
+            advanced_row = await cursor.fetchone()
+            if advanced_row:
+                try:
+                    config.update(json.loads(advanced_row[0]))
+                except (TypeError, ValueError):
+                    pass
+            for key, value in CONFIG_DEFAULTS.items():
+                config.setdefault(key, value)
+            return config
 
     async def get_config(self, guild_id):
         if await self._ensure_mongo():
@@ -426,7 +503,19 @@ class AntiSpamPlus(commands.Cog):
                 print(f"[AntiSpamPlus] Mongo read failed, using SQLite mirror: {e}")
         return await self._sqlite_get_config(guild_id)
 
+    async def get_runtime_config(self, guild_id):
+        cached = self.config_cache.get(guild_id)
+        now = time.monotonic()
+        if cached and now - cached[0] < 15:
+            return cached[1]
+        config = await self.get_config(guild_id)
+        self.config_cache[guild_id] = (now, config)
+        return config
+
     async def update_config(self, guild_id, data):
+        self.config_cache.pop(guild_id, None)
+        current = await self.get_config(guild_id)
+        merged = {**current, **data}
         # SQLite mirror — always written so a Mongo outage can't lose data
         async with self._sqlite_conn() as db:
             await self._ensure_sqlite_tables(db)
@@ -437,14 +526,26 @@ class AntiSpamPlus(commands.Cog):
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     guild_id,
-                    1 if data.get("delete_messages") else 0,
-                    data.get("delete_delay", 8),
-                    data.get("re_limit", 5),
-                    data.get("re_window", 30),
-                    data.get("re_cooldown", 20),
-                    data.get("re_delay", 0.35),
-                    data.get("timeout_duration", 1),
+                    1 if merged.get("delete_messages") else 0,
+                    merged.get("delete_delay", 8),
+                    merged.get("re_limit", 5),
+                    merged.get("re_window", 30),
+                    merged.get("re_cooldown", 20),
+                    merged.get("re_delay", 0.35),
+                    merged.get("timeout_duration", 1),
                 ),
+            )
+            advanced = {
+                key: merged.get(key, default)
+                for key, default in CONFIG_DEFAULTS.items()
+                if key not in {
+                    "delete_messages", "delete_delay", "re_limit", "re_window",
+                    "re_cooldown", "re_delay", "timeout_duration",
+                }
+            }
+            await db.execute(
+                "INSERT OR REPLACE INTO advanced_config (guild_id, config_json) VALUES (?, ?)",
+                (guild_id, json.dumps(advanced)),
             )
             await db.commit()
 
@@ -567,13 +668,121 @@ class AntiSpamPlus(commands.Cog):
 
     # ── Listeners ────────────────────────────────────────────────────────
 
+    async def _is_exempt(self, message, config):
+        if message.author.id in {message.guild.owner_id, self.bot.user.id}:
+            return True
+        if str(message.channel.id) in config.get("excluded_channels", []):
+            return True
+        if getattr(message.author, "guild_permissions", None):
+            if message.author.guild_permissions.manage_guild:
+                return True
+        return False
+
+    def _message_heat(self, message, state, now):
+        channel_key = (message.guild.id, message.channel.id)
+        last_channel_activity = self.channel_activity.get(channel_key, now)
+        self.channel_activity[channel_key] = now
+        return calculate_message_heat(
+            message,
+            state,
+            now,
+            inactive_channel=now - last_channel_activity > 900,
+        )
+
+    async def _delete_safely(self, message):
+        try:
+            await message.delete()
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            pass
+
+    async def _timeout_safely(self, member, minutes, reason):
+        if not isinstance(member, discord.Member):
+            return False
+        try:
+            await member.timeout(
+                discord.utils.utcnow() + timedelta(minutes=max(1, minutes)),
+                reason=reason,
+            )
+            return True
+        except (discord.Forbidden, discord.HTTPException):
+            return False
+
+    async def _record_raider(self, guild_id, user_id, config):
+        now = time.monotonic()
+        events = self.raid_events[guild_id]
+        events.append((now, user_id))
+        window = max(5, config["raid_window_seconds"])
+        while events and now - events[0][0] > window:
+            events.popleft()
+        unique_users = {uid for _, uid in events}
+        if len(unique_users) >= max(2, config["raid_trigger_users"]):
+            self.panic_until[guild_id] = now + max(1, config["panic_minutes"]) * 60
+            print(
+                f"[Security] Heat panic enabled for guild {guild_id}: "
+                f"{len(unique_users)} raiders detected",
+                flush=True,
+            )
+
+    async def _apply_heat(self, message, config):
+        if not config.get("heat_enabled", True):
+            return False
+        if await self._is_exempt(message, config):
+            return False
+        if message.author.bot and not message.webhook_id:
+            return False
+
+        now = time.monotonic()
+        key = (message.guild.id, message.author.id)
+        state = self.heat_state.setdefault(
+            key,
+            {"heat": 0.0, "updated_at": now, "strikes": 0},
+        )
+        elapsed = max(0.0, now - state["updated_at"])
+        if elapsed > 900:
+            state["strikes"] = 0
+        state["heat"] = max(
+            0.0,
+            state["heat"] - elapsed * max(0.1, config["heat_decay_per_second"]),
+        )
+        added, reasons = self._message_heat(message, state, now)
+        state["heat"] += added
+        state["updated_at"] = now
+
+        panic = self.panic_until.get(message.guild.id, 0) > now
+        threshold = max(30, config["heat_threshold"])
+        effective_threshold = threshold * 0.55 if panic else threshold
+        if state["heat"] < effective_threshold:
+            if config.get("heat_delete_messages") and state["heat"] >= effective_threshold * 0.72:
+                await self._delete_safely(message)
+                return True
+            return False
+
+        if config.get("heat_delete_messages"):
+            await self._delete_safely(message)
+        state["strikes"] = min(5, state.get("strikes", 0) + 1)
+        minutes = max(1, config["heat_timeout_minutes"]) * state["strikes"]
+        reason = "MidVox adaptive spam protection"
+        if reasons:
+            reason += ": " + ", ".join(dict.fromkeys(reasons))[:350]
+        await self._timeout_safely(message.author, minutes, reason)
+        await self._record_raider(message.guild.id, message.author.id, config)
+        state["heat"] = threshold * 0.25
+        print(
+            f"[Security] guild={message.guild.id} user={message.author.id} "
+            f"timeout={minutes}m panic={panic} reasons={reasons}",
+            flush=True,
+        )
+        return True
+
     @commands.Cog.listener()
     async def on_message(self, message):
         try:
             if message.author.id == self.bot.user.id or not message.guild:
                 return
 
-            config = await self.get_config(message.guild.id)
+            config = await self.get_runtime_config(message.guild.id)
+            if await self._apply_heat(message, config):
+                return
             if not config["delete_messages"]:
                 return
 
@@ -598,6 +807,43 @@ class AntiSpamPlus(commands.Cog):
 
         except Exception as e:
             print(f"AntiSpamPlus on_message error: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        try:
+            config = await self.get_runtime_config(member.guild.id)
+            if not config.get("join_gate_enabled"):
+                return
+            if member.id == self.bot.user.id:
+                return
+
+            reason = None
+            account_age = discord.utils.utcnow() - member.created_at
+            if account_age < timedelta(
+                hours=max(1, config["min_account_age_hours"])
+            ):
+                reason = "Join Gate: account is too new"
+            elif config.get("block_no_avatar") and member.avatar is None:
+                reason = "Join Gate: account has no avatar"
+            elif (
+                member.bot
+                and config.get("block_unverified_bots")
+                and not getattr(member.public_flags, "verified_bot", False)
+            ):
+                reason = "Join Gate: unverified bot"
+
+            if reason:
+                try:
+                    await member.kick(reason=reason)
+                    print(
+                        f"[Security] Join Gate removed {member.id} from "
+                        f"guild {member.guild.id}: {reason}",
+                        flush=True,
+                    )
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+        except Exception as error:
+            print(f"[Security] Join Gate error: {error}", flush=True)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):

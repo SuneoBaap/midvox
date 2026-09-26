@@ -469,8 +469,41 @@ async def get_guild_antinuke(guild_id: int):
     )
 
 @router.patch("/{guild_id}/antinuke", summary="Update AntiNuke config")
-async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
+async def patch_guild_antinuke(
+    guild_id: int,
+    data: AntiNukeUpdate,
+    bot: "midvox" = Depends(get_bot),
+):
     import aiosqlite
+
+    if data.status is True:
+        guild = bot.get_guild(guild_id)
+        if guild is None or guild.me is None:
+            raise HTTPException(status_code=404, detail="Guild is unavailable")
+        if not guild.me.guild_permissions.administrator:
+            raise HTTPException(
+                status_code=400,
+                detail="MidVox needs Administrator permission before Anti-Nuke can be enabled",
+            )
+        dangerous_roles_above = [
+            role for role in guild.roles
+            if role != guild.me.top_role
+            and role.position >= guild.me.top_role.position
+            and (
+                role.permissions.administrator
+                or role.permissions.ban_members
+                or role.permissions.kick_members
+                or role.permissions.manage_guild
+                or role.permissions.manage_channels
+                or role.permissions.manage_roles
+                or role.permissions.manage_webhooks
+            )
+        ]
+        if dangerous_roles_above:
+            raise HTTPException(
+                status_code=400,
+                detail="Move MidVox above every admin/mod role before enabling Anti-Nuke",
+            )
 
     async with aiosqlite.connect("db/anti.db") as db:
         if data.status is not None:
@@ -1404,26 +1437,23 @@ async def patch_guild_antispamplus(guild_id: int, data: AntiSpamPlusUpdate, bot:
     print(f"[AntiSpamPlus PATCH] guild={guild_id} payload={payload}")
 
     # Track which kind of update this is
-    has_config = any(k in payload for k in ("delete_messages", "delete_delay", "re_limit", "re_window", "re_cooldown", "re_delay", "timeout_duration"))
+    config_fields = (
+        "delete_messages", "delete_delay", "re_limit", "re_window",
+        "re_cooldown", "re_delay", "timeout_duration", "heat_enabled",
+        "heat_threshold", "heat_decay_per_second", "heat_timeout_minutes",
+        "heat_delete_messages", "raid_trigger_users", "raid_window_seconds",
+        "panic_minutes", "join_gate_enabled", "min_account_age_hours",
+        "block_no_avatar", "block_unverified_bots",
+    )
+    has_config = any(k in payload for k in config_fields)
     has_list = any(k in payload for k in ("add_target_user", "remove_target_user", "add_blocked_command", "remove_blocked_command", "add_excluded_channel", "remove_excluded_channel", "add_target_channel", "remove_target_channel"))
     print(f"[AntiSpamPlus PATCH] guild={guild_id} has_config={has_config} has_list={has_list}")
 
     update_data = {}
 
-    if payload.get("delete_messages") is not None:
-        update_data["delete_messages"] = payload["delete_messages"]
-    if payload.get("delete_delay") is not None:
-        update_data["delete_delay"] = payload["delete_delay"]
-    if payload.get("re_limit") is not None:
-        update_data["re_limit"] = payload["re_limit"]
-    if payload.get("re_window") is not None:
-        update_data["re_window"] = payload["re_window"]
-    if payload.get("re_cooldown") is not None:
-        update_data["re_cooldown"] = payload["re_cooldown"]
-    if payload.get("re_delay") is not None:
-        update_data["re_delay"] = payload["re_delay"]
-    if payload.get("timeout_duration") is not None:
-        update_data["timeout_duration"] = payload["timeout_duration"]
+    for field in config_fields:
+        if payload.get(field) is not None:
+            update_data[field] = payload[field]
 
     if update_data:
         print(f"[AntiSpamPlus PATCH] guild={guild_id} calling update_config with {update_data}")
@@ -1510,5 +1540,3 @@ async def patch_guild_instadl(guild_id: int, data: InstaDLUpdate, bot: "midvox" 
         await cog.remove_channel(guild_id, cid)
 
     return await cog.get_config(guild_id)
-
-

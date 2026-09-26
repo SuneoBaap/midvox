@@ -20,7 +20,7 @@ class AntiKick(commands.Cog):
         if not guild.me.guild_permissions.ban_members:
             return None
         try:
-            async for entry in guild.audit_logs(action=action, limit=1):
+            async for entry in guild.audit_logs(action=action, limit=5):
                 if entry.target.id == target_id:
                     now = datetime.datetime.now(pytz.utc)
                     created_at = entry.created_at
@@ -62,8 +62,6 @@ class AntiKick(commands.Cog):
             if not antinuke_status or not antinuke_status[0]:
                 return
 
-        if not self.can_fetch_audit(member.guild.id, 'kick'):
-            return
 
         log_entry = await self.fetch_audit_logs(member.guild, discord.AuditLogAction.kick, member.id)
         if log_entry is None:

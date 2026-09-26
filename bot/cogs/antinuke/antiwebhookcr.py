@@ -14,9 +14,13 @@ class AntiWebhookCreate(commands.Cog):
     async def fetch_audit_logs(self, guild, action, target_id):
         try:
             now = datetime.datetime.now(pytz.utc)
-            logs = [entry async for entry in guild.audit_logs(action=action, limit=1)]
+            logs = [entry async for entry in guild.audit_logs(action=action, limit=5)]
             for entry in logs:
-                if entry.target.id == target_id:
+                entry_channel = getattr(getattr(entry, "extra", None), "channel", None)
+                if (
+                    getattr(entry.target, "id", None) == target_id
+                    or getattr(entry_channel, "id", None) == target_id
+                ):
                     difference = (now - entry.created_at).total_seconds() * 1000
                     if difference < 3600000:
                         return entry
@@ -49,7 +53,7 @@ class AntiWebhookCreate(commands.Cog):
             return await cursor.fetchone() is not None
 
     @commands.Cog.listener()
-    async def on_webhooks_create(self, channel):
+    async def on_webhooks_update(self, channel):
         guild = channel.guild
         if await self.is_blacklisted_guild(guild.id):
             return
@@ -61,8 +65,6 @@ class AntiWebhookCreate(commands.Cog):
             if not antinuke_status or not antinuke_status[0]:
                 return
 
-        if not self.can_fetch_audit(guild.id, 'webhook_create'):
-            return
 
         entry = await self.fetch_audit_logs(guild, discord.AuditLogAction.webhook_create, channel.id)
         if entry is None:

@@ -11,7 +11,11 @@ import {
   MessageSquare,
   Plus,
   Trash2,
-  ShieldCheck
+  ShieldCheck,
+  Bot,
+  Webhook,
+  RotateCcw,
+  AtSign
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -26,6 +30,10 @@ const FEATURES = [
   { id: 'anti_server_edit', name: 'Anti Server Edit', desc: 'Secures icon, name & regions', icon: Server },
   { id: 'anti_role_modifier', name: 'Anti Role Modifier', desc: 'Protects all roles & perms', icon: Settings },
   { id: 'anti_channel_nukes', name: 'Anti Channel Nukes', desc: 'Prevents channel wipes', icon: MessageSquare },
+  { id: 'anti_bot_add', name: 'Bot Add Protection', desc: 'Removes unauthorized bots and bans the inviter', icon: Bot },
+  { id: 'anti_webhooks', name: 'Webhook Protection', desc: 'Blocks unauthorized webhook create, update and delete actions', icon: Webhook },
+  { id: 'anti_mentions', name: 'Mass Mention Protection', desc: 'Deletes @everyone abuse and times out the sender', icon: AtSign },
+  { id: 'auto_recovery', name: 'Automatic Recovery', desc: 'Restores deleted channels, roles and changed settings', icon: RotateCcw },
 ];
 
 interface AntiNukeFormProps {

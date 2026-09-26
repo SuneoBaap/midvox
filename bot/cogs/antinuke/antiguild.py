@@ -13,7 +13,7 @@ class AntiGuildUpdate(commands.Cog):
 
     async def fetch_audit_logs(self, guild, action):
         try:
-            async for entry in guild.audit_logs(action=action, limit=1):
+            async for entry in guild.audit_logs(action=action, limit=5):
                 now = datetime.datetime.now(pytz.utc)
                 created_at = entry.created_at
                 difference = (now - created_at).total_seconds() * 1000
@@ -64,8 +64,6 @@ class AntiGuildUpdate(commands.Cog):
             if not antinuke_status or not antinuke_status[0]:
                 return
 
-        if not self.can_fetch_audit(guild.id, 'guild_update'):
-            return
 
         logs = await self.fetch_audit_logs(guild, discord.AuditLogAction.guild_update)
         if logs is None:

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 from typing import Dict, List, Optional
 
 # --- Bot Schemas ---
@@ -340,6 +340,18 @@ class AntiSpamPlusConfig(BaseModel):
     re_cooldown: int = 20
     re_delay: float = 0.35
     timeout_duration: int = 1
+    heat_enabled: bool = True
+    heat_threshold: int = 100
+    heat_decay_per_second: float = 6.0
+    heat_timeout_minutes: int = 10
+    heat_delete_messages: bool = True
+    raid_trigger_users: int = 3
+    raid_window_seconds: int = 30
+    panic_minutes: int = 10
+    join_gate_enabled: bool = False
+    min_account_age_hours: int = 24
+    block_no_avatar: bool = False
+    block_unverified_bots: bool = True
     target_users: List[int] = []
     blocked_commands: List[str] = []
     excluded_channels: List[int] = []
@@ -353,6 +365,18 @@ class AntiSpamPlusUpdate(BaseModel):
     re_cooldown: Optional[int] = None
     re_delay: Optional[float] = None
     timeout_duration: Optional[int] = None
+    heat_enabled: Optional[bool] = None
+    heat_threshold: Optional[int] = Field(None, ge=30, le=300)
+    heat_decay_per_second: Optional[float] = Field(None, ge=0.1, le=50)
+    heat_timeout_minutes: Optional[int] = Field(None, ge=1, le=10080)
+    heat_delete_messages: Optional[bool] = None
+    raid_trigger_users: Optional[int] = Field(None, ge=2, le=50)
+    raid_window_seconds: Optional[int] = Field(None, ge=5, le=300)
+    panic_minutes: Optional[int] = Field(None, ge=1, le=1440)
+    join_gate_enabled: Optional[bool] = None
+    min_account_age_hours: Optional[int] = Field(None, ge=1, le=8760)
+    block_no_avatar: Optional[bool] = None
+    block_unverified_bots: Optional[bool] = None
     add_target_user: Optional[str] = None
     remove_target_user: Optional[str] = None
     add_blocked_command: Optional[str] = None

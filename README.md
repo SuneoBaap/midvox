@@ -36,7 +36,8 @@ Every guild keeps its own settings in MongoDB Atlas, so configuration survives r
 ### Built for real communities
 
 - **Moderation suite** — bans, mutes, warnings, channel controls, message tools, and audit logging.
-- **Layered protection** — antinuke, anti-spam, anti-link, anti-invite, anti-caps, and mass-mention defenses.
+- **Layered protection** — continuous antinuke rollback, adaptive spam heat, raid panic, join gating, anti-link, anti-invite, anti-caps, and mass-mention defenses.
+- **Burst-safe antinuke** — keeps audit-log enforcement active through rapid bans, kicks, channel or role destruction, bot additions, integrations, and webhook attacks.
 - **Server automation** — welcome messages, verification, autoroles, reaction roles, tickets, join-to-create, and custom roles.
 - **Modern dashboard** — Discord OAuth, guild-aware navigation, responsive forms, and immediate settings updates.
 - **Persistent configuration** — MongoDB-backed guild state survives restarts and Railway redeployments.
