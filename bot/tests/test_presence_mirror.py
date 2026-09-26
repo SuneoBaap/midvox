@@ -8,10 +8,32 @@ from presence_mirror import (
     activities_signature,
     extract_session_list,
     mirrorable_session_activities,
+    normalize_presence_activities,
 )
 
 
 class PresenceMirrorTests(unittest.TestCase):
+    def test_normalizes_immediate_presence_activity(self):
+        activities = normalize_presence_activities(
+            [
+                {
+                    "id": "spotify:1",
+                    "session_id": "remote-session",
+                    "name": "Spotify",
+                    "type": 2,
+                    "details": "New track",
+                }
+            ]
+        )
+
+        self.assertEqual(
+            activities,
+            [{"name": "Spotify", "type": 2, "details": "New track"}],
+        )
+
+    def test_empty_presence_activity_clears_playback(self):
+        self.assertEqual(normalize_presence_activities([]), [])
+
     def test_mirrors_local_spotify_activity(self):
         payload = [
             {"session_id": "railway", "activities": []},

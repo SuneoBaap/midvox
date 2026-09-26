@@ -12,6 +12,7 @@ import aiohttp
 from presence_mirror import (
     activities_signature,
     mirrorable_session_activities,
+    normalize_presence_activities,
 )
 
 TOKEN = os.environ.get("USER_TOKEN", "")
@@ -724,6 +725,7 @@ async def connect_presence():
                     heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
                     mirrored_signature = None
                     mirrored_activities = []
+                    current_user_id = ""
                     print("[user-presence] Gateway identified; waiting for READY", flush=True)
 
                     async def publish_mirrored_presence(source, data):
@@ -755,6 +757,12 @@ async def connect_presence():
                                     sequence[0] = payload["s"]
                                 if payload.get("op") == 0 and payload.get("t") == "READY":
                                     SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
+                                    current_user_id = str(
+                                        payload.get("d", {})
+                                        .get("user", {})
+                                        .get("id")
+                                        or ""
+                                    )
                                     if SESSION_ID:
                                         await publish_mirrored_presence(
                                             "READY", payload.get("d", {})
@@ -774,6 +782,35 @@ async def connect_presence():
                                     await publish_mirrored_presence(
                                         "SESSIONS_REPLACE", payload.get("d", [])
                                     )
+                                elif (
+                                    payload.get("op") == 0
+                                    and payload.get("t") == "PRESENCE_UPDATE"
+                                    and current_user_id
+                                    and str(
+                                        payload.get("d", {})
+                                        .get("user", {})
+                                        .get("id")
+                                        or ""
+                                    )
+                                    == current_user_id
+                                ):
+                                    # Discord emits self presence changes sooner
+                                    # than its batched session replacement event.
+                                    # This path updates play, pause, and track
+                                    # changes as soon as the Gateway reports them.
+                                    immediate = normalize_presence_activities(
+                                        payload.get("d", {}).get("activities", [])
+                                    )
+                                    signature = activities_signature(immediate)
+                                    if signature != mirrored_signature:
+                                        await publish_online(ws, immediate)
+                                        mirrored_activities = immediate
+                                        mirrored_signature = signature
+                                        print(
+                                            "[user-presence] Sent immediate activity "
+                                            "update from PRESENCE_UPDATE",
+                                            flush=True,
+                                        )
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):

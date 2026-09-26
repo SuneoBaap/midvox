@@ -81,6 +81,24 @@ def mirrorable_session_activities(
     return mirrored
 
 
+def normalize_presence_activities(payload: Any) -> list[dict[str, Any]]:
+    """Normalize aggregate activities from a PRESENCE_UPDATE event."""
+    if not isinstance(payload, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for activity in payload:
+        outgoing = _normalize_activity(activity)
+        if outgoing is None:
+            continue
+        signature = json.dumps(outgoing, sort_keys=True, separators=(",", ":"))
+        if signature not in seen:
+            seen.add(signature)
+            normalized.append(outgoing)
+    return normalized
+
+
 def activities_signature(activities: list[dict[str, Any]]) -> str:
     """Return a stable fingerprint used to suppress duplicate presence writes."""
     return json.dumps(activities, sort_keys=True, separators=(",", ":"))
