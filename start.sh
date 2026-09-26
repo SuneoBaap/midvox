@@ -76,9 +76,18 @@ export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
 export USER_PRESENCE_READY_FILE=/tmp/midvox-user-presence-ready
 rm -f "$USER_DESKTOP_READY_FILE" "$USER_PRESENCE_READY_FILE"
 if [ -n "${USER_TOKEN:-}" ]; then
-  DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-/opt/Discord/discord}"
+  DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-}"
+  if [ -z "$DESKTOP_BIN" ]; then
+    # Supervise the installed Electron runtime itself. The package-level
+    # /opt/Discord/discord executable is only an updater/launcher and can exit
+    # after spawning the real client, which previously caused false restarts.
+    DESKTOP_BIN="$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print 2>/dev/null | sort -V | tail -n 1)"
+  fi
   if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
     DESKTOP_BIN=/opt/Discord/Discord
+  fi
+  if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/discord ]; then
+    DESKTOP_BIN=/opt/Discord/discord
   fi
   if ! command -v Xvfb >/dev/null 2>&1 || [ ! -x "$DESKTOP_BIN" ]; then
     echo "FATAL: USER_TOKEN requires the Docker image's Discord desktop and Xvfb." >&2

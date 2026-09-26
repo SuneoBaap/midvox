@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import glob
 import json
 import os
 import random
@@ -24,10 +25,16 @@ SESSION_READY = asyncio.Event()
 ONLINE_REFRESH_SECONDS = 240
 DESKTOP_WAKE_SECONDS = 240
 DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
-    (
-        path
-        for path in ("/opt/Discord/discord", "/opt/Discord/Discord")
-        if os.path.isfile(path)
+    iter(
+        sorted(
+            glob.glob("/var/lib/midvox/discord-home/discord/app-*/Discord"),
+            reverse=True,
+        )
+        + [
+            path
+            for path in ("/opt/Discord/Discord", "/opt/Discord/discord")
+            if os.path.isfile(path)
+        ]
     ),
     "/opt/Discord/discord",
 )
