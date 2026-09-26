@@ -204,82 +204,60 @@ async def cdp_call(ws, request_id, method, params=None):
         return response.get("result") or {}
 
 
-async def authenticate_desktop(session, target, debug_port):
-    """Move the settled target to discord.com and hand it the user token."""
+async def authenticate_desktop(session, target):
+    """Write the user token into the official app and reload it once.
+
+    The token must be stored on the app's own origin (discordapp.com); writing
+    it anywhere else is never read back. A full page reload is required so the
+    app boot picks the token up — an in-app navigation does not re-read it.
+    Reloading replaces the CDP target, so a dropped DevTools connection at
+    that point is expected and not an error.
+    """
     token_literal = json.dumps(TOKEN)
-    try:
-        async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
-            await cdp_call(
-                ws,
-                1,
-                "Page.navigate",
-                {"url": "https://discord.com/login"},
-            )
-    except (aiohttp.ClientError, RuntimeError) as error:
-        print(
-            "[discord-desktop] login-origin navigation transition: "
-            f"{error}",
-            flush=True,
-        )
-
-    await asyncio.sleep(5)
-    async with session.get(f"http://127.0.0.1:{debug_port}/json/list") as response:
-        targets = await response.json()
-    pages = [
-        item
-        for item in targets
-        if item.get("type") == "page" and item.get("webSocketDebuggerUrl")
-    ]
-    target = next(
-        (
-            item
-            for item in pages
-            if str(item.get("url") or "").startswith("https://discord.com/")
-        ),
-        None,
-    )
-    if not target:
-        raise RuntimeError("discord.com login target did not become available")
-
     async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
         handoff = await cdp_call(
             ws,
-            2,
+            1,
             "Runtime.evaluate",
             {
                 "expression": (
                     "(() => {"
                     f"const token = {token_literal};"
                     "const expected = JSON.stringify(token);"
-                    "if (localStorage.getItem('token') !== expected) {"
+                    "const readToken = () => {"
+                    "const frame = document.createElement('iframe');"
+                    "frame.style.display = 'none';"
+                    "document.body.appendChild(frame);"
+                    "const value = frame.contentWindow.localStorage."
+                    "getItem('token');"
+                    "frame.remove();"
+                    "return value;"
+                    "};"
+                    "if (readToken() === expected) return 'ready';"
                     "const frame = document.createElement('iframe');"
                     "frame.style.display = 'none';"
                     "document.body.appendChild(frame);"
                     "frame.contentWindow.localStorage.setItem("
                     "'token', expected);"
                     "frame.remove();"
-                    "return false;"
-                    "}"
-                    "return true;"
+                    "return readToken() === expected ? 'stored' : 'failed';"
                     "})()"
                 ),
                 "returnByValue": True,
             },
         )
-        token_reused = bool(handoff.get("result", {}).get("value"))
-        if not token_reused:
-            try:
-                await cdp_call(
-                    ws,
-                    3,
-                    "Page.navigate",
-                    {"url": "https://discord.com/channels/@me"},
-                )
-            except (aiohttp.ClientError, RuntimeError):
-                # Navigation commonly replaces the target before the command
-                # response arrives. The token write has already completed.
-                pass
-    return token_reused
+        result = (handoff.get("result", {}) or {}).get("value")
+        if result == "ready":
+            return True
+        if result != "stored":
+            raise RuntimeError("Discord token was not stored by desktop")
+
+    try:
+        async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
+            await cdp_call(ws, 2, "Page.reload", {})
+    except (aiohttp.ClientError, RuntimeError):
+        pass
+    return False
 
 
 async def relay_desktop_output(stream):
@@ -306,18 +284,25 @@ async def relay_desktop_output(stream):
         )
         if text and (line_count <= 80 or important):
             print(f"[discord-desktop] {text}", flush=True)
-        if "[GatewaySocket] [READY]" in text:
-            with contextlib.suppress(OSError):
-                with open(
-                    USER_DESKTOP_READY_FILE,
-                    "w",
-                    encoding="utf-8",
-                ) as ready_file:
-                    ready_file.write("ready")
-            print(
-                "[user-desktop] ONLINE as Linux Desktop; official Gateway READY",
-                flush=True,
-            )
+        # An unauthenticated client also logs Gateway READY, so that alone
+        # proves nothing. Only a numeric active-user login marks the desktop
+        # as the online base device.
+        marker = "active user changed (now: "
+        if marker in text:
+            user_id = text.split(marker, 1)[1].split(",", 1)[0].strip()
+            if user_id.isdigit():
+                with contextlib.suppress(OSError):
+                    with open(
+                        USER_DESKTOP_READY_FILE,
+                        "w",
+                        encoding="utf-8",
+                    ) as ready_file:
+                        ready_file.write(user_id)
+                print(
+                    "[user-desktop] Discord account "
+                    f"{user_id} online on official desktop",
+                    flush=True,
+                )
 
 
 async def stop_desktop_process(process):
@@ -337,8 +322,6 @@ async def stop_desktop_process(process):
 
 async def discord_desktop_client():
     """Keep Discord's official desktop client open on a virtual display."""
-    global SESSION_ID
-
     if not os.path.isfile(DISCORD_DESKTOP):
         raise RuntimeError("Discord desktop is missing from the container")
 
@@ -479,11 +462,7 @@ async def discord_desktop_client():
                     )
                 else:
                     try:
-                        token_reused = await authenticate_desktop(
-                            session,
-                            target,
-                            debug_port,
-                        )
+                        token_reused = await authenticate_desktop(session, target)
                     except asyncio.CancelledError:
                         raise
                     except (aiohttp.ClientError, RuntimeError, ValueError) as error:
@@ -495,14 +474,14 @@ async def discord_desktop_client():
                         token_reused = False
                     if token_reused:
                         print(
-                            "[discord-desktop] existing discord.com authentication "
-                            "reused",
+                            "[discord-desktop] existing desktop authentication "
+                            "reused; Gateway left uninterrupted",
                             flush=True,
                         )
                     else:
                         print(
-                            "[discord-desktop] token written on discord.com; "
-                            "opening authenticated desktop",
+                            "[discord-desktop] token stored; reloaded official "
+                            "desktop to complete login",
                             flush=True,
                         )
 
@@ -807,7 +786,10 @@ if __name__ == "__main__":
         desktop_task = asyncio.create_task(
             supervise("discord-desktop", discord_desktop_client)
         )
-        for _ in range(60):
+        # Booting Electron, injecting the token, reloading, and completing
+        # login takes well over half a minute; give the official desktop a
+        # full window before even considering the raw fallback.
+        for _ in range(240):
             if os.path.isfile(USER_DESKTOP_READY_FILE):
                 break
             if desktop_task.done():

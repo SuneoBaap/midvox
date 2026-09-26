@@ -111,7 +111,7 @@ if [ -n "${USER_TOKEN:-}" ]; then
   BUMP_PID=$!
 
   echo "Waiting for official user desktop Gateway READY..."
-  for i in $(seq 1 120); do
+  for i in $(seq 1 200); do
     if [ -f "$USER_DESKTOP_READY_FILE" ]; then
       echo "Official user desktop is online; starting remaining services."
       break
@@ -123,7 +123,7 @@ if [ -n "${USER_TOKEN:-}" ]; then
     sleep 1
   done
   if [ ! -f "$USER_DESKTOP_READY_FILE" ]; then
-    echo "FATAL: User desktop or Linux Desktop fallback did not become ready within 120 seconds." >&2
+    echo "FATAL: User desktop or Linux Desktop fallback did not become ready within 200 seconds." >&2
     tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
     exit 1
   fi
