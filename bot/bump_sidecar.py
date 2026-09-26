@@ -117,11 +117,12 @@ async def fetch_bump_command(session: aiohttp.ClientSession, headers: dict, guil
 
 async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
     if not SESSION_ID:
-        try:
-            await asyncio.wait_for(SESSION_READY.wait(), timeout=30)
-        except TimeoutError:
-            print("[bump] gateway session not ready; delaying bump", flush=True)
-            return
+        # Fail fast with no waiting: loop() already waits once at startup for
+        # the gateway session. Waiting 30s here stalled every bump interval
+        # and made /bump look dead when the desktop-only path never set
+        # SESSION_ID.
+        print("[bump] gateway session not ready; skipping (no wait)", flush=True)
+        return
 
     async with session.get(f"{API_BASE}/channels/{CHANNEL_ID}", headers=headers) as r:
         if r.status != 200:
@@ -747,6 +748,15 @@ async def loop():
         "X-Super-Properties": "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyMC4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTIwLjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjIyMzgxNiwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=",
     }
     print(f"[bump] start channel={CHANNEL_ID} every {INTERVAL}s", flush=True)
+    # Wait once at startup for the gateway session so the first bump fires
+    # immediately after READY instead of stalling 30s inside every send_bump.
+    try:
+        await asyncio.wait_for(SESSION_READY.wait(), timeout=60)
+    except TimeoutError:
+        print(
+            "[bump] gateway not ready after 60s; will retry each interval",
+            flush=True,
+        )
     async with aiohttp.ClientSession() as session:
         while True:
             try:
@@ -779,50 +789,46 @@ if __name__ == "__main__":
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
-        # Prefer the known-working official desktop client because it carries
-        # connected Spotify activity. If its authentication does not reach READY,
-        # use the dedicated Linux Desktop Gateway so the user never stays
-        # offline.
+        # Run the official desktop (carries Spotify activity) and the
+        # lightweight gateway (provides SESSION_ID for /bump) concurrently.
+        # The old sequential startup waited up to 120s for the desktop before
+        # even starting the gateway, and the desktop-only path never set
+        # SESSION_ID at all — so /bump always logged "gateway session not
+        # ready; delaying bump". Starting both together fixes bump and keeps
+        # the first bump fast (~gateway READY, a few seconds). The gateway
+        # mirrors the desktop's activities so Spotify display is preserved.
         desktop_task = asyncio.create_task(
             supervise("discord-desktop", discord_desktop_client)
         )
-        # Booting Electron, injecting the token, reloading, and completing
-        # login takes well over half a minute; give the official desktop a
-        # full window before even considering the raw fallback.
-        for _ in range(240):
+        fallback_task = asyncio.create_task(
+            supervise("user-presence-fallback", connect_presence)
+        )
+        # Wait for either signal: official desktop login or gateway READY.
+        ready_reason = ""
+        for _ in range(120):
             if os.path.isfile(USER_DESKTOP_READY_FILE):
+                ready_reason = "official desktop"
                 break
-            if desktop_task.done():
-                await desktop_task
+            if SESSION_READY.is_set():
+                ready_reason = "gateway"
+                break
+            if desktop_task.done() and fallback_task.done():
+                await asyncio.gather(desktop_task, fallback_task)
             await asyncio.sleep(0.5)
 
-        fallback_task = None
-        if os.path.isfile(USER_DESKTOP_READY_FILE):
-            print(
-                "[user-desktop] official Gateway ready; starting /bump and "
-                "remaining services",
-                flush=True,
+        if not os.path.isfile(USER_DESKTOP_READY_FILE) and not SESSION_READY.is_set():
+            fallback_task.cancel()
+            desktop_task.cancel()
+            await asyncio.gather(
+                fallback_task,
+                desktop_task,
+                return_exceptions=True,
             )
-        else:
-            print(
-                "[user-desktop] official authentication did not become ready; "
-                "starting Linux Desktop presence fallback",
-                flush=True,
-            )
-            fallback_task = asyncio.create_task(
-                supervise("user-presence-fallback", connect_presence)
-            )
-            try:
-                await asyncio.wait_for(SESSION_READY.wait(), timeout=45)
-            except TimeoutError:
-                fallback_task.cancel()
-                desktop_task.cancel()
-                await asyncio.gather(
-                    fallback_task,
-                    desktop_task,
-                    return_exceptions=True,
-                )
-                raise RuntimeError("User-account presence fallback failed")
+            raise RuntimeError("User-account presence failed (desktop + gateway)")
+
+        # start.sh waits on USER_DESKTOP_READY_FILE: bridge a gateway-only
+        # readiness so remaining services start without the old 120s stall.
+        if SESSION_READY.is_set() and not os.path.isfile(USER_DESKTOP_READY_FILE):
             with contextlib.suppress(OSError):
                 with open(
                     USER_DESKTOP_READY_FILE,
@@ -830,15 +836,25 @@ if __name__ == "__main__":
                     encoding="utf-8",
                 ) as ready_file:
                     ready_file.write("fallback")
+        if ready_reason == "official desktop":
             print(
-                "[user-desktop] ONLINE through Linux Desktop fallback; "
-                "starting remaining services",
+                "[user-desktop] official Gateway ready; starting /bump and "
+                "remaining services",
+                flush=True,
+            )
+        elif SESSION_ID:
+            print(
+                "[user-desktop] ONLINE through Linux Desktop gateway "
+                f"(session {SESSION_ID[:8]}…); starting remaining services",
+                flush=True,
+            )
+        else:
+            print(
+                "[user-desktop] ready; starting /bump and remaining services",
                 flush=True,
             )
 
-        tasks = [desktop_task]
-        if fallback_task:
-            tasks.append(fallback_task)
+        tasks = [desktop_task, fallback_task]
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         await asyncio.gather(*tasks)
