@@ -5,6 +5,7 @@ import textwrap
 from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
+from typing import Union
 
 import aiosqlite
 import discord
@@ -14,6 +15,56 @@ from PIL import Image, ImageDraw, ImageFont
 
 DB_PATH = Path("db/security_suite.db")
 ACCENT = 0xB7D56A
+
+
+class AccessUserSelect(discord.ui.UserSelect):
+    def __init__(self, cog, ctx):
+        self.cog = cog
+        self.ctx = ctx
+        super().__init__(placeholder="Choose users to allow…", min_values=1, max_values=10, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.ctx.author.id:
+            return await interaction.response.send_message("Only the command author can use this menu.", ephemeral=True)
+        for member in self.values:
+            await self.cog._change_access(interaction.guild.id, "user", member.id, True)
+        mentions = ", ".join(member.mention for member in self.values)
+        await interaction.response.send_message(f"Allowed {mentions} to use MidVox commands.", ephemeral=True)
+
+
+class AccessRoleSelect(discord.ui.RoleSelect):
+    def __init__(self, cog, ctx):
+        self.cog = cog
+        self.ctx = ctx
+        super().__init__(placeholder="Choose roles to allow…", min_values=1, max_values=10, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.ctx.author.id:
+            return await interaction.response.send_message("Only the command author can use this menu.", ephemeral=True)
+        roles = [role for role in self.values if role != interaction.guild.default_role]
+        for role in roles:
+            await self.cog._change_access(interaction.guild.id, "role", role.id, True)
+        if not roles:
+            return await interaction.response.send_message("The everyone role cannot be added to a restricted whitelist.", ephemeral=True)
+        mentions = ", ".join(role.mention for role in roles)
+        await interaction.response.send_message(f"Allowed {mentions} to use MidVox commands.", ephemeral=True)
+
+
+class AccessPickerView(discord.ui.View):
+    def __init__(self, cog, ctx):
+        super().__init__(timeout=120)
+        self.message = None
+        self.add_item(AccessUserSelect(cog, ctx))
+        self.add_item(AccessRoleSelect(cog, ctx))
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class SecuritySuite(commands.Cog):
@@ -185,6 +236,26 @@ class SecuritySuite(commands.Cog):
                     (guild_id, kind, subject_id),
                 )
             await db.commit()
+
+    @commands.command(name="allow", help="Allow a user or role to use MidVox commands.")
+    @commands.guild_only()
+    @commands.has_permissions(administrator=True)
+    async def allow_command(self, ctx: commands.Context, target: Union[discord.Member, discord.Role] = None):
+        if target is None:
+            view = AccessPickerView(self, ctx)
+            embed = discord.Embed(
+                title="Allow MidVox access",
+                description=(
+                    "Choose one or more users or roles below. They will be able to use bot commands when "
+                    "`securitysuite access on` is enabled. Administrators and the server owner always retain access."
+                ),
+                color=ACCENT,
+            )
+            view.message = await ctx.reply(embed=embed, view=view, mention_author=False)
+            return
+        kind = "role" if isinstance(target, discord.Role) else "user"
+        await self._change_access(ctx.guild.id, kind, target.id, True)
+        await ctx.reply(f"Allowed {target.mention} to use MidVox commands. Enable enforcement with `securitysuite access on`.")
 
     @securitysuite.command(name="allowuser")
     @commands.has_permissions(administrator=True)

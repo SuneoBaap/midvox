@@ -36,6 +36,70 @@ def convert(argument):
   return round(time)
 
 
+class CustomRolePicker(discord.ui.Select):
+  def __init__(self, cog, ctx, roles, target=None):
+    self.cog = cog
+    self.ctx = ctx
+    self.target = target
+    options = []
+    for name, role_id in roles[:25]:
+      role = ctx.guild.get_role(role_id)
+      if role:
+        options.append(discord.SelectOption(
+          label=name[:100],
+          value=name,
+          description=f"{role.name} • {len(role.members)} members"[:100],
+          emoji="🎭"
+        ))
+    super().__init__(
+      placeholder="Choose a configured role…",
+      min_values=1,
+      max_values=1,
+      options=options
+    )
+
+  async def callback(self, interaction: discord.Interaction):
+    if interaction.user.id != self.ctx.author.id:
+      return await interaction.response.send_message("Only the command author can use this menu.", ephemeral=True)
+    custom = self.cog.bot.get_cog("Customrole")
+    name = self.values[0]
+    result = await custom.get_custom_role(interaction.guild.id, name)
+    role = interaction.guild.get_role(result[0]) if result else None
+    if role is None:
+      return await interaction.response.send_message("That configured role no longer exists.", ephemeral=True)
+    embed = await self.cog.custom_role_embed(interaction.guild, custom, name, role)
+    if self.target is None:
+      embed.description = "Role details and assignment whitelist."
+      return await interaction.response.edit_message(embed=embed, view=self.view)
+    if not await custom.can_use_word(interaction.user, name):
+      return await interaction.response.send_message("You are not whitelisted to give this role.", ephemeral=True)
+    if role >= interaction.guild.me.top_role:
+      return await interaction.response.send_message("Move my bot role above this role first.", ephemeral=True)
+    if role in self.target.roles:
+      await self.target.remove_roles(role, reason=f"Custom role {name} removed by {interaction.user}")
+      embed.description = f"Removed {role.mention} from {self.target.mention}."
+    else:
+      await self.target.add_roles(role, reason=f"Custom role {name} added by {interaction.user}")
+      embed.description = f"Added {role.mention} to {self.target.mention}."
+    await interaction.response.edit_message(embed=embed, view=self.view)
+
+
+class CustomRolePickerView(discord.ui.View):
+  def __init__(self, cog, ctx, roles, target=None):
+    super().__init__(timeout=120)
+    self.message = None
+    self.add_item(CustomRolePicker(cog, ctx, roles, target))
+
+  async def on_timeout(self):
+    for child in self.children:
+      child.disabled = True
+    if self.message:
+      try:
+        await self.message.edit(view=self)
+      except discord.HTTPException:
+        pass
+
+
 class Role(commands.Cog):
 
   def __init__(self, bot):
@@ -47,14 +111,36 @@ class Role(commands.Cog):
   @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 5, commands.BucketType.user)
-  @commands.has_permissions(manage_roles=True)
   @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
   @commands.guild_only()
-  @top_check()
   @blacklist_check()
-  async def role(self, ctx, member: discord.Member, *, role: discord.Role):
+  async def role(self, ctx, member: Optional[discord.Member] = None, *, role: Optional[discord.Role] = None):
     if not ctx.guild.me.guild_permissions.manage_roles:
         return await ctx.send(f"{ZWARNING} I don't have permission to manage roles!")
+
+    if role is None:
+        custom = self.bot.get_cog("Customrole")
+        if custom is None:
+            return await ctx.reply("Custom roles are currently unavailable.", mention_author=False)
+        roles = [(name, role_id) for name, role_id in await custom.fetch_custom_role_data(ctx.guild.id)
+                 if ctx.guild.get_role(role_id)]
+        if not roles:
+            return await ctx.reply("No custom roles are configured. Use `setup create <word> @role` first.", mention_author=False)
+        view = CustomRolePickerView(self, ctx, roles, member)
+        description = (
+            f"Choose the role to add or remove from {member.mention}."
+            if member else "Choose a role to view its details, permissions, and assignment whitelist."
+        )
+        if len(roles) > 25:
+            description += "\n\nShowing the first 25 configured roles."
+        embed = discord.Embed(title="Custom role selector", description=description, color=self.color)
+        view.message = await ctx.reply(embed=embed, view=view, mention_author=False)
+        return
+
+    if member is None:
+        return await ctx.reply("Mention a member when assigning a Discord role directly.", mention_author=False)
+    if not ctx.author.guild_permissions.manage_roles:
+        return await ctx.reply("You need **Manage Roles** to assign an unrestricted Discord role.", mention_author=False)
 
     if role >= ctx.guild.me.top_role:
         error = discord.Embed(
@@ -111,43 +197,19 @@ class Role(commands.Cog):
         await ctx.send(embed=error)
 
 
-  @role.command(name="add", help="Show or assign a configured custom role word.")
-  @commands.guild_only()
-  @commands.bot_has_permissions(manage_roles=True)
-  async def role_add(self, ctx, name: str, member: Optional[discord.Member] = None):
-    custom = self.bot.get_cog("Customrole")
-    if custom is None:
-        return await ctx.reply("Custom roles are currently unavailable.", mention_author=False)
-    result = await custom.get_custom_role(ctx.guild.id, name)
-    if not result:
-        return await ctx.reply(f"No custom role word named `{name}` exists.", mention_author=False)
-    role = ctx.guild.get_role(result[0])
-    if role is None:
-        return await ctx.reply(f"The Discord role linked to `{name}` no longer exists.", mention_author=False)
-    entries = await custom.get_word_access(ctx.guild.id, name)
+  async def custom_role_embed(self, guild, custom, name, role):
+    entries = await custom.get_word_access(guild.id, name)
     allowed_roles = [f"<@&{sid}>" for kind, sid in entries if kind == "role"]
     allowed_users = [f"<@{sid}>" for kind, sid in entries if kind == "user"]
     embed = discord.Embed(title=f"Custom role • {name.lower()}", color=role.color)
     embed.add_field(name="Role", value=f"{role.mention}\n`{role.id}`", inline=True)
     embed.add_field(name="Members", value=str(len(role.members)), inline=True)
     embed.add_field(name="Position", value=str(role.position), inline=True)
-    embed.add_field(name="Allowed roles", value=", ".join(allowed_roles)[:1024] or "Required-role fallback", inline=False)
+    role_access = ", ".join(allowed_roles)[:1024] or ("None" if entries else "Required-role fallback")
+    embed.add_field(name="Allowed roles", value=role_access, inline=False)
     embed.add_field(name="Allowed users", value=", ".join(allowed_users)[:1024] or "None", inline=False)
     embed.add_field(name="Key permissions", value=", ".join(p.replace('_', ' ').title() for p, enabled in role.permissions if enabled)[:1024] or "None", inline=False)
-    if member is None:
-        embed.description = f"Use `role add {name.lower()} @member` to toggle this role."
-        return await ctx.reply(embed=embed, mention_author=False)
-    if not await custom.can_use_word(ctx.author, name):
-        return await ctx.reply("You are not whitelisted to give this custom role.", mention_author=False)
-    if role >= ctx.guild.me.top_role:
-        return await ctx.reply("Move my bot role above the configured role first.", mention_author=False)
-    if role in member.roles:
-        await member.remove_roles(role, reason=f"Custom role {name} removed by {ctx.author}")
-        embed.description = f"Removed {role.mention} from {member.mention}."
-    else:
-        await member.add_roles(role, reason=f"Custom role {name} added by {ctx.author}")
-        embed.description = f"Added {role.mention} to {member.mention}."
-    await ctx.reply(embed=embed, mention_author=False)
+    return embed
 
 
   @role.command(help="Give role to member for particular time")

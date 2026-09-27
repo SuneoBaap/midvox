@@ -174,15 +174,15 @@ securitysuite                         Show status
 securitysuite channel #audit-log      Choose the advanced log channel
 securitysuite logging on              Enable visual delete/edit evidence
 securitysuite invites on              Enable exact invite attribution
-securitysuite allowuser @member       Allow a member to use bot commands
-securitysuite allowrole @role         Allow a role to use bot commands
+allow @member                         Allow a member to use bot commands
+allow @role                           Allow a role to use bot commands
 securitysuite access on               Enforce the command whitelist
 
 setup create vip @VIP                 Create a custom role word
 setup allowrole vip @Staff            Let a role use that word
 setup allowuser vip @Member           Let a member use that word
-role add vip                          Show the configured role and access
-role add vip @Member                  Toggle the configured role
+role                                  Open the role details dropdown
+role @Member                          Open the dropdown and toggle a selected role
 snipe 1                               Show the newest deleted message
 snipe 25                              Show the oldest retained message
 ```
