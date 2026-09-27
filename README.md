@@ -38,6 +38,7 @@ Every guild keeps its own settings in MongoDB Atlas, so configuration survives r
 - **Moderation suite** — bans, mutes, warnings, channel controls, message tools, and audit logging.
 - **Layered protection** — continuous antinuke rollback, adaptive spam heat, raid panic, join gating, anti-link, anti-invite, anti-caps, and mass-mention defenses.
 - **Burst-safe antinuke** — keeps audit-log enforcement active through rapid bans, kicks, channel or role destruction, bot additions, integrations, and webhook attacks.
+- **Opt-in security suite** — command access lists, exact invite attribution, visual message evidence, attachment records, and a 25-message snipe history. Every new module starts disabled.
 - **Server automation** — welcome messages, verification, autoroles, reaction roles, tickets, join-to-create, and custom roles.
 - **Modern dashboard** — Discord OAuth, guild-aware navigation, responsive forms, and immediate settings updates.
 - **Persistent configuration** — MongoDB-backed guild state survives restarts and Railway redeployments.
@@ -162,6 +163,28 @@ MidVox
 python -m unittest discover -s bot/tests -v
 cd dashboard && npm run build
 bash -n start.sh
+```
+
+## Optional advanced security
+
+The additional security modules are isolated per guild and remain disabled until an administrator enables them. Existing moderation and logging settings are not changed.
+
+```text
+securitysuite                         Show status
+securitysuite channel #audit-log      Choose the advanced log channel
+securitysuite logging on              Enable visual delete/edit evidence
+securitysuite invites on              Enable exact invite attribution
+securitysuite allowuser @member       Allow a member to use bot commands
+securitysuite allowrole @role         Allow a role to use bot commands
+securitysuite access on               Enforce the command whitelist
+
+setup create vip @VIP                 Create a custom role word
+setup allowrole vip @Staff            Let a role use that word
+setup allowuser vip @Member           Let a member use that word
+role add vip                          Show the configured role and access
+role add vip @Member                  Toggle the configured role
+snipe 1                               Show the newest deleted message
+snipe 25                              Show the oldest retained message
 ```
 
 ## Security

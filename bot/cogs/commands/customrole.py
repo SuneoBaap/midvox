@@ -117,6 +117,15 @@ class Customrole(commands.Cog):
                     PRIMARY KEY (guild_id, name)
                 )
             ''')
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS custom_role_access (
+                    guild_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    subject_type TEXT NOT NULL CHECK(subject_type IN ('user', 'role')),
+                    subject_id INTEGER NOT NULL,
+                    PRIMARY KEY (guild_id, name, subject_type, subject_id)
+                )
+            ''')
             await db.commit()
 
 
@@ -154,6 +163,55 @@ class Customrole(commands.Cog):
         async with aiosqlite.connect(DATABASE_PATH) as db:
             async with db.execute("SELECT name, role_id FROM custom_roles WHERE guild_id = ?", (guild_id,)) as cursor:
                 return await cursor.fetchall()
+
+    async def get_custom_role(self, guild_id: int, name: str):
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            async with db.execute(
+                "SELECT role_id FROM custom_roles WHERE guild_id = ? AND lower(name) = lower(?)",
+                (guild_id, name.strip()),
+            ) as cursor:
+                return await cursor.fetchone()
+
+    async def get_word_access(self, guild_id: int, name: str):
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            async with db.execute(
+                "SELECT subject_type, subject_id FROM custom_role_access WHERE guild_id = ? AND lower(name) = lower(?)",
+                (guild_id, name.strip()),
+            ) as cursor:
+                return await cursor.fetchall()
+
+    async def can_use_word(self, member: discord.Member, name: str) -> bool:
+        if member == member.guild.owner or member.guild_permissions.administrator:
+            return True
+        entries = await self.get_word_access(member.guild.id, name)
+        if entries:
+            role_ids = {role.id for role in member.roles}
+            return any(
+                (kind == 'user' and subject_id == member.id)
+                or (kind == 'role' and subject_id in role_ids)
+                for kind, subject_id in entries
+            )
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            async with db.execute("SELECT reqrole FROM roles WHERE guild_id = ?", (member.guild.id,)) as cursor:
+                row = await cursor.fetchone()
+        return bool(row and row[0] and any(role.id == row[0] for role in member.roles))
+
+    async def _change_word_access(self, guild_id: int, name: str, kind: str, subject_id: int, add: bool):
+        if not await self.get_custom_role(guild_id, name):
+            return False
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            if add:
+                await db.execute(
+                    "INSERT OR IGNORE INTO custom_role_access (guild_id, name, subject_type, subject_id) VALUES (?, lower(?), ?, ?)",
+                    (guild_id, name, kind, subject_id),
+                )
+            else:
+                await db.execute(
+                    "DELETE FROM custom_role_access WHERE guild_id = ? AND lower(name) = lower(?) AND subject_type = ? AND subject_id = ?",
+                    (guild_id, name, kind, subject_id),
+                )
+            await db.commit()
+        return True
 
 
     @set.command(name="staff",
@@ -291,6 +349,7 @@ class Customrole(commands.Cog):
     @commands.has_permissions(administrator=True)
     @app_commands.describe(name="Command name", role="Role to be assigned")
     async def create(self, context: Context, name: str, role: discord.Role) -> None:
+        name = name.strip().lower()
         async with aiosqlite.connect(DATABASE_PATH) as db:
             async with db.execute("SELECT COUNT(*) FROM custom_roles WHERE guild_id = ?", (context.guild.id,)) as cursor:
                 count = await cursor.fetchone()
@@ -309,6 +368,44 @@ class Customrole(commands.Cog):
             await db.commit()
 
         await context.reply(view=CV2(f"{TICK} Success", f"Custom role command `{name}` created to assign the role {role.mention}.\n\n__**How to Use?**__\nUse `{name} <user>` Command to Assign/Remove {role.mention} role to User.\n> This will work for the users having `Manage Roles` permissions."))
+
+    @set.command(name="allowrole", description="Allow a role to use one custom role word.")
+    @commands.has_permissions(administrator=True)
+    async def word_allow_role(self, context: Context, name: str, role: discord.Role):
+        if not await self._change_word_access(context.guild.id, name, "role", role.id, True):
+            return await context.reply(view=CV2(f"{CROSS} Error", f"Custom role word `{name}` does not exist."))
+        await context.reply(view=CV2(f"{TICK} Access added", f"{role.mention} can now use `{name} @member`."))
+
+    @set.command(name="allowuser", description="Allow a member to use one custom role word.")
+    @commands.has_permissions(administrator=True)
+    async def word_allow_user(self, context: Context, name: str, member: discord.Member):
+        if not await self._change_word_access(context.guild.id, name, "user", member.id, True):
+            return await context.reply(view=CV2(f"{CROSS} Error", f"Custom role word `{name}` does not exist."))
+        await context.reply(view=CV2(f"{TICK} Access added", f"{member.mention} can now use `{name} @member`."))
+
+    @set.command(name="denyrole", description="Remove a role from a custom role word whitelist.")
+    @commands.has_permissions(administrator=True)
+    async def word_deny_role(self, context: Context, name: str, role: discord.Role):
+        await self._change_word_access(context.guild.id, name, "role", role.id, False)
+        await context.reply(view=CV2(f"{TICK} Access removed", f"Removed {role.mention} from `{name}`."))
+
+    @set.command(name="denyuser", description="Remove a member from a custom role word whitelist.")
+    @commands.has_permissions(administrator=True)
+    async def word_deny_user(self, context: Context, name: str, member: discord.Member):
+        await self._change_word_access(context.guild.id, name, "user", member.id, False)
+        await context.reply(view=CV2(f"{TICK} Access removed", f"Removed {member.mention} from `{name}`."))
+
+    @set.command(name="access", description="Show who can use a custom role word.")
+    @commands.has_permissions(administrator=True)
+    async def word_access(self, context: Context, name: str):
+        result = await self.get_custom_role(context.guild.id, name)
+        if not result:
+            return await context.reply(view=CV2(f"{CROSS} Error", f"Custom role word `{name}` does not exist."))
+        entries = await self.get_word_access(context.guild.id, name)
+        role = context.guild.get_role(result[0])
+        access = [f"{'User' if kind == 'user' else 'Role'}: <@{'' if kind == 'user' else '&'}{sid}>" for kind, sid in entries]
+        fallback = "No word-specific entries; the server's required role is used."
+        await context.reply(view=CV2(f"Custom role: {name}", f"Target: {role.mention if role else result[0]}\n" + ("\n".join(access) if access else fallback)))
 
 
     @set.command(name="delete", aliases=["remove"],
@@ -330,6 +427,7 @@ class Customrole(commands.Cog):
 
         async with aiosqlite.connect(DATABASE_PATH) as db:
             await db.execute("DELETE FROM custom_roles WHERE guild_id = ? AND name = ?", (context.guild.id, name))
+            await db.execute("DELETE FROM custom_role_access WHERE guild_id = ? AND lower(name) = lower(?)", (context.guild.id, name))
             await db.commit()
 
         await context.reply(view=CV2(f"{TICK} Success", f"Custom role command `{name}` has been deleted."))
@@ -393,6 +491,7 @@ class Customrole(commands.Cog):
 
                 async with aiosqlite.connect(DATABASE_PATH) as db:
                     await db.execute("DELETE FROM custom_roles WHERE guild_id = ?", (context.guild.id,))
+                    await db.execute("DELETE FROM custom_role_access WHERE guild_id = ?", (context.guild.id,))
                     await db.commit()
                     reset_desc = f"Deleted All Custom Role commands {TICK}\n\n**Removed Roles:**\n" + "\n".join(removed_roles) if removed_roles else "No roles were previously set."
                     await context.reply(view=CV2("Custom Role Configuration Reset", reset_desc))
@@ -407,7 +506,7 @@ class Customrole(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
 
-        if message.author.bot or not message.content:
+        if message.author.bot or not message.guild or not message.content:
             return
 
         prefixes = await self.bot.get_prefix(message)
@@ -440,21 +539,10 @@ class Customrole(commands.Cog):
             role = message.guild.get_role(role_id)
 
 
-            async with aiosqlite.connect(DATABASE_PATH) as db:
-                async with db.execute("SELECT reqrole FROM roles WHERE guild_id = ?", (guild_id,)) as cursor:
-                    reqrole_result = await cursor.fetchone()
-
-            reqrole_id = reqrole_result[0] if reqrole_result else None
-            reqrole = message.guild.get_role(reqrole_id) if reqrole_id else None
-
-
-            if reqrole is None:
-                await message.channel.send(f"{ZWARNING} The required role is not set up in this server. Please set it up using `setup reqrole`.")
-                return
-
-
-            if reqrole not in message.author.roles:
-                await message.channel.send(view=CV2(f"{ZWARNING} Access Denied", f"You need the {reqrole.mention} role to use this command."))
+            if not await self.can_use_word(message.author, command_name):
+                entries = await self.get_word_access(guild_id, command_name)
+                detail = "You are not whitelisted for this custom role word." if entries else "You need the configured required role."
+                await message.channel.send(view=CV2(f"{ZWARNING} Access Denied", detail))
                 return
 
 

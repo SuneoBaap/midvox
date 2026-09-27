@@ -71,6 +71,7 @@ from .commands.image import ImageCommands
 from .commands.youtube import Youtube
 from .commands.antispamplus import AntiSpamPlus
 from .commands.insta_downloader import InstaDownloader
+from .commands.securitysuite import SecuritySuite
 #____________ Events _____________
 
 #from .events.autoblacklist import AutoBlacklist
@@ -172,7 +173,7 @@ async def setup(bot: midvox):
         Voice, Owner, Customrole, afk, Embed, Media, Ignore, TicketCog, Logging,
         Invcrole, Steal, Timer,
         Blacklist, Block, Nightmode, Badges, Antinuke, Whitelist,
-        Unwhitelist, Extraowner, Blackjack, Slots, Guild, Errors, Autorole2, Autorole, greet, AutoResponder,
+        Unwhitelist, Extraowner, Blackjack, Slots, SecuritySuite, Guild, Errors, Autorole2, Autorole, greet, AutoResponder,
         Mention, AutoRole, React, AntiMemberUpdate, AntiBan, AntiBotAdd,
         AntiChannelCreate, AntiChannelDelete, AntiChannelUpdate, AntiEveryone, AntiGuildUpdate,
         AntiIntegration, AntiKick, AntiPrune, AntiRoleCreate, AntiRoleDelete,
@@ -244,6 +245,7 @@ async def setup(bot: midvox):
   await bot.add_cog(Youtube(bot))
   await bot.add_cog(AntiSpamPlus(bot))
   await bot.add_cog(InstaDownloader(bot))
+  await bot.add_cog(SecuritySuite(bot))
 
   await bot.add_cog(_antinuke(bot))
   await bot.add_cog(_extra(bot))
