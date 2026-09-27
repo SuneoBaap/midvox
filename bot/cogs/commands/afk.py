@@ -6,7 +6,7 @@ import os
 import time
 
 from utils.Tools import blacklist_check, ignore_check
-from utils.cv2 import CV2, build_container
+from utils.cv2 import CV2, build_container, card_text_items
 from utils.emoji import TICK, MENTION, SEED, TIME
 from utils.config import *
 
@@ -29,9 +29,9 @@ class AfkTypeView(LayoutView):
 
         self.add_item(
             build_container(
-                TextDisplay(f"You are going AFK for reason: **{reason}**"),
-                Separator(visible=True),
-                TextDisplay("Select your preferred AFK type from the buttons below."),
+                *card_text_items("Choose your AFK type", (
+                    f"Reason: **{reason}**\nSelect Global AFK or Local AFK below.",
+                )),
                 ActionRow(self.global_btn, self.local_btn)
             )
         )
@@ -57,33 +57,27 @@ class AfkSuccess(LayoutView):
     def __init__(self, type_val, reason):
         super().__init__(timeout=None)
         self.add_item(
-            build_container(
-                TextDisplay(f"{TICK} **AFK Activated**"),
-                Separator(visible=True),
-                TextDisplay(f"**{MENTION} You are now marked as {type_val.capitalize()} AFK.**\n{SEED} **Reason:** {reason}")
-            )
+            build_container(*card_text_items(f"{TICK} AFK Activated", (
+                f"You are now marked as **{type_val.capitalize()} AFK**.\n{SEED} **Reason:** {reason}",
+            )))
         )
 
 class AfkMention(LayoutView):
     def __init__(self, user_mention, afk_time, reason):
         super().__init__(timeout=None)
         self.add_item(
-            build_container(
-                TextDisplay(f"**{user_mention.display_name}** is AFK right now!"),
-                Separator(visible=True),
-                TextDisplay(f"Went AFK <t:{int(afk_time)}:R> for the following reason:\n**{reason}**")
-            )
+            build_container(*card_text_items(f"{user_mention.display_name} is AFK", (
+                f"Went AFK <t:{int(afk_time)}:R>.\n**Reason:** {reason}",
+            )))
         )
 
 class AfkWelcomeBack(LayoutView):
     def __init__(self, author, mentions, elapsed_time):
         super().__init__(timeout=None)
         self.add_item(
-            build_container(
-                TextDisplay(f"**{author.display_name}** Is Back!"),
-                Separator(visible=True),
-                TextDisplay(f"{TICK} **AFK Removed**\n{MENTION} **Mentions:** {mentions}\n{TIME} **AFK Time:** {elapsed_time}")
-            )
+            build_container(*card_text_items(f"{author.display_name} is back", (
+                f"{TICK} **AFK Removed**\n{MENTION} **Mentions:** {mentions}\n{TIME} **AFK time:** {elapsed_time}",
+            )))
         )
 
 class afk(commands.Cog):
@@ -217,14 +211,14 @@ class afk(commands.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def afk(self, ctx: commands.Context, *, reason: str = "I am AFK"):
         if any(w in reason.lower() for w in ("discord.gg", "gg/")):
-            return await ctx.send(embed=discord.Embed(description="⚠️ Advertising is not allowed in AFK reasons.", color=self.theme_color), ephemeral=True)
+            return await ctx.send(view=CV2("AFK reason blocked", "Advertising is not allowed in AFK reasons."), ephemeral=True)
 
         type_view = AfkTypeView(ctx.author, reason)
         msg = await ctx.reply(view=type_view, mention_author=False)
         await type_view.wait()
 
         if not type_view.value:
-            await msg.edit(content="Timed out.", view=None)
+            await msg.edit(content=None, view=CV2("AFK setup timed out", "Run the AFK command again when you are ready."))
             return
 
         await self.set_afk(ctx.author, type_view.value, reason, ctx.guild)

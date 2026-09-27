@@ -39,7 +39,7 @@ MAX_SEARCH_RESULTS = 100
 
 Path(LOGS_DIR).mkdir(exist_ok=True)
 
-from utils.cv2 import CV2, build_container
+from utils.cv2 import CV2, CV2Embed, build_container
 from discord.ui import TextDisplay, Separator, ActionRow, LayoutView, Container, Select
 
 
@@ -153,56 +153,8 @@ class LogSetupLayoutView(LayoutView):
             pass
 
 
-class CV2EmbedAdapter(CV2):
-    def __init__(self, t, d="", **kwargs):
-        self._title = t
-        self._description = d or ""
-        self._fields = []
-        self._footer = None
-        super().__init__(t, self._description)
-        self.color = kwargs.get("color", 0x8A9A5B)
-
-    def _rebuild(self):
-        self.clear_items()
-        sections = [self._description] if self._description else []
-        for name, value in self._fields:
-            sections.append(f"**{name}**\n{value}")
-
-        if self._footer:
-            sections.append(f"*{self._footer}*")
-
-        container = build_container(
-            TextDisplay(f"**{self._title}**"),
-            *[
-                item
-                for s in sections
-                for item in (Separator(visible=True), TextDisplay(str(s)))
-            ],
-        )
-        self.add_item(container)
-
-    def add_field(self, name, value, inline=False, **kwargs):
-        self._fields.append((name, value))
-        self._rebuild()
-        return self
-
-    def set_footer(self, text=None, icon_url=None, **kwargs):
-        if text:
-            self._footer = text
-            self._rebuild()
-        return self
-
-    def set_thumbnail(self, url=None, **kwargs):
-        return self
-
-    def set_author(self, name=None, url=None, icon_url=None, **kwargs):
-        return self
-
-    def set_image(self, url=None, **kwargs):
-        return self
-
-    def to_dict(self):
-        return {"title": self._title, "description": self._description}
+class CV2EmbedAdapter(CV2Embed):
+    """Compatibility alias using the shared compact MidVox card style."""
 
 
 def add_action_rows(container, components):

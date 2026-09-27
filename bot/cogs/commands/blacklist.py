@@ -8,16 +8,6 @@ from utils.Tools import *
 from utils.cv2 import CV2, build_container
 from typing import Union
 from discord.ui import LayoutView, TextDisplay, Separator, Container
-
-class CV2(LayoutView):
-    def __init__(self, title, *sections):
-        super().__init__(timeout=None)
-        items = [TextDisplay(f"**{title}**")]
-        for s in sections:
-            if s:
-                items.append(Separator(visible=True))
-                items.append(TextDisplay(str(s)))
-        self.add_item(build_container(*items))
 from utils.paginator import Paginator as sonu
 
 

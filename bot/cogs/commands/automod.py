@@ -3,18 +3,9 @@ from utils.emoji import CROSS, DISABLE, ENABLE, TICK, TICK_ALT
 from discord.ext import commands
 import aiosqlite
 from utils.Tools import *
-from utils.cv2 import CV2, build_container
+from utils.cv2 import CV2, build_container, card_text_items
 from discord.ui import LayoutView, TextDisplay, Separator, Container, ActionRow
 from utils.config import *
-class CV2(LayoutView):
-    def __init__(self, title, *sections):
-        super().__init__(timeout=None)
-        items = [TextDisplay(f"**{title}**")]
-        for s in sections:
-            if s:
-                items.append(Separator(visible=True))
-                items.append(TextDisplay(str(s)))
-        self.add_item(build_container(*items))
 
 
 class ShowRules(LayoutView):
@@ -26,11 +17,7 @@ class ShowRules(LayoutView):
         show_rules_btn = discord.ui.Button(label="Show Rules", style=discord.ButtonStyle.secondary)
         show_rules_btn.callback = self._show_rules_callback
 
-        items = [TextDisplay(f"**{title}**")]
-        for s in sections:
-            if s:
-                items.append(Separator(visible=True))
-                items.append(TextDisplay(str(s)))
+        items = card_text_items(title, sections)
         items.append(ActionRow(show_rules_btn))
         self.add_item(build_container(*items))
 
@@ -66,11 +53,7 @@ class ConfirmDisable(LayoutView):
         no_btn = discord.ui.Button(label="No", style=discord.ButtonStyle.secondary)
         no_btn.callback = self._cancel_callback
 
-        items = [TextDisplay(f"**{title}**")]
-        for s in sections:
-            if s:
-                items.append(Separator(visible=True))
-                items.append(TextDisplay(str(s)))
+        items = card_text_items(title, sections)
         items.append(ActionRow(yes_btn, no_btn))
         self.add_item(build_container(*items))
 

@@ -26,15 +26,8 @@ logger =logging .getLogger ('discord')
 logger .setLevel (logging .WARNING )
 
 
-class CV2View(LayoutView):
-    """Reusable Component v2 view — pass a title and any number of text sections."""
-    def __init__(self, title, *sections):
-        super().__init__(timeout=None)
-        items = [TextDisplay(f"**{title}**")]
-        for section in sections:
-            items.append(Separator(visible=True))
-            items.append(TextDisplay(str(section)))
-        self.add_item(build_container(*items))
+class CV2View(CV2):
+    """AI responses use the shared compact MidVox card style."""
 
 
 fallback_questions ={

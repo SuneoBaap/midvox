@@ -27,14 +27,34 @@ def build_container(*items, accent_color=BOT_THEME_COLOR):
     return container
 
 
+def card_text_items(title, sections):
+    """Create compact text blocks without the old divider-heavy layout."""
+    blocks = [f"**{animate_status_icons(title)}**"]
+    blocks.extend(animate_status_icons(section) for section in sections if section not in (None, ""))
+    items = []
+    current = ""
+    for block in blocks:
+        block = str(block)
+        candidate = f"{current}\n{block}" if current else block
+        if len(candidate) <= 3900:
+            current = candidate
+            continue
+        if current:
+            items.append(TextDisplay(current))
+        while len(block) > 3900:
+            items.append(TextDisplay(block[:3900]))
+            block = block[3900:]
+        current = block
+    if current:
+        items.append(TextDisplay(current))
+    return items
+
+
 class CV2(LayoutView):
     """Quick helper: CV2("Title", "section1", "section2", ...)"""
     def __init__(self, title, *sections):
         super().__init__(timeout=None)
-        container = build_container(
-            TextDisplay(f"**{animate_status_icons(title)}**"),
-            *[item for s in sections for item in (Separator(visible=True), TextDisplay(animate_status_icons(s)))]
-        )
+        container = build_container(*card_text_items(title, sections))
         self.add_item(container)
 
 def add_action_rows(container, components):
@@ -74,11 +94,7 @@ class CV2Embed(CV2):
         if self._footer:
             sections.append(f"*{self._footer}*")
 
-        container = build_container(
-            TextDisplay(f"**{animate_status_icons(self._title)}**"),
-            *[item for s in sections for item in (Separator(visible=True), TextDisplay(animate_status_icons(s)))],
-            accent_color=self.color,
-        )
+        container = build_container(*card_text_items(self._title, sections), accent_color=self.color)
         self.add_item(container)
 
     def add_field(self, name, value, inline=False, **kwargs):

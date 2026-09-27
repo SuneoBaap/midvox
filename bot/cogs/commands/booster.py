@@ -18,16 +18,6 @@ from core import Cog ,midvox ,Context
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 from utils.cv2 import CV2, build_container
 
-class CV2(LayoutView):
-    def __init__(self, title, *sections):
-        super().__init__(timeout=None)
-        items = [TextDisplay(f"**{title}**")]
-        for s in sections:
-            if s:
-                items.append(Separator(visible=True))
-                items.append(TextDisplay(str(s)))
-        self.add_item(build_container(*items))
-
 logging .basicConfig (
 level =logging .INFO ,
 format ="\x1b[38;5;197m[\x1b[0m%(asctime)s\x1b[38;5;197m]\x1b[0m -> \x1b[38;5;197m%(message)s\x1b[0m",

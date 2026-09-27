@@ -6,16 +6,6 @@ from utils import Paginator, DescriptionEmbedPaginator
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 from utils.cv2 import CV2, build_container
 
-class CV2(LayoutView):
-    def __init__(self, title, *sections):
-        super().__init__(timeout=None)
-        items = [TextDisplay(f"**{title}**")]
-        for s in sections:
-            if s:
-                items.append(Separator(visible=True))
-                items.append(TextDisplay(str(s)))
-        self.add_item(build_container(*items))
-
 class Block(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
