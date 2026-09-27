@@ -9,12 +9,6 @@ import string
 
 import aiohttp
 
-from presence_mirror import (
-    activities_signature,
-    mirrorable_session_activities,
-    normalize_presence_activities,
-)
-
 TOKEN = os.environ.get("USER_TOKEN", "")
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
 INTERVAL = int(os.getenv("BUMP_INTERVAL", "600"))
@@ -23,8 +17,6 @@ API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
 SESSION_READY = asyncio.Event()
-ONLINE_REFRESH_SECONDS = 240
-DESKTOP_WAKE_SECONDS = 240
 DISCORD_DESKTOP = os.getenv("DISCORD_DESKTOP_BIN") or next(
     iter(
         sorted(
@@ -45,9 +37,9 @@ DISCORD_CONFIG_HOME = os.getenv(
 USER_DESKTOP_READY_FILE = os.getenv(
     "USER_DESKTOP_READY_FILE", "/tmp/midvox-user-desktop-ready"
 )
-# Readiness marker for the Linux Desktop Gateway fallback.
-USER_PRESENCE_READY_FILE = os.getenv(
-    "USER_PRESENCE_READY_FILE", "/tmp/midvox-user-presence-ready"
+# Readiness marker for the companion Gateway used by slash interactions.
+USER_GATEWAY_READY_FILE = os.getenv(
+    "USER_GATEWAY_READY_FILE", "/tmp/midvox-user-gateway-ready"
 )
 
 
@@ -184,29 +176,6 @@ async def heartbeat(ws, interval, sequence):
         await asyncio.sleep(interval)
 
 
-async def publish_online(ws, activities):
-    """Publish an explicit online presence without creating channel noise."""
-    await ws.send_json(
-        {
-            "op": 3,
-            "d": {
-                "status": "online",
-                "since": 0,
-                "activities": activities,
-                "afk": False,
-            },
-        }
-    )
-
-
-async def keep_online(ws, activities):
-    """Refresh the user presence every four minutes to prevent idle status."""
-    while not ws.closed:
-        await asyncio.sleep(ONLINE_REFRESH_SECONDS)
-        await publish_online(ws, activities())
-        print("[user-presence] refreshed online status", flush=True)
-
-
 async def cdp_call(ws, request_id, method, params=None):
     """Send one Chrome DevTools command and wait for its response."""
     payload = {"id": request_id, "method": method}
@@ -288,105 +257,6 @@ async def authenticate_desktop(session, target, debug_port):
         # Success here is only a handoff; Gateway READY is checked separately.
         await cdp_call(ws, 4, "Page.reload", {})
     return False
-
-
-async def wake_desktop_in_bump_channel(session, debug_port):
-    """Create and erase one character in the bump channel without sending it."""
-    if not CHANNEL_ID:
-        return
-
-    async with session.get(
-        f"{API_BASE}/channels/{CHANNEL_ID}",
-        headers={"Authorization": TOKEN},
-    ) as response:
-        if response.status != 200:
-            raise RuntimeError(
-                f"bump channel lookup returned HTTP {response.status}"
-            )
-        guild_id = str((await response.json()).get("guild_id") or "")
-    if not guild_id:
-        raise RuntimeError("bump channel is not attached to a guild")
-
-    async with session.get(f"http://127.0.0.1:{debug_port}/json/list") as response:
-        targets = await response.json()
-    target = next(
-        (
-            item
-            for item in targets
-            if item.get("type") == "page"
-            and str(item.get("url") or "").startswith("https://discord.com/")
-            and item.get("webSocketDebuggerUrl")
-        ),
-        None,
-    )
-    if not target:
-        raise RuntimeError("Discord desktop page is unavailable")
-
-    async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
-        await cdp_call(
-            ws,
-            1,
-            "Page.navigate",
-            {"url": f"https://discord.com/channels/{guild_id}/{CHANNEL_ID}"},
-        )
-        await asyncio.sleep(3)
-        focused = await cdp_call(
-            ws,
-            2,
-            "Runtime.evaluate",
-            {
-                "expression": (
-                    "(() => { const box = document.querySelector("
-                    "'[role=\"textbox\"][contenteditable=\"true\"]'); "
-                    "if (!box) return false; box.focus(); return true; })()"
-                ),
-                "returnByValue": True,
-            },
-        )
-        if not focused.get("result", {}).get("value"):
-            raise RuntimeError("Discord message box did not become available")
-        await cdp_call(ws, 3, "Input.insertText", {"text": "."})
-        await cdp_call(
-            ws,
-            4,
-            "Input.dispatchKeyEvent",
-            {
-                "type": "rawKeyDown",
-                "key": "Backspace",
-                "code": "Backspace",
-                "windowsVirtualKeyCode": 8,
-                "nativeVirtualKeyCode": 8,
-            },
-        )
-        await cdp_call(
-            ws,
-            5,
-            "Input.dispatchKeyEvent",
-            {
-                "type": "keyUp",
-                "key": "Backspace",
-                "code": "Backspace",
-                "windowsVirtualKeyCode": 8,
-                "nativeVirtualKeyCode": 8,
-            },
-        )
-
-
-async def keep_desktop_active(session, debug_port):
-    """Wake Discord periodically so linked activities continue updating."""
-    await asyncio.sleep(30)
-    while True:
-        try:
-            await wake_desktop_in_bump_channel(session, debug_port)
-            print(
-                "[discord-desktop] bump-channel activity refreshed; no message sent",
-                flush=True,
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception as error:
-            print(f"[discord-desktop] activity refresh failed: {error}", flush=True)
-        await asyncio.sleep(DESKTOP_WAKE_SECONDS)
 
 
 async def relay_desktop_output(stream):
@@ -627,20 +497,13 @@ async def discord_desktop_client():
                             flush=True,
                         )
 
-                activity_task = asyncio.create_task(
-                    keep_desktop_active(session, debug_port)
-                )
-                try:
-                    # Discord can detach from its launcher and can close the
-                    # optional DevTools listener while its Gateway stays ready.
-                    # The inherited process group covers the actual Electron
-                    # client and is the reliable lifecycle signal.
-                    while desktop_process_group_alive(discord_process):
-                        await asyncio.sleep(30)
-                    raise RuntimeError("Discord desktop process group exited")
-                finally:
-                    activity_task.cancel()
-                    await asyncio.gather(activity_task, return_exceptions=True)
+                # Discord can detach from its launcher and can close the
+                # optional DevTools listener while its Gateway stays ready.
+                # Leave the authenticated official client open and let it own
+                # status and linked-account activity without synthetic input.
+                while desktop_process_group_alive(discord_process):
+                    await asyncio.sleep(30)
+                raise RuntimeError("Discord desktop process group exited")
         except asyncio.CancelledError:
             raise
         except Exception as error:
@@ -664,8 +527,44 @@ async def discord_desktop_client():
         await asyncio.sleep(5)
 
 
-async def connect_presence():
-    """Maintain a Discord gateway session so the account appears online."""
+def gateway_identify_payload() -> dict:
+    """Build a quiet companion session used only for slash interactions."""
+    return {
+        "op": 2,
+        "d": {
+            "token": TOKEN,
+            "capabilities": 4093,
+            "properties": {
+                "os": "Linux",
+                "browser": "Discord Client",
+                "device": "",
+                "system_locale": "en-US",
+                "browser_user_agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/148.0.0.0 Safari/537.36"
+                ),
+                "browser_version": "148.0.0.0",
+                "os_version": "6",
+                "referrer": "",
+                "referring_domain": "",
+            },
+            "compress": False,
+            "client_state": {
+                "guild_versions": {},
+                "highest_last_message_id": "0",
+                "read_state_version": 0,
+                "user_guild_settings_version": -1,
+                "user_settings_version": -1,
+                "private_channels_version": "0",
+                "api_code_version": 0,
+            },
+        },
+    }
+
+
+async def connect_interaction_gateway():
+    """Maintain a quiet Gateway session for the scheduled bump interaction."""
     global SESSION_ID
 
     while True:
@@ -678,77 +577,10 @@ async def connect_presence():
 
                     interval = hello["d"]["heartbeat_interval"] / 1000
                     sequence = [None]
-                    await ws.send_json(
-                        {
-                            "op": 2,
-                            "d": {
-                                "token": TOKEN,
-                                "capabilities": 4093,
-                                "properties": {
-                                    "os": "Linux",
-                                    "browser": "Discord Client",
-                                    "device": "",
-                                    "system_locale": "en-US",
-                                    "browser_user_agent": (
-                                        "Mozilla/5.0 (X11; Linux x86_64) "
-                                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                        "Chrome/148.0.0.0 Safari/537.36"
-                                    ),
-                                    "browser_version": "148.0.0.0",
-                                    "os_version": "6",
-                                    "referrer": "",
-                                    "referring_domain": "",
-                                },
-                                "presence": {
-                                    # Ask Discord to assign the initial presence,
-                                    # then publish online plus any local-PC
-                                    # activity after READY.
-                                    "status": "unknown",
-                                    "since": 0,
-                                    "activities": [],
-                                    "afk": False,
-                                },
-                                "compress": False,
-                                "client_state": {
-                                    "guild_versions": {},
-                                    "highest_last_message_id": "0",
-                                    "read_state_version": 0,
-                                    "user_guild_settings_version": -1,
-                                    "user_settings_version": -1,
-                                    "private_channels_version": "0",
-                                    "api_code_version": 0,
-                                },
-                            },
-                        }
-                    )
+                    await ws.send_json(gateway_identify_payload())
 
                     heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
-                    mirrored_signature = None
-                    mirrored_activities = []
-                    current_user_id = ""
-                    print("[user-presence] Gateway identified; waiting for READY", flush=True)
-
-                    async def publish_mirrored_presence(source, data):
-                        nonlocal mirrored_activities, mirrored_signature
-                        mirrored = mirrorable_session_activities(data, SESSION_ID)
-                        signature = activities_signature(mirrored)
-                        if mirrored_signature is not None and signature == mirrored_signature:
-                            return
-                        # Re-apply presence after READY. Some Discord routing
-                        # paths ignore the presence embedded in Identify until
-                        # a separate OP3 Presence Update arrives.
-                        await publish_online(ws, mirrored)
-                        mirrored_activities = mirrored
-                        mirrored_signature = signature
-                        print(
-                            "[user-presence] Sent online presence with "
-                            f"{len(mirrored)} mirrored activities from {source}",
-                            flush=True,
-                        )
-
-                    online_task = asyncio.create_task(
-                        keep_online(ws, lambda: mirrored_activities)
-                    )
+                    print("[interaction-gateway] identified; waiting for READY", flush=True)
                     try:
                         async for message in ws:
                             if message.type == aiohttp.WSMsgType.TEXT:
@@ -757,60 +589,15 @@ async def connect_presence():
                                     sequence[0] = payload["s"]
                                 if payload.get("op") == 0 and payload.get("t") == "READY":
                                     SESSION_ID = str(payload.get("d", {}).get("session_id") or "")
-                                    current_user_id = str(
-                                        payload.get("d", {})
-                                        .get("user", {})
-                                        .get("id")
-                                        or ""
-                                    )
                                     if SESSION_ID:
-                                        await publish_mirrored_presence(
-                                            "READY", payload.get("d", {})
-                                        )
                                         with contextlib.suppress(OSError):
                                             with open(
-                                                USER_PRESENCE_READY_FILE,
+                                                USER_GATEWAY_READY_FILE,
                                                 "w",
                                                 encoding="utf-8",
                                             ) as ready_file:
                                                 ready_file.write(SESSION_ID)
                                         SESSION_READY.set()
-                                elif (
-                                    payload.get("op") == 0
-                                    and payload.get("t") == "SESSIONS_REPLACE"
-                                ):
-                                    await publish_mirrored_presence(
-                                        "SESSIONS_REPLACE", payload.get("d", [])
-                                    )
-                                elif (
-                                    payload.get("op") == 0
-                                    and payload.get("t") == "PRESENCE_UPDATE"
-                                    and current_user_id
-                                    and str(
-                                        payload.get("d", {})
-                                        .get("user", {})
-                                        .get("id")
-                                        or ""
-                                    )
-                                    == current_user_id
-                                ):
-                                    # Discord emits self presence changes sooner
-                                    # than its batched session replacement event.
-                                    # This path updates play, pause, and track
-                                    # changes as soon as the Gateway reports them.
-                                    immediate = normalize_presence_activities(
-                                        payload.get("d", {}).get("activities", [])
-                                    )
-                                    signature = activities_signature(immediate)
-                                    if signature != mirrored_signature:
-                                        await publish_online(ws, immediate)
-                                        mirrored_activities = immediate
-                                        mirrored_signature = signature
-                                        print(
-                                            "[user-presence] Sent immediate activity "
-                                            "update from PRESENCE_UPDATE",
-                                            flush=True,
-                                        )
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):
@@ -824,18 +611,16 @@ async def connect_presence():
                         SESSION_ID = ""
                         SESSION_READY.clear()
                         with contextlib.suppress(OSError):
-                            os.remove(USER_PRESENCE_READY_FILE)
+                            os.remove(USER_GATEWAY_READY_FILE)
                         heartbeat_task.cancel()
-                        online_task.cancel()
                         await asyncio.gather(
                             heartbeat_task,
-                            online_task,
                             return_exceptions=True,
                         )
         except Exception as e:
-            print(f"[user-presence] error: {e}", flush=True)
+            print(f"[interaction-gateway] error: {e}", flush=True)
 
-        print("[user-presence] reconnecting in 5s", flush=True)
+        print("[interaction-gateway] reconnecting in 5s", flush=True)
         await asyncio.sleep(5)
 
 
@@ -875,13 +660,13 @@ if __name__ == "__main__":
 
     async def main():
         print(
-            "[presence] enabled; bump="
+            "[user-session] official desktop enabled; bump="
             + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
             flush=True,
         )
-        # The official desktop carries connected Spotify activity. A lightweight
-        # companion Gateway session supplies /bump's session ID and refreshes
-        # the online presence every four minutes.
+        # The official desktop alone owns presence and connected Spotify
+        # activity. A quiet companion Gateway supplies only the session ID
+        # required by the scheduled /bump interaction.
         desktop_task = asyncio.create_task(
             supervise("discord-desktop", discord_desktop_client)
         )
@@ -892,35 +677,34 @@ if __name__ == "__main__":
                 await desktop_task
             await asyncio.sleep(0.5)
 
-        presence_task = asyncio.create_task(
-            supervise("user-presence", connect_presence)
+        gateway_task = asyncio.create_task(
+            supervise("interaction-gateway", connect_interaction_gateway)
         )
         try:
             await asyncio.wait_for(SESSION_READY.wait(), timeout=45)
         except TimeoutError:
-            presence_task.cancel()
+            gateway_task.cancel()
             desktop_task.cancel()
             await asyncio.gather(
-                presence_task,
+                gateway_task,
                 desktop_task,
                 return_exceptions=True,
             )
-            raise RuntimeError("User-account presence session failed")
+            raise RuntimeError("User-account interaction session failed")
 
         if os.path.isfile(USER_DESKTOP_READY_FILE):
             print(
-                "[user-desktop] official Gateway ready; four-minute online "
-                "refresh active",
+                "[user-desktop] official Gateway ready; Discord owns presence",
                 flush=True,
             )
         else:
             print(
-                "[user-desktop] official client is still starting; online "
-                "presence refresh is active",
+                "[user-desktop] official client is still starting; no synthetic "
+                "presence updates will be sent",
                 flush=True,
             )
 
-        tasks = [desktop_task, presence_task]
+        tasks = [desktop_task, gateway_task]
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         await asyncio.gather(*tasks)
