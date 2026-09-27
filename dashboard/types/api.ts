@@ -146,6 +146,20 @@ export interface DiscordRole {
   name: string;
   color: number;
   position: number;
+  permissions: string[];
+  hoist: boolean;
+  mentionable: boolean;
+  managed: boolean;
+}
+
+export interface RoleMutation {
+  name: string;
+  color: number;
+  preset: "normal" | "high" | "all" | "custom";
+  permissions?: string[];
+  hoist: boolean;
+  mentionable: boolean;
+  below_role_id?: string | null;
 }
 
 export interface TicketUpdate {

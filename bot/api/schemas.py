@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, HttpUrl
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 
 # --- Bot Schemas ---
 
@@ -47,6 +47,19 @@ class DiscordRole(BaseModel):
     name: str
     color: int
     position: int # text, voice, category, etc.
+    permissions: List[str] = []
+    hoist: bool = False
+    mentionable: bool = False
+    managed: bool = False
+
+class RoleMutation(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    color: int = Field(0, ge=0, le=0xFFFFFF)
+    preset: Literal["normal", "high", "all", "custom"] = "normal"
+    permissions: Optional[List[str]] = None
+    hoist: bool = False
+    mentionable: bool = False
+    below_role_id: Optional[str] = None
 
 # --- Module Configurations ---
 

@@ -15,6 +15,7 @@ import {
   LeaderboardEntry,
   DiscordChannel,
   DiscordRole,
+  RoleMutation,
   AutoRoleConfig,
   AutoRoleUpdate,
   AdminStats,
@@ -85,6 +86,16 @@ export const api = {
   getGuildDetails: (guildId: string) => request<any>(`/guilds/${guildId}`),
   getChannels: (guildId: string) => request<DiscordChannel[]>(`/guilds/${guildId}/channels`),
   getRoles: (guildId: string) => request<DiscordRole[]>(`/guilds/${guildId}/roles`),
+  createRole: (guildId: string, data: RoleMutation) =>
+    request<DiscordRole>(`/guilds/${guildId}/roles`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateRole: (guildId: string, roleId: string, data: RoleMutation) =>
+    request<DiscordRole>(`/guilds/${guildId}/roles/${roleId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
   // Module Configs
   getPrefix: (guildId: string) => request<PrefixConfig>(`/guilds/${guildId}/prefix`),

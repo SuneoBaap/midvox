@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, Settings,
+  LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, Settings, Layers3,
   Menu, X, Bell, User, Search, ChevronRight, Sparkles, LogOut,
   LifeBuoy, ChevronDown, Shield, Download, Zap, Moon, Sun, MessageSquare,
 } from "lucide-react";
@@ -130,6 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             { name: "Tickets", href: `/dashboard/guild/${currentGuildId}/tickets`, icon: Ticket },
             { name: "Join to Create", href: `/dashboard/guild/${currentGuildId}/j2c`, icon: Settings },
             { name: "Custom Roles", href: `/dashboard/guild/${currentGuildId}/customroles`, icon: ShieldCheck },
+            { name: "Role Creator", href: `/dashboard/guild/${currentGuildId}/roles`, icon: Layers3 },
             { name: "Voice Role", href: `/dashboard/guild/${currentGuildId}/invcrole`, icon: Settings },
           ],
         },

@@ -15,13 +15,14 @@ from api.schemas import (
     RRConfig, RRUpdate, ReactionRoleEntry,
     InviteStat, InvitesLeaderboard,
     AntiSpamPlusConfig, AntiSpamPlusUpdate,
-    InstaDLConfig, InstaDLUpdate
+    InstaDLConfig, InstaDLUpdate, RoleMutation
 )
 from typing import TYPE_CHECKING, List, Optional
 import math
 import aiosqlite
 import json
 import os
+import discord
 
 if TYPE_CHECKING:
     from core.midvox import midvox
@@ -1173,11 +1174,176 @@ async def get_guild_roles(guild_id: int, bot: "midvox" = Depends(get_bot)):
             id=str(role.id),
             name=role.name,
             color=role.color.value,
-            position=role.position
+            position=role.position,
+            permissions=[name for name, enabled in role.permissions if enabled],
+            hoist=role.hoist,
+            mentionable=role.mentionable,
+            managed=role.managed,
         ))
     # Sort roles by position descending
     roles.sort(key=lambda x: x.position, reverse=True)
     return roles
+
+
+ROLE_PRESETS = {
+    "normal": {
+        "view_channel", "send_messages", "send_messages_in_threads", "create_public_threads",
+        "read_message_history", "add_reactions", "embed_links", "attach_files",
+        "use_external_emojis", "use_external_stickers", "use_application_commands",
+        "connect", "speak", "stream", "use_voice_activation", "change_nickname",
+    },
+    "high": {
+        "view_channel", "send_messages", "send_messages_in_threads", "create_public_threads",
+        "create_private_threads", "manage_threads", "read_message_history", "add_reactions",
+        "embed_links", "attach_files", "use_external_emojis", "use_external_stickers",
+        "use_application_commands", "connect", "speak", "stream", "use_voice_activation",
+        "change_nickname", "manage_nicknames", "manage_messages", "manage_channels",
+        "manage_roles", "manage_webhooks", "view_audit_log", "kick_members", "ban_members",
+        "moderate_members", "mute_members", "deafen_members", "move_members",
+    },
+}
+
+
+def _role_permissions(data: RoleMutation) -> discord.Permissions:
+    if data.permissions is None and data.preset == "all":
+        return discord.Permissions.all()
+    names = set(data.permissions if data.permissions is not None else ROLE_PRESETS.get(data.preset, set()))
+    invalid = sorted(names.difference(discord.Permissions.VALID_FLAGS))
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Unknown Discord permissions: {', '.join(invalid)}")
+    permissions = discord.Permissions.none()
+    for name in names:
+        setattr(permissions, name, True)
+    return permissions
+
+
+def _role_response(role: discord.Role) -> DiscordRole:
+    return DiscordRole(
+        id=str(role.id),
+        name=role.name,
+        color=role.color.value,
+        position=role.position,
+        permissions=[name for name, enabled in role.permissions if enabled],
+        hoist=role.hoist,
+        mentionable=role.mentionable,
+        managed=role.managed,
+    )
+
+
+async def _place_role_below(guild: discord.Guild, role: discord.Role, below_role_id: Optional[str]):
+    if not below_role_id:
+        return role
+    try:
+        below_id = int(below_role_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="The position role ID is invalid")
+    below = guild.get_role(below_id)
+    if not below or below == guild.default_role:
+        raise HTTPException(status_code=400, detail="The position role was not found")
+    if below.id == role.id:
+        raise HTTPException(status_code=400, detail="A role cannot be positioned below itself")
+    me = guild.me
+    if not me or below.position > me.top_role.position:
+        raise HTTPException(status_code=400, detail="MidVox cannot position a role that high in the hierarchy")
+    try:
+        return await role.edit(position=max(1, below.position - 1), reason="Role positioned from MidVox dashboard")
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="MidVox cannot move the role there. Move the bot role higher")
+
+
+def _validate_role_position(guild: discord.Guild, below_role_id: Optional[str]):
+    if not below_role_id:
+        return
+    try:
+        below_id = int(below_role_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="The position role ID is invalid")
+    below = guild.get_role(below_id)
+    if not below or below == guild.default_role:
+        raise HTTPException(status_code=400, detail="The position role was not found")
+    if not guild.me or below.position > guild.me.top_role.position:
+        raise HTTPException(status_code=400, detail="MidVox cannot position a role that high in the hierarchy")
+
+
+@router.post("/{guild_id}/roles", response_model=DiscordRole, summary="Create a Discord role")
+async def create_guild_role(guild_id: int, data: RoleMutation, bot: "midvox" = Depends(get_bot)):
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        raise HTTPException(status_code=404, detail="Guild not found")
+    if not guild.me or not guild.me.guild_permissions.manage_roles:
+        raise HTTPException(status_code=403, detail="MidVox needs Manage Roles permission")
+    role_name = data.name.strip()
+    if not role_name:
+        raise HTTPException(status_code=400, detail="Role name cannot be empty")
+    _validate_role_position(guild, data.below_role_id)
+    role = None
+    try:
+        role = await guild.create_role(
+            name=role_name,
+            permissions=_role_permissions(data),
+            color=discord.Color(data.color),
+            hoist=data.hoist,
+            mentionable=data.mentionable,
+            reason="Role created from MidVox dashboard",
+        )
+        role = await _place_role_below(guild, role, data.below_role_id)
+        return _role_response(role)
+    except HTTPException:
+        if role:
+            try:
+                await role.delete(reason="Rolling back failed dashboard role creation")
+            except discord.HTTPException:
+                pass
+        raise
+    except discord.Forbidden:
+        if role:
+            try:
+                await role.delete(reason="Rolling back failed dashboard role creation")
+            except discord.HTTPException:
+                pass
+        raise HTTPException(status_code=403, detail="Discord denied role creation. Check MidVox permissions and hierarchy")
+    except discord.HTTPException as exc:
+        if role:
+            try:
+                await role.delete(reason="Rolling back failed dashboard role creation")
+            except discord.HTTPException:
+                pass
+        raise HTTPException(status_code=400, detail=f"Discord rejected the role: {exc}")
+
+
+@router.patch("/{guild_id}/roles/{role_id}", response_model=DiscordRole, summary="Edit a Discord role")
+async def edit_guild_role(guild_id: int, role_id: int, data: RoleMutation, bot: "midvox" = Depends(get_bot)):
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        raise HTTPException(status_code=404, detail="Guild not found")
+    role = guild.get_role(role_id)
+    if not role or role == guild.default_role:
+        raise HTTPException(status_code=404, detail="Editable role not found")
+    if role.managed:
+        raise HTTPException(status_code=400, detail="Discord-managed integration roles cannot be edited")
+    if not guild.me or not guild.me.guild_permissions.manage_roles or role >= guild.me.top_role:
+        raise HTTPException(status_code=403, detail="Move MidVox above this role before editing it")
+    role_name = data.name.strip()
+    if not role_name:
+        raise HTTPException(status_code=400, detail="Role name cannot be empty")
+    _validate_role_position(guild, data.below_role_id)
+    if data.below_role_id and int(data.below_role_id) == role.id:
+        raise HTTPException(status_code=400, detail="A role cannot be positioned below itself")
+    try:
+        role = await role.edit(
+            name=role_name,
+            permissions=_role_permissions(data),
+            color=discord.Color(data.color),
+            hoist=data.hoist,
+            mentionable=data.mentionable,
+            reason="Role edited from MidVox dashboard",
+        )
+        role = await _place_role_below(guild, role, data.below_role_id)
+        return _role_response(role)
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="Discord denied this edit. Check MidVox permissions and hierarchy")
+    except discord.HTTPException as exc:
+        raise HTTPException(status_code=400, detail=f"Discord rejected the role: {exc}")
 
 
 # ========== INVC ROLE (Voice Role) ==========
