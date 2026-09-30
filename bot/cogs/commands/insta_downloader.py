@@ -19,6 +19,7 @@ import tempfile
 import urllib.request
 import urllib.error
 from collections import defaultdict
+from cobalt_errors import CobaltDownloadError, extraction_error
 
 INSTA_URL_RE = re.compile(
     r"(?:https?://)?(?:www\.|m\.|dl\.)?(?:instagram\.com|instagr\.am)/"
@@ -377,7 +378,7 @@ class InstaDownloader(commands.Cog):
             print(f"[InstaDL] cleanup error: {e}")
 
     def _cobalt_download(self, url):
-        """Download a YouTube Short through a public Cobalt instance.
+        """Download a YouTube Short through the local Cobalt instance.
 
         Cobalt performs the extraction/remuxing remotely. This bot deliberately
         does not pass YouTube cookies, invoke yt-dlp, or run local FFmpeg for
@@ -472,6 +473,7 @@ class InstaDownloader(commands.Cog):
             selected_client = None
             for quality in ("max", "1080", "720", "480", "360", "240"):
                 data = None
+                errors = []
                 candidates = (selected_client,) if selected_client else clients
                 for youtube_client in candidates:
                     data = _request(quality, youtube_client)
@@ -489,11 +491,15 @@ class InstaDownloader(commands.Cog):
                     error = data.get("error")
                     if isinstance(error, dict):
                         error = error.get("code") or error
+                    errors.append(error if isinstance(error, str) else "unknown")
                     print(
                         f"[InstaDL] cobalt client {youtube_client} failed "
                         f"at {quality}: {error or status}"
                     )
                 else:
+                    failure = extraction_error(errors)
+                    if failure:
+                        raise failure
                     return None
 
                 status = data.get("status")
@@ -547,6 +553,8 @@ class InstaDownloader(commands.Cog):
                     )
                     return path
             return None
+        except CobaltDownloadError:
+            raise
         except Exception as e:
             print(f"[InstaDL] cobalt download failed: {e}")
             return None
@@ -607,7 +615,13 @@ class InstaDownloader(commands.Cog):
         file_path = None
 
         if source == "youtube":
-            file_path = await loop.run_in_executor(None, self._cobalt_download, url)
+            try:
+                file_path = await loop.run_in_executor(None, self._cobalt_download, url)
+            except CobaltDownloadError as error:
+                await self._send_status(
+                    message.channel, error.user_message, reference=None,
+                )
+                return
             if not file_path:
                 await self._send_status(
                     message.channel,
