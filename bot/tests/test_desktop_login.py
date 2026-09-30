@@ -58,17 +58,34 @@ class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
     async def test_handoff_verifies_storage_then_reloads(self):
         await self.run_handoff(stored='"test-only-token"', succeeds=True)
 
+    async def test_handoff_survives_native_window_login_redirect(self):
+        await self.run_handoff(
+            stored='"test-only-token"', succeeds=True,
+            current_url="https://discordapp.com/login?redirect_to=%2Fapp",
+        )
+
+    def test_target_selection_rejects_changed_host_and_other_login_window(self):
+        original = {"id": "native", "webSocketDebuggerUrl": "ws://localhost/native"}
+        for current in (
+            {"id": "native", "url": "https://example.com/login"},
+            {"id": "web", "url": "https://discord.com/login"},
+            {"id": "native", "url": "app:///splash/index.html"},
+        ):
+            current.update(type="page", webSocketDebuggerUrl="ws://localhost/other")
+            self.assertIsNone(sidecar.select_desktop_target([current], original))
+
     async def test_failed_storage_never_reloads(self):
         await self.run_handoff(stored='"different-token"', succeeds=False)
 
-    async def run_handoff(self, stored, succeeds):
+    async def run_handoff(self, stored, succeeds, current_url=None):
         from unittest.mock import MagicMock
 
-        target = {"type": "page", "url": "https://discordapp.com/app",
+        target = {"id": "native", "type": "page", "url": "https://discordapp.com/app",
                   "webSocketDebuggerUrl": "ws://localhost/test"}
+        current = dict(target, url=current_url or target["url"])
         session = MagicMock()
         session.get.return_value.__aenter__.return_value.json = AsyncMock(
-            return_value=[target]
+            return_value=[current]
         )
         call = AsyncMock(side_effect=[{}, {"entries": [["token", stored]]}, {}])
         with patch.object(sidecar, "TOKEN", "test-only-token"), \

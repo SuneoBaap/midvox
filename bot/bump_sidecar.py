@@ -203,21 +203,19 @@ async def authenticate_desktop(session, target, debug_port):
     """Authenticate the native app without replacing it with the web client."""
     async with session.get(f"http://127.0.0.1:{debug_port}/json/list") as response:
         targets = await response.json()
-    pages = [
-        item
-        for item in targets
-        if item.get("type") == "page" and item.get("webSocketDebuggerUrl")
-    ]
-    target = next(
-        (
-            item
-            for item in pages
-            if is_desktop_app_url(str(item.get("url") or ""))
-        ),
-        None,
-    )
+    target = select_desktop_target(targets, target)
     if not target:
-        raise RuntimeError("Native Discord app target did not become available")
+        # Log only origin/path; DevTools URLs may contain authentication query
+        # parameters, which must never be copied into deployment logs.
+        documents = []
+        for item in targets:
+            if item.get("type") == "page":
+                parsed = urlsplit(str(item.get("url") or ""))
+                documents.append(f"{parsed.scheme}://{parsed.netloc}{parsed.path}")
+        raise RuntimeError(
+            "Native Discord app target did not become available; documents="
+            + repr(documents)
+        )
 
     async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
         parsed = urlsplit(target["url"])
@@ -246,6 +244,36 @@ async def authenticate_desktop(session, target, debug_port):
         # Success here is only a handoff; Gateway READY is checked separately.
         await cdp_call(ws, 4, "Page.reload", {})
     return False
+
+
+def select_desktop_target(targets, original):
+    """Keep the known native window when its app document redirects to login."""
+    pages = [
+        item
+        for item in targets
+        if item.get("type") == "page" and item.get("webSocketDebuggerUrl")
+    ]
+    for item in pages:
+        same_window = (
+            original.get("id") and item.get("id") == original["id"]
+        ) or (
+            item.get("webSocketDebuggerUrl") == original.get("webSocketDebuggerUrl")
+        )
+        parsed = urlsplit(str(item.get("url") or ""))
+        if (
+            same_window
+            and parsed.scheme == "https"
+            and parsed.netloc in {"discord.com", "discordapp.com"}
+        ):
+            return item
+    return next(
+        (
+            item
+            for item in pages
+            if is_desktop_app_url(str(item.get("url") or ""))
+        ),
+        None,
+    )
 
 
 def is_desktop_app_url(url: str) -> bool:
