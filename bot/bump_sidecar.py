@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 import aiohttp
 from desktop_health import DesktopHealth
+from desktop_awake import DesktopAwake
 
 TOKEN = os.environ.get("USER_TOKEN", "")
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
@@ -569,8 +570,12 @@ async def discord_desktop_client():
                 # Discord can detach from its launcher and can close the
                 # optional DevTools listener while its Gateway stays ready.
                 # Leave the authenticated official client open and let it own
-                # status and linked-account activity without synthetic input.
+                # status and linked-account activity. A local pointer pulse
+                # prevents Xvfb inactivity from suppressing native updates.
                 output_closed_reported = False
+                awake = DesktopAwake()
+                next_awake = 0
+                awake_failed = False
                 print(
                     "[desktop-health] checking desktop/display and native "
                     "connection state every 1s",
@@ -581,6 +586,18 @@ async def discord_desktop_client():
                         raise RuntimeError(
                             "Virtual display exited; restarting the desktop session"
                         )
+                    now = asyncio.get_running_loop().time()
+                    if now >= next_awake:
+                        succeeded = awake.pulse()
+                        if not succeeded and not awake_failed:
+                            print("[desktop-health] virtual desktop wake failed", flush=True)
+                        elif succeeded and (next_awake == 0 or awake_failed):
+                            print(
+                                "[desktop-health] local desktop keep-awake active every 60s",
+                                flush=True,
+                            )
+                        awake_failed = not succeeded
+                        next_awake = now + awake.INTERVAL_SECONDS
                     if desktop_health.reconnect_stalled():
                         raise RuntimeError(
                             "Native Gateway reconnect stalled for 120s; "
