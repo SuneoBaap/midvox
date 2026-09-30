@@ -345,13 +345,17 @@ async def stop_desktop_process(process):
         return
     with contextlib.suppress(ProcessLookupError, PermissionError):
         os.killpg(process.pid, signal.SIGTERM)
+    # The launcher can already have exited while Electron children remain.
+    # Wait for the entire group, not just the launcher, before relaunching.
+    for _ in range(10):
+        if not desktop_process_group_alive(process):
+            break
+        await asyncio.sleep(0.5)
+    if desktop_process_group_alive(process):
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(process.pid, signal.SIGKILL)
     if process.returncode is None:
-        try:
-            await asyncio.wait_for(process.wait(), timeout=5)
-        except TimeoutError:
-            with contextlib.suppress(ProcessLookupError, PermissionError):
-                os.killpg(process.pid, signal.SIGKILL)
-            await process.wait()
+        await asyncio.wait_for(process.wait(), timeout=5)
 
 
 def desktop_process_group_alive(process) -> bool:
@@ -560,6 +564,10 @@ async def discord_desktop_client():
                 # status and linked-account activity without synthetic input.
                 output_closed_reported = False
                 while desktop_process_group_alive(discord_process):
+                    if display_process.returncode is not None:
+                        raise RuntimeError(
+                            "Virtual display exited; restarting the desktop session"
+                        )
                     if desktop_health.reconnect_stalled():
                         raise RuntimeError(
                             "Native Gateway reconnect stalled for 120s; "

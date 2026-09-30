@@ -10,6 +10,23 @@ import bump_sidecar as sidecar
 
 
 class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cleanup_kills_detached_children_after_launcher_exit(self):
+        process = SimpleNamespace(pid=1234, returncode=0)
+        with patch.object(sidecar.os, "killpg", create=True) as killpg, \
+             patch.object(sidecar.signal, "SIGKILL", 9, create=True), \
+             patch.object(sidecar, "desktop_process_group_alive", return_value=True), \
+             patch.object(sidecar.asyncio, "sleep", AsyncMock()):
+            await sidecar.stop_desktop_process(process)
+        self.assertEqual(killpg.call_args_list[0].args, (1234, sidecar.signal.SIGTERM))
+        self.assertEqual(killpg.call_args_list[-1].args, (1234, 9))
+
+    async def test_clean_shutdown_does_not_force_kill(self):
+        process = SimpleNamespace(pid=1234, returncode=0)
+        with patch.object(sidecar.os, "killpg", create=True) as killpg, \
+             patch.object(sidecar, "desktop_process_group_alive", return_value=False):
+            await sidecar.stop_desktop_process(process)
+        killpg.assert_called_once_with(1234, sidecar.signal.SIGTERM)
+
     async def test_spotify_and_gateway_diagnostics_survive_output_filter(self):
         from unittest.mock import MagicMock
 
