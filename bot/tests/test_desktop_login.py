@@ -31,6 +31,16 @@ class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["op"], 2)
         self.assertNotIn("presence", payload["d"])
 
+    def test_desktop_target_excludes_web_login_and_untrusted_hosts(self):
+        self.assertTrue(sidecar.is_desktop_app_url("https://discordapp.com/app"))
+        self.assertTrue(sidecar.is_desktop_app_url("https://discord.com/app/"))
+        for url in (
+            "https://discord.com/login", "https://discord.com/channels/@me",
+            "https://example.com/discord.com/app", "https://discord.com.evil/app",
+            "file:///app", "https://discord.com/application",
+        ):
+            self.assertFalse(sidecar.is_desktop_app_url(url), url)
+
     async def test_javascript_exception_is_not_success(self):
         import json
         from types import SimpleNamespace
@@ -54,13 +64,13 @@ class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
     async def run_handoff(self, stored, succeeds):
         from unittest.mock import MagicMock
 
-        target = {"type": "page", "url": "https://discord.com/login",
+        target = {"type": "page", "url": "https://discordapp.com/app",
                   "webSocketDebuggerUrl": "ws://localhost/test"}
         session = MagicMock()
         session.get.return_value.__aenter__.return_value.json = AsyncMock(
             return_value=[target]
         )
-        call = AsyncMock(side_effect=[{}, {}, {"entries": [["token", stored]]}, {}])
+        call = AsyncMock(side_effect=[{}, {"entries": [["token", stored]]}, {}])
         with patch.object(sidecar, "TOKEN", "test-only-token"), \
              patch.object(sidecar, "cdp_call", call), \
              patch.object(sidecar.asyncio, "sleep", AsyncMock()):
@@ -72,6 +82,11 @@ class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
         methods = [c.args[2] for c in call.call_args_list]
         self.assertIn("DOMStorage.setDOMStorageItem", methods)
         self.assertNotIn("Runtime.evaluate", methods)
+        self.assertNotIn("Page.navigate", methods)
+        self.assertEqual(
+            call.call_args_list[0].args[3]["storageId"]["securityOrigin"],
+            "https://discordapp.com",
+        )
         self.assertEqual("Page.reload" in methods, succeeds)
 
 

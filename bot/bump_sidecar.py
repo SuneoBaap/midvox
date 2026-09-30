@@ -6,6 +6,7 @@ import os
 import random
 import signal
 import string
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -199,23 +200,7 @@ async def cdp_call(ws, request_id, method, params=None):
 
 
 async def authenticate_desktop(session, target, debug_port):
-    """Move the settled target to discord.com and hand it the user token."""
-    try:
-        async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
-            await cdp_call(
-                ws,
-                1,
-                "Page.navigate",
-                {"url": "https://discord.com/login"},
-            )
-    except (aiohttp.ClientError, RuntimeError) as error:
-        print(
-            "[discord-desktop] login-origin navigation transition: "
-            f"{error}",
-            flush=True,
-        )
-
-    await asyncio.sleep(5)
+    """Authenticate the native app without replacing it with the web client."""
     async with session.get(f"http://127.0.0.1:{debug_port}/json/list") as response:
         targets = await response.json()
     pages = [
@@ -227,15 +212,19 @@ async def authenticate_desktop(session, target, debug_port):
         (
             item
             for item in pages
-            if str(item.get("url") or "").startswith("https://discord.com/")
+            if is_desktop_app_url(str(item.get("url") or ""))
         ),
         None,
     )
     if not target:
-        raise RuntimeError("discord.com login target did not become available")
+        raise RuntimeError("Native Discord app target did not become available")
 
     async with session.ws_connect(target["webSocketDebuggerUrl"]) as ws:
-        storage_id = {"securityOrigin": "https://discord.com", "isLocalStorage": True}
+        parsed = urlsplit(target["url"])
+        storage_id = {
+            "securityOrigin": f"{parsed.scheme}://{parsed.netloc}",
+            "isLocalStorage": True,
+        }
         # Discord removes window.localStorage from the page. Write through CDP
         # rather than evaluating JavaScript against that missing global.
         await cdp_call(
@@ -257,6 +246,16 @@ async def authenticate_desktop(session, target, debug_port):
         # Success here is only a handoff; Gateway READY is checked separately.
         await cdp_call(ws, 4, "Page.reload", {})
     return False
+
+
+def is_desktop_app_url(url: str) -> bool:
+    """Accept the official desktop app document, excluding login/web pages."""
+    parsed = urlsplit(url)
+    return (
+        parsed.scheme == "https"
+        and parsed.netloc in {"discord.com", "discordapp.com"}
+        and parsed.path.rstrip("/") == "/app"
+    )
 
 
 async def relay_desktop_output(stream):
@@ -432,13 +431,7 @@ async def discord_desktop_client():
                             (
                                 item
                                 for item in pages
-                                if any(
-                                    origin in str(item.get("url") or "")
-                                    for origin in (
-                                        "discordapp.com/app",
-                                        "discord.com/app",
-                                    )
-                                )
+                                if is_desktop_app_url(str(item.get("url") or ""))
                             ),
                             None,
                         )
@@ -492,10 +485,22 @@ async def discord_desktop_client():
                         )
                     else:
                         print(
-                            "[discord-desktop] token written on discord.com; "
+                            "[discord-desktop] native app authentication stored; "
                             "waiting for authenticated Gateway READY",
                             flush=True,
                         )
+
+                for _ in range(90):
+                    if os.path.isfile(USER_DESKTOP_READY_FILE):
+                        break
+                    if not desktop_process_group_alive(discord_process):
+                        raise RuntimeError("Discord exited before authentication completed")
+                    await asyncio.sleep(1)
+                else:
+                    raise RuntimeError(
+                        "Native Discord did not report Gateway READY within 90s; "
+                        "process startup alone is not an authenticated desktop session"
+                    )
 
                 # Discord can detach from its launcher and can close the
                 # optional DevTools listener while its Gateway stays ready.
