@@ -315,6 +315,14 @@ async def relay_desktop_output(stream, health=None):
         if text and (line_count <= 80 or important):
             print(f"[discord-desktop] {text}", flush=True)
         transition = health.observe(text) if health else None
+        if transition == "spotify_disconnected":
+            print(
+                "[desktop-health] Spotify socket disconnected; allowing 120s "
+                "for Discord's own reconnect",
+                flush=True,
+            )
+        elif transition == "spotify_connected":
+            print("[desktop-health] native Spotify socket connected", flush=True)
         if transition == "disconnected":
             with contextlib.suppress(OSError):
                 os.remove(USER_DESKTOP_READY_FILE)
@@ -563,6 +571,11 @@ async def discord_desktop_client():
                 # Leave the authenticated official client open and let it own
                 # status and linked-account activity without synthetic input.
                 output_closed_reported = False
+                print(
+                    "[desktop-health] checking desktop/display and native "
+                    "connection state every 1s",
+                    flush=True,
+                )
                 while desktop_process_group_alive(discord_process):
                     if display_process.returncode is not None:
                         raise RuntimeError(
@@ -571,6 +584,11 @@ async def discord_desktop_client():
                     if desktop_health.reconnect_stalled():
                         raise RuntimeError(
                             "Native Gateway reconnect stalled for 120s; "
+                            "restarting the official desktop to recover"
+                        )
+                    if desktop_health.spotify_reconnect_stalled():
+                        raise RuntimeError(
+                            "Native Spotify socket did not connect within 120s; "
                             "restarting the official desktop to recover"
                         )
                     if output_task.done() and not output_closed_reported:
@@ -584,7 +602,7 @@ async def discord_desktop_client():
                             "group remains alive; session health is unconfirmed",
                             flush=True,
                         )
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(1)
                 raise RuntimeError("Discord desktop process group exited")
         except asyncio.CancelledError:
             raise

@@ -10,12 +10,28 @@ class DesktopHealth:
         self.connected = False
         self.ever_connected = False
         self.disconnected_since = None
+        self.spotify_connected = False
+        self.spotify_disconnected_since = None
 
     def observe(self, line, now=None):
         """Return a connection transition from the official client's logs."""
+        now = time.monotonic() if now is None else now
+        if "[Spotify]" in line:
+            if "WS Connected" in line:
+                transitioned = not self.spotify_connected
+                self.spotify_connected = True
+                self.spotify_disconnected_since = None
+                return "spotify_connected" if transitioned else None
+            if any(marker in line for marker in (
+                "WS Connecting", "WS Disconnected", "WS Closed", "WS Error",
+            )):
+                transitioned = self.spotify_connected
+                self.spotify_connected = False
+                if self.spotify_disconnected_since is None:
+                    self.spotify_disconnected_since = now
+                return "spotify_disconnected" if transitioned else None
         if "[GatewaySocket]" not in line:
             return None
-        now = time.monotonic() if now is None else now
         established = (
             "[READY]" in line or "[RESUMED]" in line
             or "Setting connection state to SESSION_ESTABLISHED" in line
@@ -45,4 +61,12 @@ class DesktopHealth:
         return (
             self.disconnected_since is not None
             and now - self.disconnected_since >= self.RECONNECT_GRACE_SECONDS
+        )
+
+    def spotify_reconnect_stalled(self, now=None):
+        """Only recover an explicit socket failure or unfinished connection."""
+        now = time.monotonic() if now is None else now
+        return (
+            self.spotify_disconnected_since is not None
+            and now - self.spotify_disconnected_since >= self.RECONNECT_GRACE_SECONDS
         )

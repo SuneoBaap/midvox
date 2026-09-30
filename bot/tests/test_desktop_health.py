@@ -9,6 +9,33 @@ from desktop_health import DesktopHealth
 
 
 class DesktopHealthTests(unittest.TestCase):
+    def test_spotify_stuck_connecting_has_bounded_recovery(self):
+        health = DesktopHealth()
+        health.observe("[Spotify] WS Connecting", now=10)
+        health.observe("[Spotify] WS Connecting", now=100)
+        self.assertFalse(health.spotify_reconnect_stalled(now=129))
+        self.assertTrue(health.spotify_reconnect_stalled(now=130))
+
+    def test_spotify_reconnect_clears_failure_independently_of_gateway(self):
+        health = DesktopHealth()
+        health.observe("[GatewaySocket] [READY]", now=0)
+        self.assertEqual(health.observe("[Spotify] WS Connected", now=1), "spotify_connected")
+        self.assertEqual(health.observe("[Spotify] WS Disconnected", now=5), "spotify_disconnected")
+        health.observe("[GatewaySocket] [READY_SUPPLEMENTAL]", now=50)
+        self.assertTrue(health.spotify_reconnect_stalled(now=125))
+        self.assertFalse(health.reconnect_stalled(now=125))
+        health.observe("[Spotify] WS Connected", now=126)
+        self.assertFalse(health.spotify_reconnect_stalled(now=1000))
+
+    def test_quiet_playback_and_no_linked_account_do_not_trigger_recovery(self):
+        health = DesktopHealth()
+        health.observe("[GatewaySocket] [READY]", now=0)
+        self.assertFalse(health.spotify_reconnect_stalled(now=10000))
+        health.observe("[Spotify] WS Connected", now=1)
+        health.observe("[Spotify] Devices updated: []", now=2)
+        health.observe("[Spotify] Player paused", now=3)
+        self.assertFalse(health.spotify_reconnect_stalled(now=10000))
+
     def test_stuck_reconnect_and_retries_do_not_reset_deadline(self):
         health = DesktopHealth()
         health.observe("[GatewaySocket] [READY]", now=0)
