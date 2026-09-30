@@ -10,6 +10,21 @@ import bump_sidecar as sidecar
 
 
 class DesktopLoginTests(unittest.IsolatedAsyncioTestCase):
+    async def test_spotify_and_gateway_diagnostics_survive_output_filter(self):
+        from unittest.mock import MagicMock
+
+        stream = MagicMock()
+        stream.readline = AsyncMock(side_effect=(
+            [b"normal startup line\n"] * 81
+            + [b"[Spotify] Player disconnected\n",
+               b"[GatewaySocket] [CLOSE] 1006\n", b""]
+        ))
+        with patch("builtins.print") as output:
+            await sidecar.relay_desktop_output(stream)
+        lines = [entry.args[0] for entry in output.call_args_list]
+        self.assertIn("[discord-desktop] [Spotify] Player disconnected", lines)
+        self.assertIn("[discord-desktop] [GatewaySocket] [CLOSE] 1006", lines)
+
     async def test_desktop_liveness_uses_the_process_group(self):
         process = SimpleNamespace(pid=1234, returncode=0)
 

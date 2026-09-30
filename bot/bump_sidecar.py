@@ -306,6 +306,9 @@ async def relay_desktop_output(stream):
                 "ready",
                 "devtools",
                 "version",
+                "[spotify]",
+                "[gatewaysocket]",
+                "[fast connect]",
             )
         )
         if text and (line_count <= 80 or important):
@@ -542,7 +545,19 @@ async def discord_desktop_client():
                 # optional DevTools listener while its Gateway stays ready.
                 # Leave the authenticated official client open and let it own
                 # status and linked-account activity without synthetic input.
+                output_closed_reported = False
                 while desktop_process_group_alive(discord_process):
+                    if output_task.done() and not output_closed_reported:
+                        # Discord can legitimately detach from its launcher.
+                        # Report lost diagnostics without repeatedly restarting
+                        # an otherwise running client merely because stdout closed.
+                        await output_task
+                        output_closed_reported = True
+                        print(
+                            "[discord-desktop] output stream closed while process "
+                            "group remains alive; session health is unconfirmed",
+                            flush=True,
+                        )
                     await asyncio.sleep(30)
                 raise RuntimeError("Discord desktop process group exited")
         except asyncio.CancelledError:
