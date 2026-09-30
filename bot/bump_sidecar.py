@@ -9,6 +9,7 @@ import string
 from urllib.parse import urlsplit
 
 import aiohttp
+from desktop_health import DesktopHealth
 
 TOKEN = os.environ.get("USER_TOKEN", "")
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
@@ -286,7 +287,7 @@ def is_desktop_app_url(url: str) -> bool:
     )
 
 
-async def relay_desktop_output(stream):
+async def relay_desktop_output(stream, health=None):
     """Drain Discord output and retain useful startup diagnostics."""
     line_count = 0
     while True:
@@ -313,7 +314,18 @@ async def relay_desktop_output(stream):
         )
         if text and (line_count <= 80 or important):
             print(f"[discord-desktop] {text}", flush=True)
-        if "[GatewaySocket] [READY]" in text:
+        transition = health.observe(text) if health else None
+        if transition == "disconnected":
+            with contextlib.suppress(OSError):
+                os.remove(USER_DESKTOP_READY_FILE)
+            print(
+                "[desktop-health] native Gateway disconnected; allowing 120s "
+                "for Discord's own reconnect",
+                flush=True,
+            )
+        if transition == "connected" or (
+            health is None and "[GatewaySocket] [READY]" in text
+        ):
             with contextlib.suppress(OSError):
                 with open(
                     USER_DESKTOP_READY_FILE,
@@ -322,7 +334,7 @@ async def relay_desktop_output(stream):
                 ) as ready_file:
                     ready_file.write("ready")
             print(
-                "[user-desktop] ONLINE as Linux Desktop; official Gateway READY",
+                "[user-desktop] ONLINE as Linux Desktop; native Gateway established",
                 flush=True,
             )
 
@@ -379,6 +391,7 @@ async def discord_desktop_client():
         display_process = None
         discord_process = None
         output_task = None
+        desktop_health = DesktopHealth()
         try:
             display_process = await asyncio.create_subprocess_exec(
                 "Xvfb",
@@ -438,7 +451,7 @@ async def discord_desktop_client():
                 start_new_session=True,
             )
             output_task = asyncio.create_task(
-                relay_desktop_output(discord_process.stdout)
+                relay_desktop_output(discord_process.stdout, desktop_health)
             )
 
             async with aiohttp.ClientSession() as session:
@@ -547,6 +560,11 @@ async def discord_desktop_client():
                 # status and linked-account activity without synthetic input.
                 output_closed_reported = False
                 while desktop_process_group_alive(discord_process):
+                    if desktop_health.reconnect_stalled():
+                        raise RuntimeError(
+                            "Native Gateway reconnect stalled for 120s; "
+                            "restarting the official desktop to recover"
+                        )
                     if output_task.done() and not output_closed_reported:
                         # Discord can legitimately detach from its launcher.
                         # Report lost diagnostics without repeatedly restarting
@@ -558,7 +576,7 @@ async def discord_desktop_client():
                             "group remains alive; session health is unconfirmed",
                             flush=True,
                         )
-                    await asyncio.sleep(30)
+                    await asyncio.sleep(10)
                 raise RuntimeError("Discord desktop process group exited")
         except asyncio.CancelledError:
             raise
