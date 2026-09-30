@@ -370,6 +370,9 @@ async def discord_desktop_client():
             desktop_environment["DISPLAY"] = ":99"
             desktop_environment["XDG_CONFIG_HOME"] = DISCORD_CONFIG_HOME
             desktop_environment["XDG_RUNTIME_DIR"] = "/tmp/midvox-runtime"
+            # Railway has no physical GPU. Keep Mesa's CPU renderer available
+            # for Electron instead of disabling every rendering backend.
+            desktop_environment["LIBGL_ALWAYS_SOFTWARE"] = "1"
             os.makedirs(
                 desktop_environment["XDG_RUNTIME_DIR"],
                 mode=0o700,
@@ -385,11 +388,10 @@ async def discord_desktop_client():
                 DISCORD_DESKTOP,
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                # SwiftShader creates an additional memory-heavy GPU process on
-                # Railway. Discord's UI renders correctly with GPU composition
-                # disabled, and this avoids short-lived renderer/GPU exits.
+                # Disable hardware acceleration while preserving software
+                # rasterization. Disabling both caused Electron's fatal
+                # "GPU process isn't usable" crash before login.
                 "--disable-gpu",
-                "--disable-software-rasterizer",
                 "--disable-gpu-compositing",
                 "--disable-extensions",
                 "--disable-background-timer-throttling",
@@ -476,7 +478,13 @@ async def discord_desktop_client():
                     except asyncio.CancelledError:
                         raise
                     except (aiohttp.ClientError, RuntimeError, ValueError) as error:
-                        raise RuntimeError("Desktop authentication handoff failed") from error
+                        detail = str(error)
+                        if TOKEN:
+                            detail = detail.replace(TOKEN, "[redacted]")
+                        raise RuntimeError(
+                            "Desktop authentication handoff failed: "
+                            f"{type(error).__name__}: {detail}"
+                        ) from error
                     if token_reused:
                         print(
                             "[discord-desktop] existing discord.com authentication "

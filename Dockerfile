@@ -102,7 +102,7 @@ RUN apt-get update \
         bash ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
         libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
         libatomic1 libnotify4 libnspr4 libnss3 libpulse0 libstdc++6 libx11-6 \
-        libxcb1 libxcomposite1 libxdamage1 \
+        libxcb1 libxcomposite1 libxdamage1 libegl1 libgl1-mesa-dri \
         libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
         xdg-utils xvfb \
     && test -x /opt/Discord/discord \
