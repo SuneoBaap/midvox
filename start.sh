@@ -159,8 +159,8 @@ EOF
   ) > "$warp_dir/wireproxy.log" 2>&1 &
   WARP_PID=$!
 
-  for i in $(seq 1 25); do
-    if python -c "import urllib.request; proxy='http://127.0.0.1:$proxy_port'; opener=urllib.request.build_opener(urllib.request.ProxyHandler({'https': proxy})); trace=opener.open('https://www.cloudflare.com/cdn-cgi/trace', timeout=3).read(); assert b'warp=on' in trace or b'warp=plus' in trace" >/dev/null 2>&1; then
+  for i in $(seq 1 12); do
+    if python -c "import urllib.request; proxy='http://127.0.0.1:$proxy_port'; opener=urllib.request.build_opener(urllib.request.ProxyHandler({'https': proxy})); trace=opener.open('https://www.cloudflare.com/cdn-cgi/trace', timeout=8).read(); assert b'warp=on' in trace or b'warp=plus' in trace" >/dev/null 2>&1; then
       export COBALT_PROXY_URL="http://127.0.0.1:$proxy_port"
       echo "WARP egress ready for Cobalt on 127.0.0.1:$proxy_port."
       return 0
@@ -192,21 +192,10 @@ if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   exit 1
 fi
 
-# YouTube frequently challenges datacenter IPs. When a cookie header is supplied
-# as a Railway secret, convert it to Cobalt's cookies.json format at runtime.
-# The secret is never committed or printed. A complete Cobalt JSON object is
-# accepted too, which makes rotating an existing cookies.json straightforward.
-export COBALT_COOKIE_FILE="/tmp/midvox-cobalt-cookies.json"
-if [ -n "${YOUTUBE_COOKIE:-}" ]; then
-  python -c 'import json, os; raw = os.environ["YOUTUBE_COOKIE"].strip(); data = json.loads(raw) if raw.startswith("{") else {"youtube": [raw]}; entries = data.get("youtube") if isinstance(data, dict) else None; assert isinstance(entries, list) and entries and all(isinstance(item, str) and item.strip() for item in entries), "YOUTUBE_COOKIE must be a cookie header or Cobalt cookies.json"; json.dump(data, open(os.environ["COBALT_COOKIE_FILE"], "w", encoding="utf-8"))' \
-    || { echo "FATAL: YOUTUBE_COOKIE is empty or invalid." >&2; exit 1; }
-  chmod 600 "$COBALT_COOKIE_FILE"
-  export COOKIE_PATH="$COBALT_COOKIE_FILE"
-  echo "Cobalt YouTube cookies: enabled."
-else
-  unset COOKIE_PATH
-  echo "Cobalt YouTube cookies: not configured."
-fi
+# Public Shorts use anonymous extraction. Do not load an old Railway cookie
+# secret or require a browser/session generator for this mode.
+unset COOKIE_PATH YOUTUBE_SESSION_SERVER COBALT_COOKIE_FILE
+echo "Cobalt YouTube mode: anonymous (no account cookies or session generator)."
 export COBALT_YOUTUBE_CLIENT="${COBALT_YOUTUBE_CLIENT:-ANDROID_VR}"
 echo "Cobalt YouTube client: $COBALT_YOUTUBE_CLIENT"
 

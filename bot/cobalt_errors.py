@@ -12,9 +12,9 @@ def extraction_error(codes):
     if "error.api.youtube.login" in codes:
         return CobaltDownloadError(
             "error.api.youtube.login",
-            "YouTube is requiring sign-in for this Short. The bot owner needs "
-            "to check its YouTube login session and download connection; "
-            "retrying the link alone won't fix this.",
+            "YouTube rejected this anonymous download with a sign-in challenge. "
+            "The bot's download connection needs checking; retrying the link "
+            "alone won't fix this.",
         )
     if codes and all(code == "error.api.content.video.unavailable" for code in codes):
         return CobaltDownloadError(

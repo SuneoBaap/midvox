@@ -101,6 +101,11 @@ MidVox ships as one production Docker image. Railway should build the repository
 
 `start.sh` derives `NEXTAUTH_URL` from Railway's public domain at runtime, which prevents OAuth redirects from pointing to an older deployment.
 
+Public YouTube Shorts use anonymous Cobalt extraction. Account cookies and a
+YouTube session generator are not loaded. YouTube can still challenge the
+server's network connection; cookie-less mode does not guarantee that every
+video is available.
+
 <details>
 <summary><strong>Optional variables</strong></summary>
 
@@ -108,7 +113,6 @@ MidVox ships as one production Docker image. Railway should build the repository
 | :--- | :--- | :--- |
 | `PORT` | `8080` | Public dashboard port |
 | `API_PORT` | `5001` | Internal bot API port |
-| `YOUTUBE_COOKIE` | empty | Authentication cookie used when YouTube requires a signed-in session |
 | `COBALT_PUBLIC_URL` | local URL | Public base URL generated for Cobalt when required |
 | `WARP` | `1` | Enables private WARP egress for datacenter media requests |
 | `EMOJI_SYNC` | `false` | Enables startup emoji synchronization |
