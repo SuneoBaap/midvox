@@ -192,8 +192,7 @@ if [ ! -f /opt/yt-session/potoken-generator.py ]; then
   exit 1
 fi
 if [ -z "${COBALT_PROXY_URL:-}" ]; then
-  echo "FATAL: YouTube session generation requires working WARP egress." >&2
-  exit 1
+  echo "WARNING: WARP is unavailable; the YouTube session and Cobalt will use direct egress." >&2
 fi
 export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
 export YOUTUBE_SESSION_SERVER="http://127.0.0.1:${YT_SESSION_PORT}/"
@@ -214,7 +213,7 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
   runuser -u midvox -- env \
     DISPLAY=:98 \
     CHROME_PATH=/usr/bin/chromium \
-    YT_SESSION_PROXY="$COBALT_PROXY_URL" \
+    YT_SESSION_PROXY="${COBALT_PROXY_URL:-}" \
     PYTHONUNBUFFERED=1 \
     python potoken-generator.py \
       --bind 127.0.0.1 \
@@ -232,23 +231,22 @@ YT_SESSION_PID=$!
 # The server starts only after Chromium has generated its first real token.
 # Validate the JSON fields without logging either secret value.
 YT_SESSION_READY=0
-for i in $(seq 1 120); do
-  if python -c "import json, urllib.request; d=json.load(urllib.request.urlopen('${YOUTUBE_SESSION_SERVER}token', timeout=2)); assert len(d.get('potoken','')) >= 160 and d.get('visitor_data')" >/dev/null 2>&1; then
+for i in $(seq 1 90); do
+  if python -c "import json, urllib.request; q=urllib.request.Request('${YOUTUBE_SESSION_SERVER}get_pot', method='POST'); d=json.load(urllib.request.urlopen(q, timeout=2)); assert len(d.get('poToken',d.get('potoken',''))) >= 160 and d.get('contentBinding',d.get('visitor_data'))" >/dev/null 2>&1; then
     echo "YouTube session token is ready."
     YT_SESSION_READY=1
     break
   fi
   if ! kill -0 "$YT_SESSION_PID" 2>/dev/null; then
-    echo "FATAL: YouTube session generator exited before producing a token." >&2
+    echo "WARNING: YouTube session generator exited before producing a token; continuing startup." >&2
     tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
-    exit 1
+    break
   fi
   sleep 1
 done
 if [ "$YT_SESSION_READY" -ne 1 ]; then
-  echo "FATAL: YouTube session generator did not produce a valid token within 120 seconds." >&2
+  echo "WARNING: YouTube session token is not ready; Cobalt will load it on a later refresh." >&2
   tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
-  exit 1
 fi
 
 # Cobalt runs locally in this same Railway container. Its processing runtime
