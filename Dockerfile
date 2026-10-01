@@ -52,6 +52,11 @@ RUN npm init -y \
 # deployment to one service while retaining Cobalt's own processing runtime.
 FROM ghcr.io/imputnet/cobalt:11.7.1 AS cobalt
 
+# Generate the short-lived YouTube Proof-of-Origin token in this same Railway
+# container. Chromium is routed through the same WARP proxy as Cobalt at
+# runtime, which is required for the token and the media request to match.
+FROM ghcr.io/imputnet/yt-session-generator:webserver AS yt_session
+
 # Build and prune the dashboard outside the production image. The runtime only
 # needs Node itself plus the compiled application and production dependencies.
 FROM node:24-bookworm-slim AS dashboard_builder
@@ -79,6 +84,7 @@ COPY --from=warp_tools /usr/local/bin/wireproxy /usr/local/bin/wireproxy
 COPY --from=discord_desktop /opt/Discord /opt/Discord
 COPY --from=discord_desktop /discord-home /var/lib/midvox/discord-home
 COPY --from=cobalt /app /opt/cobalt
+COPY --from=yt_session /app /opt/yt-session
 COPY --from=youtube_extractor /opt/youtube-extractor/node_modules /opt/youtube-extractor/node_modules
 # Point Cobalt's two extractor imports at the updated isolated package. Using
 # an isolated tree avoids rewriting the pnpm-managed modules from its image.
@@ -93,18 +99,28 @@ RUN sed -i 's#from "youtubei.js"#from "file:///opt/youtube-extractor/node_module
 COPY docker/patch_cobalt_youtube.py /tmp/patch_cobalt_youtube.py
 RUN python /tmp/patch_cobalt_youtube.py \
     && rm /tmp/patch_cobalt_youtube.py
+COPY docker/patch_yt_session.py /tmp/patch_yt_session.py
+RUN python /tmp/patch_yt_session.py \
+    && rm /tmp/patch_yt_session.py \
+    && grep -q -- "--proxy-server" /opt/yt-session/potoken_generator/extractor.py \
+    && grep -q "sandbox=False" /opt/yt-session/potoken_generator/extractor.py \
+    && ! grep -q "new token:" /opt/yt-session/potoken_generator/extractor.py
 # Fail during the image build if the official Cobalt API was not copied. This
 # makes a Railway builder/configuration mistake visible in Build Logs.
 RUN test -e /opt/cobalt/src/cobalt.js \
     || (echo 'Cobalt image was not copied: expected /opt/cobalt/src/cobalt.js' >&2; find /opt/cobalt -maxdepth 3 -type f -print >&2; exit 1)
+RUN test -f /opt/yt-session/potoken-generator.py \
+    || (echo 'YouTube session generator was not copied into the image' >&2; find /opt/yt-session -maxdepth 3 -type f -print >&2; exit 1)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        bash ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
+        bash ca-certificates chromium chromium-driver fonts-liberation libasound2 libatk-bridge2.0-0 \
         libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
         libatomic1 libnotify4 libnspr4 libnss3 libpulse0 libstdc++6 libx11-6 \
         libxcb1 libxcomposite1 libxdamage1 libegl1 libgl1-mesa-dri \
         libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
-        xdg-utils xvfb \
+        passwd util-linux xdg-utils xvfb \
+    && useradd --system --create-home --home-dir /home/midvox --shell /usr/sbin/nologin midvox \
+    && chown -R midvox:midvox /opt/yt-session \
     && test -x /opt/Discord/discord \
     && test -n "$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
     && command -v Xvfb \
@@ -120,6 +136,10 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY bot/requirements.txt bot/requirements.txt
 RUN python -m pip install -r bot/requirements.txt
+COPY --from=yt_session /app/requirements.txt yt-session-requirements.txt
+RUN python -m pip install -r yt-session-requirements.txt \
+    && sed -i 's/await self.sleep(0.5)/await self.sleep(2)/' \
+        /usr/local/lib/python3.12/site-packages/nodriver/core/browser.py
 
 COPY --from=dashboard_builder /build/dashboard dashboard/
 COPY bot/ bot/

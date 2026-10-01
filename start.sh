@@ -183,6 +183,74 @@ else
   echo "WARP egress disabled via WARP=${WARP}."
 fi
 
+# Generate YouTube's short-lived Proof-of-Origin token locally. The Chromium
+# session and Cobalt share the exact same WARP proxy, as required by YouTube's
+# token validation. The API is loopback-only and its secret token is never
+# printed to the Railway console.
+if [ ! -f /opt/yt-session/potoken-generator.py ]; then
+  echo "FATAL: YouTube session generator is missing from the image." >&2
+  exit 1
+fi
+if [ -z "${COBALT_PROXY_URL:-}" ]; then
+  echo "FATAL: YouTube session generation requires working WARP egress." >&2
+  exit 1
+fi
+export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
+export YOUTUBE_SESSION_SERVER="http://127.0.0.1:${YT_SESSION_PORT}/"
+export YOUTUBE_SESSION_INNERTUBE_CLIENT="${YOUTUBE_SESSION_INNERTUBE_CLIENT:-WEB_EMBEDDED}"
+echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
+(
+  cd /opt/yt-session || exit 1
+  Xvfb :98 -ac -screen 0 "${YT_SESSION_XVFB_WHD:-1280x720x16}" -nolisten tcp \
+    > "$ROOT/yt-session-xvfb.log" 2>&1 &
+  session_xvfb_pid=$!
+  sleep 2
+  if ! kill -0 "$session_xvfb_pid" 2>/dev/null; then
+    echo "[yt-session] Xvfb failed to start." >&2
+    tail -n 30 "$ROOT/yt-session-xvfb.log" 2>/dev/null || true
+    exit 1
+  fi
+  set -o pipefail
+  runuser -u midvox -- env \
+    DISPLAY=:98 \
+    CHROME_PATH=/usr/bin/chromium \
+    YT_SESSION_PROXY="$COBALT_PROXY_URL" \
+    PYTHONUNBUFFERED=1 \
+    python potoken-generator.py \
+      --bind 127.0.0.1 \
+      --port "$YT_SESSION_PORT" \
+      --update-interval 300 \
+      --chrome-path /usr/bin/chromium \
+    2>&1 | tee "$ROOT/yt-session.log"
+  generator_exit=${PIPESTATUS[0]}
+  kill -TERM "$session_xvfb_pid" 2>/dev/null || true
+  wait "$session_xvfb_pid" 2>/dev/null || true
+  exit "$generator_exit"
+) &
+YT_SESSION_PID=$!
+
+# The server starts only after Chromium has generated its first real token.
+# Validate the JSON fields without logging either secret value.
+YT_SESSION_READY=0
+for i in $(seq 1 120); do
+  if python -c "import json, urllib.request; d=json.load(urllib.request.urlopen('${YOUTUBE_SESSION_SERVER}token', timeout=2)); assert len(d.get('potoken','')) >= 160 and d.get('visitor_data')" >/dev/null 2>&1; then
+    echo "YouTube session token is ready."
+    YT_SESSION_READY=1
+    break
+  fi
+  if ! kill -0 "$YT_SESSION_PID" 2>/dev/null; then
+    echo "FATAL: YouTube session generator exited before producing a token." >&2
+    tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
+    exit 1
+  fi
+  sleep 1
+done
+if [ "$YT_SESSION_READY" -ne 1 ]; then
+  echo "FATAL: YouTube session generator did not produce a valid token within 120 seconds." >&2
+  tail -n 40 "$ROOT/yt-session.log" 2>/dev/null || true
+  exit 1
+fi
+
 # Cobalt runs locally in this same Railway container. Its processing runtime
 # stays private and the bot talks to it over loopback; no second Railway
 # service or public Cobalt API key is needed.
@@ -192,11 +260,11 @@ if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   exit 1
 fi
 
-# Public Shorts use anonymous extraction. Do not load an old Railway cookie
-# secret or require a browser/session generator for this mode.
-unset COOKIE_PATH YOUTUBE_SESSION_SERVER COBALT_COOKIE_FILE
-echo "Cobalt YouTube mode: anonymous (no account cookies or session generator)."
-export COBALT_YOUTUBE_CLIENT="${COBALT_YOUTUBE_CLIENT:-ANDROID_VR}"
+# Public Shorts use the local browser's Proof-of-Origin token without account
+# cookies. Ignore any stale cookie variable left in a cloned Railway project.
+unset COOKIE_PATH COBALT_COOKIE_FILE
+echo "Cobalt YouTube mode: local anonymous browser session (no account cookies)."
+export COBALT_YOUTUBE_CLIENT="${COBALT_YOUTUBE_CLIENT:-IOS}"
 echo "Cobalt YouTube client: $COBALT_YOUTUBE_CLIENT"
 
 echo "Starting local Cobalt sidecar on port 9000..."
@@ -211,6 +279,8 @@ echo "Starting local Cobalt sidecar on port 9000..."
     API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
     API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
     CUSTOM_INNERTUBE_CLIENT="$COBALT_YOUTUBE_CLIENT" \
+    YOUTUBE_SESSION_SERVER="$YOUTUBE_SESSION_SERVER" \
+    YOUTUBE_SESSION_INNERTUBE_CLIENT="$YOUTUBE_SESSION_INNERTUBE_CLIENT" \
     node src/cobalt.js 2>&1 | tee "$ROOT/cobalt.log"
 ) &
 COBALT_PID=$!
@@ -279,6 +349,7 @@ echo "=== MidVox running ==="
 echo "Bot PID: $BOT_PID"
 echo "Dashboard PID: $DASHBOARD_PID"
 echo "Cobalt PID: $COBALT_PID"
+echo "YouTube session PID: $YT_SESSION_PID"
 if [ -n "${BUMP_PID:-}" ]; then
   echo "User presence sidecar PID: $BUMP_PID"
 fi
@@ -291,7 +362,7 @@ fi
 stop_services() {
   for pid in \
     "${COBALT_PID:-}" "${BOT_PID:-}" "${BUMP_PID:-}" \
-    "${DASHBOARD_PID:-}" "${WARP_PID:-}"; do
+    "${DASHBOARD_PID:-}" "${YT_SESSION_PID:-}" "${WARP_PID:-}"; do
     if [ -n "$pid" ]; then
       kill -TERM "$pid" 2>/dev/null || true
     fi

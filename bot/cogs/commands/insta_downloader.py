@@ -463,10 +463,10 @@ class InstaDownloader(commands.Cog):
             # Ask Cobalt for the best option first, but do not download it
             # until its tunnel/redirect reports a size within Discord's limit.
             clients = (
+                "IOS",
                 "TV_SIMPLY",
                 "VISIONOS",
                 "ANDROID",
-                "IOS",
                 "ANDROID_VR",
                 "MWEB",
             )
