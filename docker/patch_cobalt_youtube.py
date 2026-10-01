@@ -47,5 +47,6 @@ replace_once(
     "        const options = {\n"
     "            requestTls: { ecdhCurve: \"X25519:P-256\" },\n"
     "            pipelining: 0,\n"
+    "            connections: 0,\n"
     "        };\n",
 )
