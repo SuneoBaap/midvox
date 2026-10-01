@@ -9,6 +9,14 @@ class CobaltDownloadError(Exception):
 
 
 def extraction_error(codes):
+    if codes and all(code == "error.api.fetch.fail" for code in codes):
+        return CobaltDownloadError(
+            "error.api.fetch.fail",
+            "YouTube blocked Cobalt's Railway/WARP connection for this Short. "
+            "Cookie-free downloads cannot complete from the current server "
+            "network; the bot owner must provide a fresh YouTube session or "
+            "residential egress.",
+        )
     if "error.api.youtube.login" in codes:
         return CobaltDownloadError(
             "error.api.youtube.login",
