@@ -1,7 +1,10 @@
-"""Expose Cobalt's internal Innertube client selector to the local API.
+"""Apply MidVox's compatibility fixes to the bundled Cobalt runtime.
 
 MidVox uses this only over loopback so it can retry a Short with another
 official YouTube client when one client is challenged on a datacenter IP.
+Node 24's default hybrid TLS group is also unreliable through wireproxy's
+HTTP CONNECT tunnel. Restrict target TLS to the broadly supported classic
+groups and avoid reusing a tunnel after YouTube closes it.
 The replacements are deliberately exact so a future Cobalt update fails the
 Docker build instead of silently producing an unpatched image.
 """
@@ -36,4 +39,13 @@ replace_once(
     "                    subtitleLang,\n"
     "                    innertubeClient: params.youtubeClient,\n"
     "                }\n",
+)
+
+replace_once(
+    str(COBALT_ROOT / "src/core/api.js"),
+    "        const options = {};\n",
+    "        const options = {\n"
+    "            requestTls: { ecdhCurve: \"X25519:P-256\" },\n"
+    "            pipelining: 0,\n"
+    "        };\n",
 )
