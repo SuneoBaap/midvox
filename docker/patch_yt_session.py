@@ -45,4 +45,27 @@ text = replace_once(
     "        logger.info(f'new token: {token_info.to_json()}')\n",
     "        logger.info('new YouTube session token generated')\n",
 )
+text = replace_once(
+    text,
+    """            tab = browser.main_tab
+            tab.add_handler(nodriver.cdp.network.RequestWillBeSent, self._send_handler)
+            await tab.get('https://www.youtube.com/embed/jNQXAC9IVRw')
+            player_clicked = await self._click_on_player(tab)
+            if player_clicked:
+                await self._wait_for_handler()
+            await tab.close()
+""",
+    """            tab = browser.main_tab
+            tab.add_handler(nodriver.cdp.network.RequestWillBeSent, self._send_handler)
+            for player_url in (
+                'https://www.youtube.com/embed/jNQXAC9IVRw?autoplay=1',
+                'https://www.youtube.com/watch?v=jNQXAC9IVRw',
+            ):
+                await tab.get(player_url)
+                player_clicked = await self._click_on_player(tab)
+                if player_clicked and await self._wait_for_handler():
+                    break
+            await tab.close()
+""",
+)
 EXTRACTOR.write_text(text, encoding="utf-8")
