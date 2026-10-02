@@ -252,19 +252,24 @@ echo "Cobalt YouTube client: $COBALT_YOUTUBE_CLIENT"
 
 echo "Starting local Cobalt sidecar on port 9000..."
 (
-  cd /opt/cobalt || exit 1
-  if [ -n "${COBALT_PROXY_URL:-}" ]; then
-    export HTTP_PROXY="$COBALT_PROXY_URL"
-    export HTTPS_PROXY="$COBALT_PROXY_URL"
-    export NO_PROXY="127.0.0.1,localhost"
-  fi
-    API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
-    API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
-    API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
-    CUSTOM_INNERTUBE_CLIENT="$COBALT_YOUTUBE_CLIENT" \
-    YOUTUBE_SESSION_SERVER="$YOUTUBE_SESSION_SERVER" \
-    YOUTUBE_SESSION_INNERTUBE_CLIENT="$YOUTUBE_SESSION_INNERTUBE_CLIENT" \
-    node src/cobalt.js 2>&1 | tee "$ROOT/cobalt.log"
+  while true; do
+    cd /opt/cobalt || exit 1
+    if [ -n "${COBALT_PROXY_URL:-}" ]; then
+      export HTTP_PROXY="$COBALT_PROXY_URL"
+      export HTTPS_PROXY="$COBALT_PROXY_URL"
+      export NO_PROXY="127.0.0.1,localhost"
+    fi
+    NODE_OPTIONS="${COBALT_NODE_OPTIONS:---max-old-space-size=192}" \
+      API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
+      API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
+      API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
+      CUSTOM_INNERTUBE_CLIENT="$COBALT_YOUTUBE_CLIENT" \
+      YOUTUBE_SESSION_SERVER="$YOUTUBE_SESSION_SERVER" \
+      YOUTUBE_SESSION_INNERTUBE_CLIENT="$YOUTUBE_SESSION_INNERTUBE_CLIENT" \
+      node src/cobalt.js 2>&1 | tee "$ROOT/cobalt.log"
+    echo "WARNING: Cobalt exited (code $?). Restarting in 2s..." >&2
+    sleep 2
+  done
 ) &
 COBALT_PID=$!
 for i in $(seq 1 30); do
@@ -325,7 +330,8 @@ done
 # Start Next.js dashboard on Railway/Render's public PORT.
 cd dashboard
 echo "Starting dashboard on port $PORT..."
-node node_modules/next/dist/bin/next start -p "$PORT" -H 0.0.0.0 &
+NODE_OPTIONS="${DASHBOARD_NODE_OPTIONS:---max-old-space-size=128}" \
+  node node_modules/next/dist/bin/next start -p "$PORT" -H 0.0.0.0 &
 DASHBOARD_PID=$!
 
 echo "=== MidVox running ==="
