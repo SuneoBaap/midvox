@@ -205,7 +205,10 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
     export GLOBAL_AGENT_HTTP_PROXY="$COBALT_PROXY_URL"
     export NO_PROXY="127.0.0.1,localhost"
   fi
-  bgutil-pot server --host 127.0.0.1 --port 4416 \
+  # The adapter passes the WARP proxy explicitly with each generation request.
+  # Do not also let reqwest inherit it here, which creates a double-proxy path.
+  env -u HTTP_PROXY -u HTTPS_PROXY -u GLOBAL_AGENT_HTTP_PROXY -u NO_PROXY \
+    bgutil-pot server --host 127.0.0.1 --port 4416 \
     > "$ROOT/yt-pot-provider.log" 2>&1 &
   provider_pid=$!
   for i in $(seq 1 20); do
