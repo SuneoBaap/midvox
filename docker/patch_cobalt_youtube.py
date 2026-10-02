@@ -108,3 +108,18 @@ replace_once(
     "    // non-HLS request instead of limiting it to resolutions above 1080p.\n"
     "    let useSession = Boolean(env.ytSessionServer && !useHLS);\n",
 )
+
+# Cobalt normally replaces the requested fallback client with the session
+# provider's WEB_EMBEDDED client whenever a PoToken is present. That makes the
+# bot's IOS/TV/Android fallback loop retry WEB_EMBEDDED every time and causes
+# public videos that disallow embedded playback to report video.unavailable.
+# Keep the requested client while still attaching the matching visitor data
+# and PoToken through cloneInnertube().
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "    if (useSession) {\n"
+    "        innertubeClient = env.ytSessionInnertubeClient || \"WEB_EMBEDDED\";\n"
+    "    }\n",
+    "    // Preserve the requested client so fallback attempts are real.\n"
+    "    // cloneInnertube() still attaches the local PoToken session.\n",
+)
