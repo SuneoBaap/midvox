@@ -185,7 +185,7 @@ fi
 
 # Generate YouTube's short-lived Proof-of-Origin token locally without account
 # cookies or a second browser. The API is loopback-only and never logs tokens.
-if [ ! -f /opt/youtube-session/server.cjs ]; then
+if [ ! -f /opt/youtube-session/server.py ] || ! command -v bgutil-pot >/dev/null 2>&1; then
   echo "FATAL: YouTube session generator is missing from the image." >&2
   exit 1
 fi
@@ -205,8 +205,21 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
     export GLOBAL_AGENT_HTTP_PROXY="$COBALT_PROXY_URL"
     export NO_PROXY="127.0.0.1,localhost"
   fi
-  node server.cjs 2>&1 | tee "$ROOT/yt-session.log"
-  exit ${PIPESTATUS[0]}
+  bgutil-pot server --host 127.0.0.1 --port 4416 \
+    > "$ROOT/yt-pot-provider.log" 2>&1 &
+  provider_pid=$!
+  for i in $(seq 1 20); do
+    if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4416/ping', timeout=1)" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  COBALT_PROXY_URL="${COBALT_PROXY_URL:-}" \
+    python server.py 2>&1 | tee "$ROOT/yt-session.log"
+  generator_exit=${PIPESTATUS[0]}
+  kill -TERM "$provider_pid" 2>/dev/null || true
+  wait "$provider_pid" 2>/dev/null || true
+  exit "$generator_exit"
 ) &
 YT_SESSION_PID=$!
 

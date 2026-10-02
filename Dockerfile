@@ -48,13 +48,9 @@ WORKDIR /opt/youtube-extractor
 RUN npm init -y \
     && npm install --omit=dev --ignore-scripts --no-audit --no-fund youtubei.js@18.1.0
 
-# Generate YouTube's short-lived visitor session without a second Chromium
-# process. The package ships the BotGuard program it needs and returns the
-# same visitorData/poToken pair consumed by Cobalt.
-FROM node:24-bookworm-slim AS youtube_session
-WORKDIR /opt/youtube-session
-RUN npm init -y \
-    && npm install --omit=dev --no-audit --no-fund youtube-po-token-generator@0.6.0
+# The Rust BotGuard provider generates PoTokens in a small memory footprint.
+# Pin its image so deployments do not change underneath the bot.
+FROM ghcr.io/jim60105/bgutil-pot:v0.8.1 AS youtube_session
 
 # Run Cobalt as a local sidecar in the same Railway container. This keeps the
 # deployment to one service while retaining Cobalt's own processing runtime.
@@ -88,7 +84,7 @@ COPY --from=discord_desktop /opt/Discord /opt/Discord
 COPY --from=discord_desktop /discord-home /var/lib/midvox/discord-home
 COPY --from=cobalt /app /opt/cobalt
 COPY --from=youtube_extractor /opt/youtube-extractor/node_modules /opt/youtube-extractor/node_modules
-COPY --from=youtube_session /opt/youtube-session/node_modules /opt/youtube-session/node_modules
+COPY --from=youtube_session /bgutil-pot /usr/local/bin/bgutil-pot
 # Point Cobalt's two extractor imports at the updated isolated package. Using
 # an isolated tree avoids rewriting the pnpm-managed modules from its image.
 RUN sed -i 's#from "youtubei.js"#from "file:///opt/youtube-extractor/node_modules/youtubei.js/dist/src/platform/node.js"#' \
@@ -132,10 +128,10 @@ COPY bot/requirements.txt bot/requirements.txt
 RUN python -m pip install -r bot/requirements.txt
 COPY --from=dashboard_builder /build/dashboard dashboard/
 COPY bot/ bot/
-COPY docker/youtube_session_server.cjs /opt/youtube-session/server.cjs
+COPY docker/youtube_session_server.py /opt/youtube-session/server.py
 COPY start.sh start.sh
-RUN test -f /opt/youtube-session/node_modules/youtube-po-token-generator/index.js \
-    && node --check /opt/youtube-session/server.cjs \
+RUN test -x /usr/local/bin/bgutil-pot \
+    && python -m py_compile /opt/youtube-session/server.py \
     && sed -i 's/\r$//' start.sh && bash -n start.sh
 
 ENV NODE_ENV=production
