@@ -177,10 +177,14 @@ EOF
   return 1
 }
 
-if [ "${WARP:-1}" = "1" ]; then
+# A locally generated PoToken is designed for the same datacenter IP used by
+# Cobalt. WARP remains an opt-in fallback, because its shared proxy can accept
+# token generation yet fail the later media fetch.
+if [ "${COBALT_WARP:-0}" = "1" ]; then
   setup_warp || true
 else
-  echo "WARP egress disabled via WARP=${WARP}."
+  unset COBALT_PROXY_URL
+  echo "Cobalt egress: Railway direct IP with matching local YouTube session."
 fi
 
 # Generate YouTube's short-lived Proof-of-Origin token locally without account
@@ -190,7 +194,7 @@ if [ ! -f /opt/youtube-session/server.py ] || ! command -v bgutil-pot >/dev/null
   exit 1
 fi
 if [ -z "${COBALT_PROXY_URL:-}" ]; then
-  echo "WARNING: WARP is unavailable; the YouTube session and Cobalt will use direct egress." >&2
+  echo "YouTube session and Cobalt are using matching direct egress."
 fi
 export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
 export YOUTUBE_SESSION_SERVER="http://127.0.0.1:${YT_SESSION_PORT}/"
