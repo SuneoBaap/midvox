@@ -29,7 +29,9 @@ replace_once(
     '    youtubeBetterAudio: z.boolean().default(false),\n',
     '    youtubeBetterAudio: z.boolean().default(false),\n'
     '    youtubeClient: z.enum([\n'
-    '        "IOS", "ANDROID_VR", "ANDROID", "VISIONOS", "TV_SIMPLY", "MWEB"\n'
+    '        "IOS", "ANDROID_VR", "ANDROID", "VISIONOS", "TV", "TV_SIMPLY",\n'
+    '        "TV_EMBEDDED", "MWEB", "WEB_EMBEDDED", "WEB_CREATOR", "YTKIDS",\n'
+    '        "YTMUSIC", "YTMUSIC_ANDROID", "YTSTUDIO_ANDROID"\n'
     '    ]).optional(),\n',
 )
 

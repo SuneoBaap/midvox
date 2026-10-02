@@ -463,12 +463,20 @@ class InstaDownloader(commands.Cog):
             # Ask Cobalt for the best option first, but do not download it
             # until its tunnel/redirect reports a size within Discord's limit.
             clients = (
-                "IOS",
+                "WEB_EMBEDDED",
+                "TV",
                 "TV_SIMPLY",
+                "TV_EMBEDDED",
+                "WEB_CREATOR",
+                "YTKIDS",
+                "YTMUSIC",
+                "YTMUSIC_ANDROID",
+                "YTSTUDIO_ANDROID",
                 "VISIONOS",
                 "ANDROID",
                 "ANDROID_VR",
                 "MWEB",
+                "IOS",
             )
             selected_client = None
             for quality in ("max", "1080", "720", "480", "360", "240"):
