@@ -4,6 +4,7 @@ import html
 import json
 import os
 import re
+import subprocess
 import threading
 import time
 import urllib.request
@@ -12,7 +13,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HOST = os.getenv("YT_SESSION_HOST", "127.0.0.1")
 PORT = int(os.getenv("YT_SESSION_PORT", "8081"))
-PROVIDER = os.getenv("YT_POT_PROVIDER", "http://127.0.0.1:4416/get_pot")
 PROXY = os.getenv("COBALT_PROXY_URL", "").strip()
 TOKEN_TTL = max(300, int(os.getenv("YT_SESSION_TTL", "18000")))
 USER_AGENT = (
@@ -46,16 +46,21 @@ def _visitor_data():
 
 def _generate():
     visitor = _visitor_data()
-    body = {"content_binding": visitor, "bypass_cache": False}
+    command = ["bgutil-pot", "--content-binding", visitor]
     if PROXY:
-        body["proxy"] = PROXY
-    request = urllib.request.Request(
-        PROVIDER,
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST",
+        command.extend(["--proxy", PROXY])
+    completed = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={
+            key: value for key, value in os.environ.items()
+            if key not in {"HTTP_PROXY", "HTTPS_PROXY", "GLOBAL_AGENT_HTTP_PROXY", "NO_PROXY"}
+        },
     )
-    result = json.load(urllib.request.urlopen(request, timeout=60))
+    result = json.loads(completed.stdout)
     token = result.get("poToken") or result.get("po_token")
     if not token:
         raise RuntimeError("BotGuard provider returned no PoToken")
@@ -113,7 +118,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self._json(200, session(force))
         except Exception as error:
-            print(f"[yt-session] generation failed: {error}", flush=True)
+            print(f"[yt-session] generation failed: {type(error).__name__}", flush=True)
             self._json(503, {"error": "session_generation_failed"})
 
 
@@ -121,7 +126,7 @@ def _warmup():
     try:
         session()
     except Exception as error:
-        print(f"[yt-session] initial generation failed: {error}", flush=True)
+        print(f"[yt-session] initial generation failed: {type(error).__name__}", flush=True)
 
 
 if __name__ == "__main__":

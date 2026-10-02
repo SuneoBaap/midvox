@@ -205,23 +205,11 @@ echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."
     export GLOBAL_AGENT_HTTP_PROXY="$COBALT_PROXY_URL"
     export NO_PROXY="127.0.0.1,localhost"
   fi
-  # The adapter passes the WARP proxy explicitly with each generation request.
-  # Do not also let reqwest inherit it here, which creates a double-proxy path.
-  env -u HTTP_PROXY -u HTTPS_PROXY -u GLOBAL_AGENT_HTTP_PROXY -u NO_PROXY \
-    bgutil-pot server --host 127.0.0.1 --port 4416 \
-    > "$ROOT/yt-pot-provider.log" 2>&1 &
-  provider_pid=$!
-  for i in $(seq 1 20); do
-    if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4416/ping', timeout=1)" >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
+  # The Rust minter runs on demand and exits after renewal. Only this small
+  # adapter remains resident, leaving memory available for Cobalt downloads.
   COBALT_PROXY_URL="${COBALT_PROXY_URL:-}" \
     python server.py 2>&1 | tee "$ROOT/yt-session.log"
   generator_exit=${PIPESTATUS[0]}
-  kill -TERM "$provider_pid" 2>/dev/null || true
-  wait "$provider_pid" 2>/dev/null || true
   exit "$generator_exit"
 ) &
 YT_SESSION_PID=$!
