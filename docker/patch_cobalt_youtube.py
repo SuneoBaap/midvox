@@ -87,3 +87,24 @@ replace_once(
     "        lastRefreshedAt = +new Date();\n"
     "        lastSessionUpdated = sessionTokens?.updated;\n",
 )
+
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "    // iOS client doesn't have adaptive formats of resolution >1080p,\n"
+    "    // so we use the WEB_EMBEDDED client instead for those cases\n"
+    "    let useSession =\n"
+    "        env.ytSessionServer && (\n"
+    "            (\n"
+    "                !useHLS\n"
+    "                && innertubeClient === \"IOS\"\n"
+    "                && (\n"
+    "                    (quality > 1080 && o.codec !== \"h264\")\n"
+    "                    || (quality > 1080 && o.codec !== \"vp9\")\n"
+    "                )\n"
+    "            )\n"
+    "        );\n",
+    "    // YouTube challenges anonymous datacenter clients even at Discord-\n"
+    "    // sized qualities. Use the matching PoToken session for every\n"
+    "    // non-HLS request instead of limiting it to resolutions above 1080p.\n"
+    "    let useSession = Boolean(env.ytSessionServer && !useHLS);\n",
+)
