@@ -197,6 +197,8 @@ if [ -z "${COBALT_PROXY_URL:-}" ]; then
   echo "YouTube session and Cobalt are using matching direct egress."
 fi
 export YT_SESSION_PORT="${YT_SESSION_PORT:-8081}"
+export YT_SESSION_TTL="${YT_SESSION_TTL:-45}"
+export YOUTUBE_SESSION_RELOAD_INTERVAL="${YOUTUBE_SESSION_RELOAD_INTERVAL:-60}"
 export YOUTUBE_SESSION_SERVER="http://127.0.0.1:${YT_SESSION_PORT}/"
 export YOUTUBE_SESSION_INNERTUBE_CLIENT="${YOUTUBE_SESSION_INNERTUBE_CLIENT:-WEB_EMBEDDED}"
 echo "Starting local YouTube session generator on port $YT_SESSION_PORT..."

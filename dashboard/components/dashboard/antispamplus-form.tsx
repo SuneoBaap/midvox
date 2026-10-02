@@ -41,6 +41,8 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
       heat_decay_per_second: config.heat_decay_per_second,
       heat_timeout_minutes: config.heat_timeout_minutes,
       heat_delete_messages: config.heat_delete_messages,
+      spam_delete_mode_enabled: config.spam_delete_mode_enabled,
+      spam_delete_duration_minutes: config.spam_delete_duration_minutes,
       raid_trigger_users: config.raid_trigger_users,
       raid_window_seconds: config.raid_window_seconds,
       panic_minutes: config.panic_minutes,
@@ -160,10 +162,6 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
                   <Input type="number" min={0.1} max={50} step={0.5} value={config.heat_decay_per_second ?? 6} onChange={(e) => updateField("heat_decay_per_second", parseFloat(e.target.value) || 6)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-400">Timeout (minutes)</label>
-                  <Input type="number" min={1} max={10080} value={config.heat_timeout_minutes ?? 10} onChange={(e) => updateField("heat_timeout_minutes", parseInt(e.target.value) || 10)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
-                </div>
-                <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-400">Panic duration (minutes)</label>
                   <Input type="number" min={1} max={1440} value={config.panic_minutes ?? 10} onChange={(e) => updateField("panic_minutes", parseInt(e.target.value) || 10)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
                 </div>
@@ -182,6 +180,19 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
                   </div>
                   <Switch checked={config.heat_delete_messages ?? true} onCheckedChange={(value) => updateField("heat_delete_messages", value)} />
                 </div>
+                <div className="col-span-2 flex items-center justify-between gap-4 p-3 bg-[#131313] rounded-xl border border-[#1A1A1A]">
+                  <div>
+                    <p className="text-xs font-bold text-slate-100">Temporary spam deletion</p>
+                    <p className="text-[11px] text-neutral-500">After spam is confirmed, delete that user&apos;s messages for a set period. Deletion failures never punish the member.</p>
+                  </div>
+                  <Switch checked={config.spam_delete_mode_enabled ?? false} onCheckedChange={(value) => updateField("spam_delete_mode_enabled", value)} />
+                </div>
+                {config.spam_delete_mode_enabled && (
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-xs font-bold text-neutral-400">Deletion period (minutes)</label>
+                    <Input type="number" min={1} max={1440} value={config.spam_delete_duration_minutes ?? 10} onChange={(e) => updateField("spam_delete_duration_minutes", parseInt(e.target.value) || 10)} className="bg-[#0F0F0F] border-[#1A1A1A] h-10" />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -195,7 +206,7 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400"><UserPlus className="h-5 w-5" /></div>
                 <div>
                   <h4 className="font-bold text-slate-50 text-sm">Join Gate</h4>
-                  <p className="text-xs text-neutral-400">Reject risky new accounts and unauthorized bots before they enter</p>
+                  <p className="text-xs text-neutral-400">Observe risky new accounts and unauthorized bots without punishing them</p>
                 </div>
               </div>
               <Switch checked={config.join_gate_enabled ?? false} onCheckedChange={(value) => updateField("join_gate_enabled", value)} />
@@ -410,9 +421,10 @@ export function AntiSpamPlusForm({ initialConfig, channels, roles, guildId }: An
           </div>
           <ul className="text-xs text-neutral-500 space-y-2">
             <li>• Heat rises from suspicious behavior and decays during normal use.</li>
-            <li>• Repeat offenders receive progressively longer timeouts.</li>
+            <li>• Optional suppression deletes a confirmed spammer&apos;s messages for a set period.</li>
+            <li>• Rate limits or deletion failures never trigger a member punishment.</li>
             <li>• Multi-user raids trigger temporary panic protection.</li>
-            <li>• Join Gate can reject risky new accounts and bots.</li>
+            <li>• Join Gate reports risky new accounts and bots without removing them.</li>
           </ul>
         </div>
 

@@ -358,6 +358,8 @@ class AntiSpamPlusConfig(BaseModel):
     heat_decay_per_second: float = 6.0
     heat_timeout_minutes: int = 10
     heat_delete_messages: bool = True
+    spam_delete_mode_enabled: bool = False
+    spam_delete_duration_minutes: int = 10
     raid_trigger_users: int = 3
     raid_window_seconds: int = 30
     panic_minutes: int = 10
@@ -383,6 +385,8 @@ class AntiSpamPlusUpdate(BaseModel):
     heat_decay_per_second: Optional[float] = Field(None, ge=0.1, le=50)
     heat_timeout_minutes: Optional[int] = Field(None, ge=1, le=10080)
     heat_delete_messages: Optional[bool] = None
+    spam_delete_mode_enabled: Optional[bool] = None
+    spam_delete_duration_minutes: Optional[int] = Field(None, ge=1, le=1440)
     raid_trigger_users: Optional[int] = Field(None, ge=2, le=50)
     raid_window_seconds: Optional[int] = Field(None, ge=5, le=300)
     panic_minutes: Optional[int] = Field(None, ge=1, le=1440)

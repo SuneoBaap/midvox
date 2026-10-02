@@ -25,6 +25,8 @@ CONFIG_DEFAULTS = {
     "heat_decay_per_second": 6.0,
     "heat_timeout_minutes": 10,
     "heat_delete_messages": True,
+    "spam_delete_mode_enabled": False,
+    "spam_delete_duration_minutes": 10,
     "raid_trigger_users": 3,
     "raid_window_seconds": 30,
     "panic_minutes": 10,
@@ -60,6 +62,12 @@ def _doc_to_config(doc):
             doc.get("heat_timeout_minutes", 10), 10
         ),
         "heat_delete_messages": bool(doc.get("heat_delete_messages", True)),
+        "spam_delete_mode_enabled": bool(
+            doc.get("spam_delete_mode_enabled", False)
+        ),
+        "spam_delete_duration_minutes": _int(
+            doc.get("spam_delete_duration_minutes", 10), 10
+        ),
         "raid_trigger_users": _int(doc.get("raid_trigger_users", 3), 3),
         "raid_window_seconds": _int(doc.get("raid_window_seconds", 30), 30),
         "panic_minutes": _int(doc.get("panic_minutes", 10), 10),
@@ -87,6 +95,7 @@ class AntiSpamPlus(commands.Cog):
         self.message_reactions = defaultdict(lambda: defaultdict(int))
         self.cooldown = {}
         self.heat_state = {}
+        self.spam_delete_until = {}
         self.channel_activity = {}
         self.raid_events = defaultdict(deque)
         self.panic_until = {}
@@ -692,20 +701,15 @@ class AntiSpamPlus(commands.Cog):
     async def _delete_safely(self, message):
         try:
             await message.delete()
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-            pass
-
-    async def _timeout_safely(self, member, minutes, reason):
-        if not isinstance(member, discord.Member):
-            return False
-        try:
-            await member.timeout(
-                discord.utils.utcnow() + timedelta(minutes=max(1, minutes)),
-                reason=reason,
-            )
-            return True
-        except (discord.Forbidden, discord.HTTPException):
-            return False
+            return "deleted"
+        except discord.NotFound:
+            return "gone"
+        except discord.Forbidden:
+            return "forbidden"
+        except discord.HTTPException as error:
+            if error.status == 429:
+                return "rate_limited"
+            return "failed"
 
     async def _record_raider(self, guild_id, user_id, config):
         now = time.monotonic()
@@ -722,6 +726,33 @@ class AntiSpamPlus(commands.Cog):
                 f"{len(unique_users)} raiders detected",
                 flush=True,
             )
+
+    async def _delete_during_spam_period(self, message, config):
+        """Delete messages while a confirmed spammer is under suppression.
+
+        The state is memory-only because a suppression period does not need
+        to survive a bot restart. Deletion failures never punish the member.
+        """
+        if not config.get("spam_delete_mode_enabled", False):
+            return False
+        if await self._is_exempt(message, config):
+            return False
+
+        key = (message.guild.id, message.author.id)
+        now = time.monotonic()
+        delete_until = self.spam_delete_until.get(key, 0)
+        if delete_until <= now:
+            self.spam_delete_until.pop(key, None)
+            return False
+
+        result = await self._delete_safely(message)
+        if result == "rate_limited":
+            print(
+                f"[Security] guild={message.guild.id} user={message.author.id} "
+                "delete_rate_limited=true punishment=none",
+                flush=True,
+            )
+        return True
 
     async def _apply_heat(self, message, config):
         if not config.get("heat_enabled", True):
@@ -757,19 +788,28 @@ class AntiSpamPlus(commands.Cog):
                 return True
             return False
 
-        if config.get("heat_delete_messages"):
-            await self._delete_safely(message)
         state["strikes"] = min(5, state.get("strikes", 0) + 1)
-        minutes = max(1, config["heat_timeout_minutes"]) * state["strikes"]
-        reason = "MidVox adaptive spam protection"
-        if reasons:
-            reason += ": " + ", ".join(dict.fromkeys(reasons))[:350]
-        await self._timeout_safely(message.author, minutes, reason)
+
+        if config.get("spam_delete_mode_enabled", False):
+            duration = max(1, config["spam_delete_duration_minutes"])
+            self.spam_delete_until[key] = now + duration * 60
+            delete_result = await self._delete_safely(message)
+            action = (
+                "delete_rate_limited=true punishment=none"
+                if delete_result == "rate_limited"
+                else f"delete_period={duration}m"
+            )
+        else:
+            if config.get("heat_delete_messages"):
+                await self._delete_safely(message)
+                action = "trigger_message_deleted=true punishment=none"
+            else:
+                action = "observe_only=true punishment=none"
         await self._record_raider(message.guild.id, message.author.id, config)
         state["heat"] = threshold * 0.25
         print(
             f"[Security] guild={message.guild.id} user={message.author.id} "
-            f"timeout={minutes}m panic={panic} reasons={reasons}",
+            f"{action} panic={panic} reasons={reasons}",
             flush=True,
         )
         return True
@@ -781,6 +821,8 @@ class AntiSpamPlus(commands.Cog):
                 return
 
             config = await self.get_runtime_config(message.guild.id)
+            if await self._delete_during_spam_period(message, config):
+                return
             if await self._apply_heat(message, config):
                 return
             if not config["delete_messages"]:
@@ -833,15 +875,11 @@ class AntiSpamPlus(commands.Cog):
                 reason = "Join Gate: unverified bot"
 
             if reason:
-                try:
-                    await member.kick(reason=reason)
-                    print(
-                        f"[Security] Join Gate removed {member.id} from "
-                        f"guild {member.guild.id}: {reason}",
-                        flush=True,
-                    )
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+                print(
+                    f"[Security] Join Gate observed {member.id} in "
+                    f"guild {member.guild.id}: {reason}; punishment=none",
+                    flush=True,
+                )
         except Exception as error:
             print(f"[Security] Join Gate error: {error}", flush=True)
 

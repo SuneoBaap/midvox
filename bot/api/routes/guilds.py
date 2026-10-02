@@ -1607,7 +1607,8 @@ async def patch_guild_antispamplus(guild_id: int, data: AntiSpamPlusUpdate, bot:
         "delete_messages", "delete_delay", "re_limit", "re_window",
         "re_cooldown", "re_delay", "timeout_duration", "heat_enabled",
         "heat_threshold", "heat_decay_per_second", "heat_timeout_minutes",
-        "heat_delete_messages", "raid_trigger_users", "raid_window_seconds",
+        "heat_delete_messages", "spam_delete_mode_enabled",
+        "spam_delete_duration_minutes", "raid_trigger_users", "raid_window_seconds",
         "panic_minutes", "join_gate_enabled", "min_account_age_hours",
         "block_no_avatar", "block_unverified_bots",
     )

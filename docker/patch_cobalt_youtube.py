@@ -50,3 +50,40 @@ replace_once(
     "            connections: 0,\n"
     "        };\n",
 )
+
+replace_once(
+    str(COBALT_ROOT / "src/core/env.js"),
+    "        ytSessionReloadInterval: 300,\n",
+    "        ytSessionReloadInterval: "
+    "(env.YOUTUBE_SESSION_RELOAD_INTERVAL "
+    "&& parseInt(env.YOUTUBE_SESSION_RELOAD_INTERVAL)) || 60,\n",
+)
+
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "let innertube, lastRefreshedAt;\n",
+    "let innertube, lastRefreshedAt, lastSessionUpdated;\n",
+)
+
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "    const sessionTokens = getYouTubeSession();\n"
+    "    const retrieve_player = Boolean(sessionTokens || cookie);\n",
+    "    const sessionTokens = getYouTubeSession();\n"
+    "    const sessionChanged = useSession && sessionTokens?.updated "
+    "&& sessionTokens.updated !== lastSessionUpdated;\n"
+    "    const retrieve_player = Boolean(sessionTokens || cookie);\n",
+)
+
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "    if (!innertube || shouldRefreshPlayer) {\n",
+    "    if (!innertube || shouldRefreshPlayer || sessionChanged) {\n",
+)
+
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "        lastRefreshedAt = +new Date();\n",
+    "        lastRefreshedAt = +new Date();\n"
+    "        lastSessionUpdated = sessionTokens?.updated;\n",
+)

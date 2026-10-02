@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HOST = os.getenv("YT_SESSION_HOST", "127.0.0.1")
 PORT = int(os.getenv("YT_SESSION_PORT", "8081"))
 PROXY = os.getenv("COBALT_PROXY_URL", "").strip()
-TOKEN_TTL = max(300, int(os.getenv("YT_SESSION_TTL", "18000")))
+TOKEN_TTL = max(30, int(os.getenv("YT_SESSION_TTL", "45")))
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"

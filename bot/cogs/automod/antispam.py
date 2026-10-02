@@ -1,9 +1,7 @@
 import discord
-from utils.emoji import TICK
 from discord.ext import commands
 import aiosqlite
 import asyncio
-from datetime import timedelta
 
 class AntiSpam(commands.Cog):
     def __init__(self, bot):
@@ -34,12 +32,6 @@ class AntiSpam(commands.Cog):
         async with aiosqlite.connect("db/automod.db") as db:
             cursor = await db.execute("SELECT id FROM automod_ignored WHERE guild_id = ? AND type = 'role'", (guild_id,))
             return [row[0] for row in await cursor.fetchall()]
-
-    async def get_punishment(self, guild_id):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT punishment FROM automod_punishments WHERE guild_id = ? AND event = 'Anti spam'", (guild_id,))
-            result = await cursor.fetchone()
-            return result[0] if result else None
 
     async def log_action(self, guild, user, channel, action, reason):
         async with aiosqlite.connect("db/automod.db") as db:
@@ -91,29 +83,14 @@ class AntiSpam(commands.Cog):
         self.recent_messages[user.id] = user_messages
 
         if len(user_messages) > self.spam_threshold:
-            punishment = await self.get_punishment(guild_id)
-            action_taken = None
             reason = "Spamming"
 
             try:
-                if punishment == "Mute":
-                    timeout_duration = discord.utils.utcnow() + timedelta(minutes=12)
-                    await user.edit(timed_out_until=timeout_duration, reason="Spamming")
-                    action_taken = "Muted for 12 minutes"
-                elif punishment == "Kick":
-                    await user.kick(reason="Spamming")
-                    action_taken = "Kicked"
-                elif punishment == "Ban":
-                    await user.ban(reason="Spamming")
-                    action_taken = "Banned"
-
-                simple_embed = discord.Embed(title="Automod Anti-Spam", color=0x8A9A5B)
-                simple_embed.description = f"{TICK} | {user.mention} has been successfully **{action_taken}** for **Spamming.**"
-
-                simple_embed.set_footer(text="Use the “automod logging” command to get automod logs if it is not enabled.", icon_url=self.bot.user.avatar.url)
-                await channel.send(embed=simple_embed, delete_after=30)
-
-                await self.log_action(guild, user, channel, action_taken, reason)
+                await message.delete()
+                self.recent_messages[user.id] = []
+                await self.log_action(
+                    guild, user, channel, "Deleted confirmed spam message", reason
+                )
 
             except discord.Forbidden:
                 pass
