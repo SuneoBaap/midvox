@@ -104,7 +104,8 @@ RUN python /tmp/patch_yt_session.py \
     && rm /tmp/patch_yt_session.py \
     && grep -q -- "--proxy-server" /opt/yt-session/potoken_generator/extractor.py \
     && grep -q "sandbox=False" /opt/yt-session/potoken_generator/extractor.py \
-    && ! grep -q "new token:" /opt/yt-session/potoken_generator/extractor.py
+    && ! grep -q "new token:" /opt/yt-session/potoken_generator/extractor.py \
+    && grep -q "'/get_pot': self.get_potoken" /opt/yt-session/potoken_generator/server.py
 # Fail during the image build if the official Cobalt API was not copied. This
 # makes a Railway builder/configuration mistake visible in Build Logs.
 RUN test -e /opt/cobalt/src/cobalt.js \

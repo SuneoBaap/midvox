@@ -13,6 +13,7 @@ from pathlib import Path
 
 SESSION_ROOT = Path(os.environ.get("YT_SESSION_ROOT", "/opt/yt-session"))
 EXTRACTOR = SESSION_ROOT / "potoken_generator/extractor.py"
+SERVER = SESSION_ROOT / "potoken_generator/server.py"
 
 
 def replace_once(source: str, old: str, new: str) -> str:
@@ -69,3 +70,15 @@ text = replace_once(
 """,
 )
 EXTRACTOR.write_text(text, encoding="utf-8")
+
+# Cobalt 11.7.1 requests the newer POST /get_pot endpoint while the bundled
+# generator still exposes only /token. Both routes return the same JSON shape,
+# and Cobalt already accepts the generator's potoken/visitor_data field names.
+server_text = SERVER.read_text(encoding="utf-8")
+server_text = replace_once(
+    server_text,
+    "            '/token': self.get_potoken,\n",
+    "            '/token': self.get_potoken,\n"
+    "            '/get_pot': self.get_potoken,\n",
+)
+SERVER.write_text(server_text, encoding="utf-8")
