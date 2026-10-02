@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HOST = os.getenv("YT_SESSION_HOST", "127.0.0.1")
 PORT = int(os.getenv("YT_SESSION_PORT", "8081"))
 PROXY = os.getenv("COBALT_PROXY_URL", "").strip()
-TOKEN_TTL = max(30, int(os.getenv("YT_SESSION_TTL", "45")))
+TOKEN_TTL = max(30, int(os.getenv("YT_SESSION_TTL", "240")))
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -117,9 +117,16 @@ class Handler(BaseHTTPRequestHandler):
     def _serve(self, force):
         try:
             self._json(200, session(force))
+        except BrokenPipeError:
+            # A short health-check timeout can disconnect while the one-shot
+            # minter is still finishing. The generated token remains cached.
+            return
         except Exception as error:
             print(f"[yt-session] generation failed: {type(error).__name__}", flush=True)
-            self._json(503, {"error": "session_generation_failed"})
+            try:
+                self._json(503, {"error": "session_generation_failed"})
+            except BrokenPipeError:
+                pass
 
 
 def _warmup():

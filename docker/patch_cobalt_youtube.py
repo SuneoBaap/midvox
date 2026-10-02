@@ -56,7 +56,7 @@ replace_once(
     "        ytSessionReloadInterval: 300,\n",
     "        ytSessionReloadInterval: "
     "(env.YOUTUBE_SESSION_RELOAD_INTERVAL "
-    "&& parseInt(env.YOUTUBE_SESSION_RELOAD_INTERVAL)) || 60,\n",
+    "&& parseInt(env.YOUTUBE_SESSION_RELOAD_INTERVAL)) || 300,\n",
 )
 
 replace_once(
