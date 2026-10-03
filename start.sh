@@ -7,6 +7,31 @@ cd "$(dirname "$0")" || exit 1
 
 echo "=== Starting MidVox ==="
 
+# Prefer TOKEN for the application bot. If it was revoked but USER_TOKEN is
+# actually a valid bot credential, promote that credential and disable the
+# optional user desktop/bump sidecar. A normal Discord user token cannot pass
+# this Bot-authenticated API check and will never be used to start MidVox.
+bot_token_valid() {
+  BOT_TOKEN_CANDIDATE="$1" python -c 'import os, urllib.request; token=os.environ.get("BOT_TOKEN_CANDIDATE", "").strip(); token=token[4:].strip() if token.startswith("Bot ") else token; request=urllib.request.Request("https://discord.com/api/v10/users/@me", headers={"Authorization": "Bot " + token, "User-Agent": "DiscordBot (https://github.com/suneo779/midvox, 1.0)"}); response=urllib.request.urlopen(request, timeout=12); assert response.status == 200' >/dev/null 2>&1
+}
+
+BOT_TOKEN_READY=0
+if [ -n "${TOKEN:-}" ] && bot_token_valid "$TOKEN"; then
+  export TOKEN="${TOKEN#Bot }"
+  BOT_TOKEN_READY=1
+elif [ -n "${USER_TOKEN:-}" ] && bot_token_valid "$USER_TOKEN"; then
+  export TOKEN="${USER_TOKEN#Bot }"
+  unset USER_TOKEN
+  BOT_TOKEN_READY=1
+  echo "WARNING: TOKEN was rejected; using the valid bot credential from USER_TOKEN and disabling the optional bump desktop." >&2
+elif [ -n "${TOKEN:-}" ]; then
+  # Keep the configured value so the required-variable check remains useful,
+  # but do not waste resources launching the optional desktop while the main
+  # Discord bot credential is invalid.
+  unset USER_TOKEN
+  echo "ERROR: Discord rejected TOKEN and USER_TOKEN is not a valid bot credential. Optional bump desktop disabled." >&2
+fi
+
 # Railway changes the public hostname when this project is cloned to another
 # account. Always prefer Railway's live hostname over a copied NEXTAUTH_URL so
 # Discord OAuth cannot redirect to an older deployment.
@@ -319,47 +344,52 @@ if ! python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:
   exit 1
 fi
 
-# ── Application emoji sync ──────────────────────────────────────────
-# Every Discord application owns its emoji IDs. Sync before importing cogs so
-# commands work immediately when TOKEN changes to a newly-created bot account.
-echo "Syncing MidVox application emojis..."
-(cd "$ROOT/bot" && timeout 180 python sync_emojis_once.py)
-EMOJI_SYNC_EXIT=$?
-if [ "$EMOJI_SYNC_EXIT" -eq 124 ]; then
-  echo "WARNING: Emoji sync timed out; commands will use any icons synced so far." >&2
-elif [ "$EMOJI_SYNC_EXIT" -ne 0 ]; then
-  echo "WARNING: Emoji sync failed (code $EMOJI_SYNC_EXIT); bot startup will continue." >&2
-fi
+if [ "$BOT_TOKEN_READY" = "1" ]; then
+  # ── Application emoji sync ────────────────────────────────────────
+  # Every Discord application owns its emoji IDs. Sync before importing cogs
+  # so commands work immediately when the active bot credential changes.
+  echo "Syncing MidVox application emojis..."
+  (cd "$ROOT/bot" && timeout 180 python sync_emojis_once.py)
+  EMOJI_SYNC_EXIT=$?
+  if [ "$EMOJI_SYNC_EXIT" -eq 124 ]; then
+    echo "WARNING: Emoji sync timed out; commands will use any icons synced so far." >&2
+  elif [ "$EMOJI_SYNC_EXIT" -ne 0 ]; then
+    echo "WARNING: Emoji sync failed (code $EMOJI_SYNC_EXIT); bot startup will continue." >&2
+  fi
 
-# Run bot in a restart loop so if it crashes the API stays up
-(
-  ROOT="$(pwd)"
-  while true; do
-    cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
-    echo "Starting bot (API on port 5001)..."
-    python midvox.py 2>&1 | tee "$ROOT/bot.log"
-    bot_exit=${PIPESTATUS[0]}
-    if grep -Eq '401 Unauthorized|Improper token has been passed' "$ROOT/bot.log" 2>/dev/null; then
-      echo "ERROR: Discord rejected TOKEN. Bot restart loop stopped; replace TOKEN in Railway to bring MidVox online." >&2
-      exit 0
+  # Run bot in a restart loop so if it crashes the API stays up.
+  (
+    ROOT="$(pwd)"
+    while true; do
+      cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
+      echo "Starting bot (API on port 5001)..."
+      python midvox.py 2>&1 | tee "$ROOT/bot.log"
+      bot_exit=${PIPESTATUS[0]}
+      if grep -Eq '401 Unauthorized|Improper token has been passed' "$ROOT/bot.log" 2>/dev/null; then
+        echo "ERROR: Discord rejected TOKEN. Bot restart loop stopped; replace TOKEN in Railway to bring MidVox online." >&2
+        exit 0
+      fi
+      echo "WARNING: Bot exited (code $bot_exit). Restarting in 2s..." >&2
+      cd "$ROOT"
+      sleep 2
+    done
+  ) &
+  BOT_PID=$!
+
+  # Wait for bot API to be ready (just check port is open).
+  echo "Waiting for bot API on port 5001..."
+  for i in $(seq 1 30); do
+    if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')" > /dev/null 2>&1; then
+      echo "Bot API is ready!"
+      break
     fi
-    echo "WARNING: Bot exited (code $bot_exit). Restarting in 2s..." >&2
-    cd "$ROOT"
+    echo "  Attempt $i/30..."
     sleep 2
   done
-) &
-BOT_PID=$!
-
-# Wait for bot API to be ready (just check port is open)
-echo "Waiting for bot API on port 5001..."
-for i in $(seq 1 30); do
-  if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')" > /dev/null 2>&1; then
-    echo "Bot API is ready!"
-    break
-  fi
-  echo "  Attempt $i/30..."
-  sleep 2
-done
+else
+  echo "WARNING: MidVox Discord client skipped because no valid bot credential is configured." >&2
+  BOT_PID=""
+fi
 
 # Start Next.js dashboard on Railway/Render's public PORT.
 cd dashboard
