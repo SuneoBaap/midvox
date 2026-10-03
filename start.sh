@@ -338,7 +338,12 @@ fi
     cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
     echo "Starting bot (API on port 5001)..."
     python midvox.py 2>&1 | tee "$ROOT/bot.log"
-    echo "WARNING: Bot exited (code $?). Restarting in 2s..." >&2
+    bot_exit=${PIPESTATUS[0]}
+    if grep -Eq '401 Unauthorized|Improper token has been passed' "$ROOT/bot.log" 2>/dev/null; then
+      echo "ERROR: Discord rejected TOKEN. Bot restart loop stopped; replace TOKEN in Railway to bring MidVox online." >&2
+      exit 0
+    fi
+    echo "WARNING: Bot exited (code $bot_exit). Restarting in 2s..." >&2
     cd "$ROOT"
     sleep 2
   done
