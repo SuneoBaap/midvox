@@ -21,6 +21,7 @@ import urllib.error
 from collections import defaultdict
 from cobalt_errors import CobaltDownloadError, extraction_error
 from hosted_downloads import HostedDownloads
+from media_quality import download_fitting_video, upload_budget
 
 INSTA_URL_RE = re.compile(
     r"(?:https?://)?(?:www\.|m\.|dl\.)?(?:instagram\.com|instagr\.am)/"
@@ -379,7 +380,7 @@ class InstaDownloader(commands.Cog):
         except Exception as e:
             print(f"[InstaDL] cleanup error: {e}")
 
-    def _cobalt_download(self, url):
+    def _cobalt_download(self, url, upload_limit=UPLOAD_LIMIT_BYTES):
         """Download a YouTube Short through the local Cobalt instance.
 
         Cobalt performs the extraction/remuxing remotely. This bot deliberately
@@ -516,7 +517,7 @@ class InstaDownloader(commands.Cog):
                 media_url = data.get("url")
 
                 expected_size = _probe_size(media_url)
-                if expected_size and expected_size > UPLOAD_LIMIT_BYTES:
+                if expected_size and expected_size > upload_limit:
                     print(
                         f"[InstaDL] skipping cobalt {quality}: "
                         f"{expected_size} bytes exceeds Discord limit"
@@ -543,10 +544,10 @@ class InstaDownloader(commands.Cog):
                             if not chunk:
                                 break
                             size += len(chunk)
-                            if size > UPLOAD_LIMIT_BYTES:
+                            if size > upload_limit:
                                 break
                             output.write(chunk)
-                if size > UPLOAD_LIMIT_BYTES:
+                if size > upload_limit:
                     try:
                         os.remove(path)
                     except OSError:
@@ -623,14 +624,17 @@ class InstaDownloader(commands.Cog):
         an immediate link deletion + animated loading indicator."""
         loop = asyncio.get_running_loop()
         file_path = None
+        upload_limit = upload_budget(
+            UPLOAD_LIMIT_BYTES, getattr(message.guild, "filesize_limit", None),
+        )
 
         if source == "youtube":
             file_path = await loop.run_in_executor(
-                None, self._hosted_downloads.download, url, UPLOAD_LIMIT_BYTES,
+                None, self._hosted_downloads.download, url, upload_limit,
             )
             try:
                 if not file_path:
-                    file_path = await loop.run_in_executor(None, self._cobalt_download, url)
+                    file_path = await loop.run_in_executor(None, self._cobalt_download, url, upload_limit)
             except CobaltDownloadError as error:
                 await self._send_status(
                     message.channel, error.user_message, reference=None,
@@ -664,7 +668,7 @@ class InstaDownloader(commands.Cog):
                 "quiet": True,
                 "no_warnings": True,
                 "noplaylist": True,
-                "max_filesize": 25 * 1024 * 1024,
+                "max_filesize": upload_limit,
                 "socket_timeout": 25,
                 "retries": 2,
                 "fragment_retries": 2,
@@ -677,10 +681,7 @@ class InstaDownloader(commands.Cog):
                 last_err = None
                 try:
                     with yt_dlp.YoutubeDL(opts) as ydl:
-                        info = ydl.extract_info(url, download=True)
-                        path = ydl.prepare_filename(info)
-                        if path and os.path.exists(path):
-                            return path
+                        return download_fitting_video(ydl, url, upload_limit)
                 except Exception as e:
                     last_err = e
                     print(f"[InstaDL] yt-dlp attempt failed for {url}: {e}")
@@ -725,14 +726,14 @@ class InstaDownloader(commands.Cog):
             if not file_path or not os.path.exists(file_path):
                 await self._send_status(
                     message.channel,
-                    f"Couldn't download that link — the platform likely blocked it or it's not downloadable.\n{url}",
+                    "No available video quality fits this server’s upload limit.",
                     reference=message,
                 )
                 return
 
         try:
             size = os.path.getsize(file_path)
-            if size > UPLOAD_LIMIT_BYTES:
+            if size > upload_limit:
                 await self._send_status(
                     message.channel,
                     "That media is too large for this Discord server's upload limit.",
