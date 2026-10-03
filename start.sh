@@ -7,29 +7,13 @@ cd "$(dirname "$0")" || exit 1
 
 echo "=== Starting MidVox ==="
 
-# Prefer TOKEN for the application bot. If it was revoked but USER_TOKEN is
-# actually a valid bot credential, promote that credential and disable the
-# optional user desktop/bump sidecar. A normal Discord user token cannot pass
-# this Bot-authenticated API check and will never be used to start MidVox.
-bot_token_valid() {
-  BOT_TOKEN_CANDIDATE="$1" python -c 'import os, urllib.request; token=os.environ.get("BOT_TOKEN_CANDIDATE", "").strip(); token=token[4:].strip() if token.startswith("Bot ") else token; request=urllib.request.Request("https://discord.com/api/v10/users/@me", headers={"Authorization": "Bot " + token, "User-Agent": "DiscordBot (https://github.com/suneo779/midvox, 1.0)"}); response=urllib.request.urlopen(request, timeout=12); assert response.status == 200' >/dev/null 2>&1
-}
-
-BOT_TOKEN_READY=0
-if [ -n "${TOKEN:-}" ] && bot_token_valid "$TOKEN"; then
+# Keep the optional user-account desktop and bump worker disabled while Discord
+# credentials are being repaired. The application bot must always get a real
+# login attempt from discord.py; a separate REST precheck previously skipped
+# the bot before its process could start.
+unset USER_TOKEN
+if [ -n "${TOKEN:-}" ]; then
   export TOKEN="${TOKEN#Bot }"
-  BOT_TOKEN_READY=1
-elif [ -n "${USER_TOKEN:-}" ] && bot_token_valid "$USER_TOKEN"; then
-  export TOKEN="${USER_TOKEN#Bot }"
-  unset USER_TOKEN
-  BOT_TOKEN_READY=1
-  echo "WARNING: TOKEN was rejected; using the valid bot credential from USER_TOKEN and disabling the optional bump desktop." >&2
-elif [ -n "${TOKEN:-}" ]; then
-  # Keep the configured value so the required-variable check remains useful,
-  # but do not waste resources launching the optional desktop while the main
-  # Discord bot credential is invalid.
-  unset USER_TOKEN
-  echo "ERROR: Discord rejected TOKEN and USER_TOKEN is not a valid bot credential. Optional bump desktop disabled." >&2
 fi
 
 # Railway changes the public hostname when this project is cloned to another
@@ -344,7 +328,7 @@ if ! python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:
   exit 1
 fi
 
-if [ "$BOT_TOKEN_READY" = "1" ]; then
+if [ -n "${TOKEN:-}" ]; then
   # ── Application emoji sync ────────────────────────────────────────
   # Every Discord application owns its emoji IDs. Sync before importing cogs
   # so commands work immediately when the active bot credential changes.
