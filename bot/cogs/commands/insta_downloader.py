@@ -20,6 +20,7 @@ import urllib.request
 import urllib.error
 from collections import defaultdict
 from cobalt_errors import CobaltDownloadError, extraction_error
+from hosted_downloads import HostedDownloads
 
 INSTA_URL_RE = re.compile(
     r"(?:https?://)?(?:www\.|m\.|dl\.)?(?:instagram\.com|instagr\.am)/"
@@ -48,6 +49,7 @@ class InstaDownloader(commands.Cog):
         self._channel_cooldown = defaultdict(float)
         self._download_lock = asyncio.Lock()
         self._active_status_id = None
+        self._hosted_downloads = HostedDownloads()
 
     @property
     def mongo(self):
@@ -623,8 +625,12 @@ class InstaDownloader(commands.Cog):
         file_path = None
 
         if source == "youtube":
+            file_path = await loop.run_in_executor(
+                None, self._hosted_downloads.download, url, UPLOAD_LIMIT_BYTES,
+            )
             try:
-                file_path = await loop.run_in_executor(None, self._cobalt_download, url)
+                if not file_path:
+                    file_path = await loop.run_in_executor(None, self._cobalt_download, url)
             except CobaltDownloadError as error:
                 await self._send_status(
                     message.channel, error.user_message, reference=None,

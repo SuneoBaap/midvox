@@ -101,10 +101,21 @@ MidVox ships as one production Docker image. Railway should build the repository
 
 `start.sh` derives `NEXTAUTH_URL` from Railway's public domain at runtime, which prevents OAuth redirects from pointing to an older deployment.
 
-Public YouTube Shorts use anonymous Cobalt extraction. Account cookies and a
-YouTube session generator are not loaded. YouTube can still challenge the
-server's network connection; cookie-less mode does not guarantee that every
-video is available.
+Public YouTube Shorts use local Cobalt with a renewable anonymous PoToken
+session. YouTube can still challenge Railway's connection. For independent
+hosted download routes, set `COBALT_HOSTED_PROVIDERS` to a JSON array of Cobalt
+API endpoints whose operators permit your use. Example (place real keys only
+in Railway Variables):
+
+```json
+[{"url":"https://your-provider.example","api_key":"your-key"}]
+```
+
+Up to three providers run in order before local Cobalt. Authentication uses
+Cobalt's `Api-Key` scheme; omit `api_key` only for APIs that permit unauthenticated
+requests. Oversized formats are skipped or stopped, empty/invalid files are
+rejected, temporary files are cleaned up, and failed providers pause for five
+minutes. No public instance is assumed reliable or added automatically.
 
 <details>
 <summary><strong>Optional variables</strong></summary>
