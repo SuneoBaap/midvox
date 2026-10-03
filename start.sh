@@ -75,7 +75,18 @@ ROOT="$(pwd)"
 export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
 export USER_GATEWAY_READY_FILE=/tmp/midvox-user-gateway-ready
 rm -f "$USER_DESKTOP_READY_FILE" "$USER_GATEWAY_READY_FILE"
+USER_DESKTOP_ENABLED=0
 if [ -n "${USER_TOKEN:-}" ]; then
+  # The user-account desktop is optional. Validate its credential before
+  # launching Electron so a revoked token cannot trap the whole Railway
+  # service in a startup/restart loop. Never print the token or response body.
+  if python -c 'import os, urllib.request; request = urllib.request.Request("https://discord.com/api/v10/users/@me", headers={"Authorization": os.environ["USER_TOKEN"], "User-Agent": "DiscordBot (https://github.com/suneo779/midvox, 1.0)"}); response = urllib.request.urlopen(request, timeout=12); assert response.status == 200' >/dev/null 2>&1; then
+    USER_DESKTOP_ENABLED=1
+  else
+    echo "WARNING: USER_TOKEN was rejected by Discord; disabling the optional user desktop and bump sidecar for this deployment." >&2
+  fi
+fi
+if [ "$USER_DESKTOP_ENABLED" = "1" ]; then
   DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-}"
   if [ -z "$DESKTOP_BIN" ]; then
     # Supervise the installed Electron runtime itself. The package-level
@@ -90,16 +101,23 @@ if [ -n "${USER_TOKEN:-}" ]; then
     DESKTOP_BIN=/opt/Discord/discord
   fi
   if ! command -v Xvfb >/dev/null 2>&1 || [ ! -x "$DESKTOP_BIN" ]; then
-    echo "FATAL: USER_TOKEN requires the Docker image's Discord desktop and Xvfb." >&2
-    exit 1
+    echo "WARNING: Discord desktop or Xvfb is unavailable; disabling the optional user desktop and bump sidecar." >&2
+    USER_DESKTOP_ENABLED=0
   fi
+fi
+if [ "$USER_DESKTOP_ENABLED" = "1" ]; then
   export DISCORD_DESKTOP_BIN="$DESKTOP_BIN"
   echo "Starting official user-account desktop first..."
   (
     while true; do
       cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
       python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
-      echo "WARNING: User presence sidecar exited (code $?). Restarting in 5s..." >&2
+      sidecar_exit=${PIPESTATUS[0]}
+      if grep -Eq 'user token validation HTTP (401|403)' "$ROOT/bump.log" 2>/dev/null; then
+        echo "WARNING: Discord revoked USER_TOKEN; optional user desktop and bump sidecar are now disabled." >&2
+        exit 0
+      fi
+      echo "WARNING: User presence sidecar exited (code $sidecar_exit). Restarting in 5s..." >&2
       cd "$ROOT"
       rm -f "$USER_DESKTOP_READY_FILE" "$USER_GATEWAY_READY_FILE"
       sleep 5
@@ -118,18 +136,23 @@ if [ -n "${USER_TOKEN:-}" ]; then
       break
     fi
     if ! kill -0 "$BUMP_PID" 2>/dev/null; then
-      echo "FATAL: User presence sidecar exited before becoming ready." >&2
-      exit 1
+      echo "WARNING: User presence sidecar exited before becoming ready; continuing without it." >&2
+      BUMP_PID=""
+      break
     fi
     sleep 1
   done
   if [ ! -f "$USER_DESKTOP_READY_FILE" ] && [ ! -f "$USER_GATEWAY_READY_FILE" ]; then
-    echo "FATAL: User desktop or Linux Desktop fallback did not become ready within 120 seconds." >&2
+    echo "WARNING: User desktop or Linux Desktop fallback did not become ready within 120 seconds; continuing without it." >&2
     tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
-    exit 1
+    if [ -n "${BUMP_PID:-}" ]; then
+      kill -TERM "$BUMP_PID" 2>/dev/null || true
+      wait "$BUMP_PID" 2>/dev/null || true
+      BUMP_PID=""
+    fi
   fi
 else
-  echo "User presence sidecar skipped (set USER_TOKEN to enable)."
+  echo "User presence sidecar skipped (missing or invalid USER_TOKEN)."
   BUMP_PID=""
 fi
 
