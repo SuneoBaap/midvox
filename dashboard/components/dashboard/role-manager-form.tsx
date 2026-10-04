@@ -205,13 +205,28 @@ export function RoleManagerForm({ guildId, initialRoles }: { guildId: string; in
           })}
         </div>
 
-        {preset === "all" && !customized && (
+        {permissions.includes("administrator") && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-xs text-amber-200">
             All Permissions includes Administrator and bypasses channel permission restrictions. Use it only for fully trusted staff.
           </div>
         )}
 
         <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--panel-muted)]">Permissions</h4>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => choosePreset("all")}>
+                Enable all
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => {
+                setPermissions([]);
+                setPreset("custom");
+                setCustomized(true);
+              }}>
+                Disable all
+              </Button>
+            </div>
+          </div>
           {PERMISSION_GROUPS.map(group => (
             <div key={group.name}>
               <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--panel-muted)]">{group.name}</h4>

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot, limiter
+from api.bot_loop import run_on_bot_loop
 from api.db_manager import db_manager
 from api.schemas import (
     GuildSummary, GuildDetails, PrefixConfig, AutomodConfig,
@@ -1267,6 +1268,10 @@ def _validate_role_position(guild: discord.Guild, below_role_id: Optional[str]):
 
 @router.post("/{guild_id}/roles", response_model=DiscordRole, summary="Create a Discord role")
 async def create_guild_role(guild_id: int, data: RoleMutation, bot: "midvox" = Depends(get_bot)):
+    return await run_on_bot_loop(bot, lambda: _create_guild_role(guild_id, data, bot))
+
+
+async def _create_guild_role(guild_id: int, data: RoleMutation, bot: "midvox"):
     guild = bot.get_guild(guild_id)
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")
@@ -1313,6 +1318,10 @@ async def create_guild_role(guild_id: int, data: RoleMutation, bot: "midvox" = D
 
 @router.patch("/{guild_id}/roles/{role_id}", response_model=DiscordRole, summary="Edit a Discord role")
 async def edit_guild_role(guild_id: int, role_id: int, data: RoleMutation, bot: "midvox" = Depends(get_bot)):
+    return await run_on_bot_loop(bot, lambda: _edit_guild_role(guild_id, role_id, data, bot))
+
+
+async def _edit_guild_role(guild_id: int, role_id: int, data: RoleMutation, bot: "midvox"):
     guild = bot.get_guild(guild_id)
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")

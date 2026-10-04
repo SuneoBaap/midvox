@@ -58,7 +58,7 @@ async function proxy(
     const opts: RequestInit = {
       method,
       headers,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(roleMutation ? 60000 : 15000),
     };
     if (method !== "GET" && method !== "HEAD") {
       try {
