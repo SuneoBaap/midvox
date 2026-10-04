@@ -58,6 +58,16 @@ class LoginBrowser:
             self.profile.cleanup()
         self.process = self.display = self.profile = self.session = self.socket = None
 
+    async def screenshot(self):
+        # Chromium can briefly refuse capture during the first navigation.
+        for attempt in range(3):
+            try:
+                return await self.command("Page.captureScreenshot", {"format": "jpeg", "quality": 75})
+            except (ValueError, TimeoutError):
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(0.5)
+
     async def start(self):
         await self.stop()
         self.profile = tempfile.TemporaryDirectory(prefix="midvox-youtube-login-")
@@ -100,7 +110,7 @@ class LoginBrowser:
                 if request.method == "GET":
                     if not self.socket:
                         raise ValueError("Open the login browser first.")
-                    shot = await self.command("Page.captureScreenshot", {"format": "jpeg", "quality": 75})
+                    shot = await self.screenshot()
                     return web.Response(body=base64.b64decode(shot["data"]), content_type="image/jpeg",
                                         headers={"Cache-Control": "no-store"})
                 data = await request.json()

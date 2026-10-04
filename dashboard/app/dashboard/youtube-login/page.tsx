@@ -17,7 +17,7 @@ export default function YouTubeLogin() {
     if (!response.ok) {
       const error = await response.json();
       setMessage(error.detail);
-      setRunning(false);
+      if (response.status === 401 || response.status === 403) setRunning(false);
       return;
     }
     const url = URL.createObjectURL(await response.blob());
