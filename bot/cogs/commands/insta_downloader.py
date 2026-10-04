@@ -23,16 +23,7 @@ from cobalt_errors import CobaltDownloadError, extraction_error
 from hosted_downloads import HostedDownloads
 from media_quality import download_fitting_video, upload_budget
 
-INSTA_URL_RE = re.compile(
-    r"(?:https?://)?(?:www\.|m\.|dl\.)?(?:instagram\.com|instagr\.am)/"
-    r"(?:reel|reels|p|tv|stories|share)/[\w\-]+",
-    re.IGNORECASE,
-)
-
-YT_SHORTS_URL_RE = re.compile(
-    r"(?:https?://)?(?:(?:www\.|m\.)?youtube\.com/shorts/|(?:www\.)?youtu\.be/)([\w\-]{6,20})",
-    re.IGNORECASE,
-)
+from media_links import short_media_link
 
 CONFIG_DEFAULTS = {
     "enabled": False,
@@ -51,6 +42,8 @@ class InstaDownloader(commands.Cog):
         self._download_lock = asyncio.Lock()
         self._active_status_id = None
         self._hosted_downloads = HostedDownloads()
+        self._failed_downloads = set()
+        self._pending_downloads = set()
 
     @property
     def mongo(self):
@@ -322,20 +315,10 @@ class InstaDownloader(commands.Cog):
                 return
 
             content = message.content or ""
-            insta_match = INSTA_URL_RE.search(content)
-            yt_match = YT_SHORTS_URL_RE.search(content)
-            if not insta_match and not yt_match:
+            media = short_media_link(content)
+            if not media:
                 return
-
-            if insta_match:
-                url = insta_match.group(0)
-                source = "instagram"
-            else:
-                url = yt_match.group(0)
-                source = "youtube"
-
-            if not url.startswith("http"):
-                url = "https://" + url
+            source, url, media_id = media
 
             # Per-channel cooldown so a spam of links can't hammer the sites
             now = time.time()
@@ -481,6 +464,13 @@ class InstaDownloader(commands.Cog):
                 "MWEB",
                 "IOS",
             )
+            # Browser sessions work best with the authenticated web client.
+            try:
+                with open(os.getenv("COOKIE_PATH", "/tmp/midvox-youtube-cookies.json"), encoding="utf-8") as cookie_file:
+                    if json.load(cookie_file).get("youtube"):
+                        clients = ("WEB_CREATOR",) + tuple(c for c in clients if c != "WEB_CREATOR")
+            except (OSError, ValueError):
+                pass
             selected_client = None
             for quality in ("max", "1080", "720", "480", "360", "240"):
                 data = None
@@ -576,28 +566,51 @@ class InstaDownloader(commands.Cog):
             message.channel, "Downloading ⏳", reference=None, auto_delete=0
         )
         self._active_status_id = status.id if status else None
+        animation = None
         if status:
             # Animate "Downloading . / .. / ..." until the download finishes.
-            asyncio.get_running_loop().create_task(
+            animation = asyncio.get_running_loop().create_task(
                 self._animate_loading(status)
             )
 
-        # Remove the source immediately before any network download starts.
-        # This prevents the original link from remaining visible while Cobalt
-        # or yt-dlp is working, including when the download later fails.
-        if config.get("delete_original"):
+        failure_key = f"{message.guild.id}:{source}:{url}"
+        previously_failed = failure_key in self._failed_downloads or failure_key in self._pending_downloads
+        if self.mongo and not previously_failed:
+            try:
+                previously_failed = bool(await self.mongo.media_download_failures.find_one({"_id": failure_key}))
+            except Exception:
+                previously_failed = True
+        self._pending_downloads.add(failure_key)
+        if config.get("delete_original") and not previously_failed:
             try:
                 await message.delete()
             except Exception as e:
-                print(
-                    f"[InstaDL] could not delete source message "
-                    f"{message.id} before download: {e}"
-                )
+                print(f"[InstaDL] could not delete source message {message.id}: {e}")
 
+        succeeded = False
         try:
-            await self._download_and_send_inner(message, url, config, source)
+            succeeded = bool(await self._download_and_send_inner(message, url, config, source))
         finally:
+            self._pending_downloads.discard(failure_key)
+            if succeeded:
+                self._failed_downloads.discard(failure_key)
+            else:
+                if len(self._failed_downloads) >= 2048:
+                    self._failed_downloads.pop()
+                self._failed_downloads.add(failure_key)
+            if self.mongo:
+                try:
+                    if succeeded:
+                        await self.mongo.media_download_failures.delete_one({"_id": failure_key})
+                    else:
+                        await self.mongo.media_download_failures.update_one(
+                            {"_id": failure_key}, {"$set": {"failed": True}}, upsert=True,
+                        )
+                except Exception:
+                    print("[InstaDL] could not persist download failure history")
             self._active_status_id = None
+            if animation:
+                animation.cancel()
             if status:
                 try:
                     await status.delete()
@@ -694,14 +707,6 @@ class InstaDownloader(commands.Cog):
             except Exception as e:
                 reason = str(e).strip()[:300]
                 print(f"[InstaDL] download failed for {url}: {e}")
-                # yt-dlp can't do image-only posts — fall back to Instagram's
-                # /media endpoint which serves the post image directly.
-                if source == "instagram":
-                    try:
-                        if await self._send_image_fallback(message, url):
-                            return
-                    except Exception as fb:
-                        print(f"[InstaDL] image fallback failed for {url}: {fb}")
                 if reason and "requested format is not available" in reason.lower():
                     await self._send_status(
                         message.channel,
@@ -756,53 +761,12 @@ class InstaDownloader(commands.Cog):
                 )
                 print(f"[InstaDL] Discord upload failed: {e}")
                 return
+            return True
 
         finally:
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
-                except Exception:
-                    pass
-
-    async def _send_image_fallback(self, message, url):
-        """Image-only posts (no video) — fetch the post image via the
-        /media endpoint and repost it. Returns True if an image was sent."""
-        m = re.search(r"/(?:reel|reels|p|tv|stories|share)/([\w\-]+)", url)
-        if not m:
-            return False
-        code = m.group(1)
-        media_url = f"https://www.instagram.com/p/{code}/media/?size=l"
-
-        def _fetch():
-            req = urllib.request.Request(media_url, headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-            })
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = resp.read()
-                ctype = resp.headers.get("Content-Type", "")
-                if not ctype.startswith("image/") or not data:
-                    return None
-                return data
-
-        loop = asyncio.get_running_loop()
-        data = await loop.run_in_executor(None, _fetch)
-        if not data:
-            return False
-        if len(data) > 25 * 1024 * 1024:
-            return False
-
-        path = os.path.join(tempfile.gettempdir(), f"instadl_{code}.jpg")
-        with open(path, "wb") as f:
-            f.write(data)
-        try:
-            await message.channel.send(
-                file=discord.File(path, filename=f"instagram_{code}.jpg")
-            )
-            return True
-        finally:
-            if os.path.exists(path):
-                try:
-                    os.remove(path)
                 except Exception:
                     pass
 

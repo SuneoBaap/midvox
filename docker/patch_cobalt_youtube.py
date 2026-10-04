@@ -108,7 +108,14 @@ replace_once(
     "    // YouTube challenges anonymous datacenter clients even at Discord-\n"
     "    // sized qualities. Use the matching PoToken session for every\n"
     "    // non-HLS request instead of limiting it to resolutions above 1080p.\n"
-    "    let useSession = Boolean(env.ytSessionServer && !useHLS);\n",
+    "    let useSession = Boolean(env.ytSessionServer && !useHLS && !getCookie('youtube'));\n",
+)
+
+# A signed-in session must not inherit an anonymous visitor's proof token.
+replace_once(
+    str(COBALT_ROOT / "src/processing/services/youtube.js"),
+    "        sessionTokens?.potoken\n",
+    "        useSession ? sessionTokens?.potoken : undefined\n",
 )
 
 # Cobalt normally replaces the requested fallback client with the session

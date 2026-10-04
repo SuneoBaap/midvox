@@ -281,10 +281,15 @@ if [ ! -f /opt/cobalt/src/cobalt.js ]; then
   exit 1
 fi
 
-# Public Shorts use the local Proof-of-Origin session without account cookies.
-# Ignore any stale cookie variable left in a cloned Railway project.
-unset COOKIE_PATH COBALT_COOKIE_FILE
-echo "Cobalt YouTube mode: local anonymous session generator (no account cookies)."
+# The owner may sign in through the private, on-demand Railway browser.
+# No browser or account password is kept running in the background.
+export COOKIE_PATH="/tmp/midvox-youtube-cookies.json"
+if [ ! -f "$COOKIE_PATH" ]; then
+  (umask 077; printf '{}' > "$COOKIE_PATH")
+fi
+python /opt/youtube-session/login.py &
+YT_LOGIN_PID=$!
+echo "YouTube owner login available at /dashboard/youtube-login."
 export COBALT_YOUTUBE_CLIENT="${COBALT_YOUTUBE_CLIENT:-IOS}"
 echo "Cobalt YouTube client: $COBALT_YOUTUBE_CLIENT"
 
@@ -301,10 +306,11 @@ echo "Starting local Cobalt sidecar on port 9000..."
       API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
       API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
       API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \
+      RATELIMIT_MAX=120 \
       CUSTOM_INNERTUBE_CLIENT="$COBALT_YOUTUBE_CLIENT" \
       YOUTUBE_SESSION_SERVER="$YOUTUBE_SESSION_SERVER" \
       YOUTUBE_SESSION_INNERTUBE_CLIENT="$YOUTUBE_SESSION_INNERTUBE_CLIENT" \
-      node src/cobalt.js 2>&1 | tee "$ROOT/cobalt.log"
+      bash -c 'echo "$BASHPID" > /tmp/midvox-cobalt.pid; exec node src/cobalt.js' 2>&1 | tee "$ROOT/cobalt.log"
     echo "WARNING: Cobalt exited (code $?). Restarting in 2s..." >&2
     sleep 2
   done
@@ -399,7 +405,7 @@ fi
 stop_services() {
   for pid in \
     "${COBALT_PID:-}" "${BOT_PID:-}" "${BUMP_PID:-}" \
-    "${DASHBOARD_PID:-}" "${YT_SESSION_PID:-}" "${WARP_PID:-}"; do
+    "${DASHBOARD_PID:-}" "${YT_SESSION_PID:-}" "${YT_LOGIN_PID:-}" "${WARP_PID:-}"; do
     if [ -n "$pid" ]; then
       kill -TERM "$pid" 2>/dev/null || true
     fi

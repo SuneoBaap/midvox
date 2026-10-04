@@ -146,6 +146,10 @@ class MongoManager:
     def instadl_config(self):
         return self._db["instadl_config"]
 
+    @property
+    def media_download_failures(self):
+        return self._db["media_download_failures"]
+
     async def close(self):
         for client in self._clients.values():
             try:

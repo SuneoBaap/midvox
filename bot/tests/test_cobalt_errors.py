@@ -18,9 +18,9 @@ class CobaltErrorTests(unittest.TestCase):
             "error.api.content.video.unavailable", "error.api.youtube.login",
         ])
         self.assertEqual(error.code, "error.api.youtube.login")
-        self.assertIn("sign-in", error.user_message)
-        self.assertIn("retrying the link alone won't fix", error.user_message)
-        self.assertNotIn("login session", error.user_message)
+        self.assertIn("sign in", error.user_message)
+        self.assertIn("/dashboard/youtube-login", error.user_message)
+        self.assertIn("stay visible", error.user_message)
 
     def test_unavailable_requires_agreement_between_clients(self):
         self.assertIsNone(extraction_error(["error.api.content.video.unavailable", "unknown"]))

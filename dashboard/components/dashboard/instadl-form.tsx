@@ -130,7 +130,7 @@ export function InstaDLForm({ initialConfig, channels, guildId }: InstaDLFormPro
               <div className="p-2.5 rounded-xl bg-primary/10 text-primary"><Download className="h-5 w-5" /></div>
               <div>
                 <h4 className="font-bold text-slate-50 text-sm">Enabled</h4>
-                <p className="text-xs text-neutral-400">Watch selected channels for Instagram links &amp; YouTube Shorts</p>
+                <p className="text-xs text-neutral-400">Watch selected channels for Instagram Reels &amp; YouTube Shorts</p>
               </div>
             </div>
             <Switch checked={config.enabled} onCheckedChange={toggleEnabled} />
@@ -211,7 +211,7 @@ export function InstaDLForm({ initialConfig, channels, guildId }: InstaDLFormPro
             <h3 className="text-sm font-bold text-slate-50">How It Works</h3>
           </div>
           <ul className="text-xs text-neutral-500 space-y-2">
-            <li>â€¢ Instagram reels, posts &amp; YouTube Shorts are downloaded automatically.</li>
+            <li>â€¢ Instagram Reels &amp; YouTube Shorts are downloaded automatically.</li>
             <li>â€¢ Media is reposted inline in the channel.</li>
             <li>â€¢ The original link message is deleted so no embed is left behind.</li>
             <li>â€¢ Files are capped at 24MB for Discord limits.</li>

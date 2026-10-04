@@ -109,7 +109,7 @@ RUN apt-get update \
         libatomic1 libnotify4 libnspr4 libnss3 libpulse0 libstdc++6 libx11-6 \
         libxcb1 libxcomposite1 libxdamage1 libegl1 libgl1-mesa-dri \
         libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
-        passwd util-linux xdg-utils xvfb \
+        passwd util-linux xdg-utils xvfb chromium \
     && useradd --system --create-home --home-dir /home/midvox --shell /usr/sbin/nologin midvox \
     && test -x /opt/Discord/discord \
     && test -n "$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
@@ -129,6 +129,7 @@ RUN python -m pip install -r bot/requirements.txt
 COPY --from=dashboard_builder /build/dashboard dashboard/
 COPY bot/ bot/
 COPY docker/youtube_session_server.py /opt/youtube-session/server.py
+COPY docker/youtube_login_server.py /opt/youtube-session/login.py
 COPY start.sh start.sh
 RUN test -x /usr/local/bin/bgutil-pot \
     && python -m py_compile /opt/youtube-session/server.py \

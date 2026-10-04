@@ -204,6 +204,14 @@ snipe 25                              Show the oldest retained message
 
 ## Security
 
+### Owner YouTube login
+
+The downloader accepts explicit YouTube `/shorts/` and Instagram `/reel/` or `/reels/` links only. Regular videos, posts, images, stories, and ambiguous short URLs are ignored. If a download fails, MongoDB remembers it per guild; subsequent posts of that link remain visible while the bot retries. A successful upload clears the failure record.
+
+When YouTube requires sign-in, open `/dashboard/youtube-login` on your deployed MidVox website while signed in with an account listed in `OWNER_IDS`. Open the browser, click **Sign in** inside its image, and use the text box to type into the selected field. Complete any Google verification yourself. Return to YouTube, then choose **Save session and close**. This restarts Cobalt with the private session without restarting the bot.
+
+Chromium starts only on demand and closes after saving, closing, or 30 minutes without browser requests. Its cookies are saved privately inside the container and never committed or returned to the dashboard. Redeploying without persistent storage requires another login. Google may still reject sign-in or downloads from the hosting network.
+
 Keep bot tokens, OAuth secrets, cookie headers, API keys, and MongoDB credentials in Railway Variables or a local untracked `.env` file. Rotate any credential that appears in a commit, screenshot, log, or shared message.
 
 ## License
