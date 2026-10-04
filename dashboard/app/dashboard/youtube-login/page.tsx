@@ -84,6 +84,6 @@ export default function YouTubeLogin() {
         action("click", { x: (event.clientX - box.left) * 1100 / box.width, y: (event.clientY - box.top) * 800 / box.height });
       }} />}
     </>}
-    <p className="text-xs text-[var(--panel-muted)]">The browser runs only during login. Saved cookies stay private on this Railway container; a redeploy without persistent storage requires signing in again. Signing in does not guarantee YouTube will accept this server connection.</p>
+    <p className="text-xs text-[var(--panel-muted)]">The browser runs only during login. Saved cookies stay private and are backed up encrypted in MongoDB across redeploys. Signing in does not guarantee YouTube will accept this server connection.</p>
   </section>;
 }

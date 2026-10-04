@@ -7,11 +7,7 @@ cd "$(dirname "$0")" || exit 1
 
 echo "=== Starting MidVox ==="
 
-# Keep the optional user-account desktop and bump worker disabled while Discord
-# credentials are being repaired. The application bot must always get a real
-# login attempt from discord.py; a separate REST precheck previously skipped
-# the bot before its process could start.
-unset USER_TOKEN
+# Optional account workers must never gate the application bot or dashboard.
 if [ -n "${TOKEN:-}" ]; then
   export TOKEN="${TOKEN#Bot }"
 fi
@@ -78,92 +74,35 @@ export API_ENABLED=true
 export API_PORT=5001
 ROOT="$(pwd)"
 
-# Start the official user-account desktop before WARP, Cobalt, the application
-# bot, and the dashboard. Wait for its authenticated Gateway READY event before
-# starting any other service.
+# Run the optional bump worker independently. Its own bounded validation and
+# reconnect handling cannot delay the main bot, dashboard, or downloader.
 export USER_DESKTOP_READY_FILE=/tmp/midvox-user-desktop-ready
 export USER_GATEWAY_READY_FILE=/tmp/midvox-user-gateway-ready
 rm -f "$USER_DESKTOP_READY_FILE" "$USER_GATEWAY_READY_FILE"
-USER_DESKTOP_ENABLED=0
-if [ -n "${USER_TOKEN:-}" ]; then
-  # The user-account desktop is optional. Validate its credential before
-  # launching Electron so a revoked token cannot trap the whole Railway
-  # service in a startup/restart loop. Never print the token or response body.
-  if python -c 'import os, urllib.request; request = urllib.request.Request("https://discord.com/api/v10/users/@me", headers={"Authorization": os.environ["USER_TOKEN"], "User-Agent": "DiscordBot (https://github.com/suneo779/midvox, 1.0)"}); response = urllib.request.urlopen(request, timeout=12); assert response.status == 200' >/dev/null 2>&1; then
-    USER_DESKTOP_ENABLED=1
-  else
-    echo "WARNING: USER_TOKEN was rejected by Discord; disabling the optional user desktop and bump sidecar for this deployment." >&2
-  fi
-fi
-if [ "$USER_DESKTOP_ENABLED" = "1" ]; then
-  DESKTOP_BIN="${DISCORD_DESKTOP_BIN:-}"
-  if [ -z "$DESKTOP_BIN" ]; then
-    # Supervise the installed Electron runtime itself. The package-level
-    # /opt/Discord/discord executable is only an updater/launcher and can exit
-    # after spawning the real client, which previously caused false restarts.
-    DESKTOP_BIN="$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print 2>/dev/null | sort -V | tail -n 1)"
-  fi
-  if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/Discord ]; then
-    DESKTOP_BIN=/opt/Discord/Discord
-  fi
-  if [ ! -x "$DESKTOP_BIN" ] && [ -x /opt/Discord/discord ]; then
-    DESKTOP_BIN=/opt/Discord/discord
-  fi
-  if ! command -v Xvfb >/dev/null 2>&1 || [ ! -x "$DESKTOP_BIN" ]; then
-    echo "WARNING: Discord desktop or Xvfb is unavailable; disabling the optional user desktop and bump sidecar." >&2
-    USER_DESKTOP_ENABLED=0
-  fi
-fi
-if [ "$USER_DESKTOP_ENABLED" = "1" ]; then
-  export DISCORD_DESKTOP_BIN="$DESKTOP_BIN"
-  echo "Starting official user-account desktop first..."
-  (
-    while true; do
-      cd "$ROOT/bot" || { echo "FATAL: bot/ directory not found at $ROOT/bot"; exit 1; }
-      python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
-      sidecar_exit=${PIPESTATUS[0]}
-      if grep -Eq 'user token validation HTTP (401|403)' "$ROOT/bump.log" 2>/dev/null; then
-        echo "WARNING: Discord revoked USER_TOKEN; optional user desktop and bump sidecar are now disabled." >&2
-        exit 0
-      fi
-      echo "WARNING: User presence sidecar exited (code $sidecar_exit). Restarting in 5s..." >&2
-      cd "$ROOT"
-      rm -f "$USER_DESKTOP_READY_FILE" "$USER_GATEWAY_READY_FILE"
+BUMP_PID=""
+# Restore saved owner logins before the optional worker chooses its account.
+export COOKIE_PATH=/tmp/midvox-youtube-cookies.json
+timeout 20s python /opt/youtube-session/youtube_session_store.py || echo "WARNING: Login restore timed out; continuing startup."
+echo "Starting optional account supervisor in the background..."
+(
+  cd "$ROOT/bot" || exit 1
+  while true; do
+    if [ -z "${USER_TOKEN:-}" ] && [ ! -f /tmp/midvox-discord-login.json ]; then
       sleep 5
-    done
-  ) &
-  BUMP_PID=$!
-
-  echo "Waiting for official user desktop Gateway READY..."
-  for i in $(seq 1 120); do
-    if [ -f "$USER_DESKTOP_READY_FILE" ]; then
-      echo "Official user desktop Gateway authenticated; starting remaining services."
-      break
+      continue
     fi
-    if [ -f "$USER_GATEWAY_READY_FILE" ]; then
-      echo "Interaction Gateway ready; desktop login unconfirmed. Starting remaining services."
-      break
+    python bump_sidecar.py 2>&1 | tee "$ROOT/bump.log"
+    sidecar_exit=${PIPESTATUS[0]}
+    if [ "$sidecar_exit" = "78" ]; then
+      echo "WARNING: Saved Discord account needs a new login; main services remain running." >&2
+      sleep 60
+    else
+      echo "WARNING: Optional account worker exited ($sidecar_exit); retrying in 5s." >&2
+      sleep 5
     fi
-    if ! kill -0 "$BUMP_PID" 2>/dev/null; then
-      echo "WARNING: User presence sidecar exited before becoming ready; continuing without it." >&2
-      BUMP_PID=""
-      break
-    fi
-    sleep 1
   done
-  if [ ! -f "$USER_DESKTOP_READY_FILE" ] && [ ! -f "$USER_GATEWAY_READY_FILE" ]; then
-    echo "WARNING: User desktop or Linux Desktop fallback did not become ready within 120 seconds; continuing without it." >&2
-    tail -n 40 "$ROOT/bump.log" 2>/dev/null || true
-    if [ -n "${BUMP_PID:-}" ]; then
-      kill -TERM "$BUMP_PID" 2>/dev/null || true
-      wait "$BUMP_PID" 2>/dev/null || true
-      BUMP_PID=""
-    fi
-  fi
-else
-  echo "User presence sidecar skipped (missing or invalid USER_TOKEN)."
-  BUMP_PID=""
-fi
+) &
+BUMP_PID=$!
 
 # Railway's datacenter egress is rejected by YouTube even with valid cookies.
 # Run a userspace Cloudflare WARP tunnel in this same container and expose an
@@ -335,7 +274,7 @@ if ! python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:
 fi
 
 if [ -n "${TOKEN:-}" ]; then
-  # ── Application emoji sync ────────────────────────────────────────
+  # â”€â”€ Application emoji sync â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # Every Discord application owns its emoji IDs. Sync before importing cogs
   # so commands work immediately when the active bot credential changes.
   echo "Syncing MidVox application emojis..."

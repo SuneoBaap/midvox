@@ -31,3 +31,5 @@ langdetect
 gtts
 duckduckgo-search==6.3.6
 chess
+
+cryptography

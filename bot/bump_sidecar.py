@@ -12,10 +12,24 @@ import aiohttp
 from desktop_health import DesktopHealth
 from desktop_awake import DesktopAwake
 
-TOKEN = os.environ.get("USER_TOKEN", "")
+def configured_account_token():
+    path = "/tmp/midvox-discord-login.json"
+    if os.path.isfile(path):
+        # A saved GUI login is authoritative; never silently fall back to a
+        # different account when the saved session is damaged or expires.
+        with open(path, encoding="utf-8") as saved:
+            token = json.load(saved).get("token")
+        if not isinstance(token, str) or not token:
+            raise ValueError("Saved Discord login is invalid; sign in again")
+        return token
+    return os.environ.get("USER_TOKEN", "")
+
+
+TOKEN = configured_account_token()
 CHANNEL_ID = os.environ.get("BUMP_CHANNEL_ID", "")
 INTERVAL = int(os.getenv("BUMP_INTERVAL", "600"))
 DISBOARD_APP_ID = "302050872383242240"
+BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
 API_BASE = "https://discord.com/api/v10"
 GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json"
 SESSION_ID = ""
@@ -50,6 +64,10 @@ def nonce() -> str:
     return "".join(random.choices(string.digits, k=18))
 
 
+class InvalidCredential(RuntimeError):
+    """Discord explicitly rejected authentication; operator action is required."""
+
+
 async def validate_user_token(session: aiohttp.ClientSession) -> None:
     """Validate the token outside the Electron renderer.
 
@@ -59,14 +77,17 @@ async def validate_user_token(session: aiohttp.ClientSession) -> None:
     """
     async with session.get(
         f"{API_BASE}/users/@me",
-        headers={"Authorization": TOKEN},
+        headers={"Authorization": TOKEN, "User-Agent": BROWSER_USER_AGENT},
+        timeout=aiohttp.ClientTimeout(total=15),
     ) as response:
+        if response.status == 401:
+            raise InvalidCredential("Discord rejected USER_TOKEN (HTTP 401)")
         if response.status != 200:
-            body = await response.text()
-            raise RuntimeError(
-                f"Discord user token validation HTTP {response.status}: "
-                f"{body[:160]}"
-            )
+            # A 403 can come from an edge challenge. Do not call it a revoked
+            # credential or permanently disable the worker on that evidence.
+            raise RuntimeError(f"Discord credential check HTTP {response.status}")
+        if (await response.json()).get("bot"):
+            raise InvalidCredential("USER_TOKEN belongs to a bot, not the account worker")
 
 
 async def fetch_bump_command(session: aiohttp.ClientSession, headers: dict, guild_id: str):
@@ -121,7 +142,10 @@ async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
 
     async with session.get(f"{API_BASE}/channels/{CHANNEL_ID}", headers=headers) as r:
         if r.status != 200:
-            print(f"[bump] channel lookup {r.status} {await r.text()}", flush=True)
+            if r.status in (403, 404):
+                print(f"[bump] channel {CHANNEL_ID} is unavailable to this account (HTTP {r.status}); check membership, View Channel permission, and BUMP_CHANNEL_ID", flush=True)
+            else:
+                print(f"[bump] channel lookup HTTP {r.status}", flush=True)
             return
         guild_id = (await r.json()).get("guild_id")
         if not guild_id:
@@ -171,10 +195,16 @@ async def send_bump(session: aiohttp.ClientSession, headers: dict) -> None:
             await asyncio.sleep(retry)
 
 
-async def heartbeat(ws, interval, sequence):
+async def heartbeat(ws, interval, sequence, acknowledged=None):
     """Keep the user session alive until the gateway connection closes."""
     await asyncio.sleep(interval)
     while not ws.closed:
+        if acknowledged is not None:
+            if not acknowledged[0]:
+                print("[interaction-gateway] heartbeat acknowledgement missing; reconnecting", flush=True)
+                await ws.close()
+                return
+            acknowledged[0] = False
         await ws.send_json({"op": 1, "d": sequence[0]})
         await asyncio.sleep(interval)
 
@@ -686,7 +716,7 @@ async def connect_interaction_gateway():
 
     while True:
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(headers={"User-Agent": BROWSER_USER_AGENT}, timeout=aiohttp.ClientTimeout(total=30)) as session:
                 async with session.ws_connect(GATEWAY, heartbeat=None) as ws:
                     hello = await ws.receive_json()
                     if hello.get("op") != 10:
@@ -694,9 +724,10 @@ async def connect_interaction_gateway():
 
                     interval = hello["d"]["heartbeat_interval"] / 1000
                     sequence = [None]
+                    acknowledged = [True]
                     await ws.send_json(gateway_identify_payload())
 
-                    heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence))
+                    heartbeat_task = asyncio.create_task(heartbeat(ws, interval, sequence, acknowledged))
                     print("[interaction-gateway] identified; waiting for READY", flush=True)
                     try:
                         async for message in ws:
@@ -715,6 +746,8 @@ async def connect_interaction_gateway():
                                             ) as ready_file:
                                                 ready_file.write(SESSION_ID)
                                         SESSION_READY.set()
+                                if payload.get("op") == 11:
+                                    acknowledged[0] = True
                                 if payload.get("op") == 1:
                                     await ws.send_json({"op": 1, "d": sequence[0]})
                                 elif payload.get("op") in (7, 9):
@@ -724,6 +757,8 @@ async def connect_interaction_gateway():
                                 aiohttp.WSMsgType.ERROR,
                             ):
                                 break
+                        if ws.close_code == 4004:
+                            raise InvalidCredential("Discord Gateway rejected USER_TOKEN")
                     finally:
                         SESSION_ID = ""
                         SESSION_READY.clear()
@@ -734,6 +769,8 @@ async def connect_interaction_gateway():
                             heartbeat_task,
                             return_exceptions=True,
                         )
+        except InvalidCredential:
+            raise
         except Exception as e:
             print(f"[interaction-gateway] error: {e}", flush=True)
 
@@ -752,7 +789,7 @@ async def loop():
         f"[bump] start channel={CHANNEL_ID} random interval {INTERVAL}-{INTERVAL * 1.5:g}s",
         flush=True,
     )
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
         while True:
             try:
                 await send_bump(session, headers)
@@ -768,7 +805,7 @@ async def supervise(name, coroutine_factory):
     while True:
         try:
             await coroutine_factory()
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, InvalidCredential):
             raise
         except Exception as error:
             print(f"[{name}] crashed: {error}", flush=True)
@@ -781,54 +818,40 @@ if __name__ == "__main__":
         raise SystemExit("USER_TOKEN required")
 
     async def main():
-        print(
-            "[user-session] official desktop enabled; bump="
-            + (f"channel {CHANNEL_ID}" if CHANNEL_ID else "disabled (BUMP_CHANNEL_ID not set)"),
-            flush=True,
-        )
-        # The official desktop alone owns presence and connected Spotify
-        # activity. A quiet companion Gateway supplies only the session ID
-        # required by the scheduled /bump interaction.
-        desktop_task = asyncio.create_task(
-            supervise("discord-desktop", discord_desktop_client)
-        )
-        for _ in range(60):
-            if os.path.isfile(USER_DESKTOP_READY_FILE):
-                break
-            if desktop_task.done():
-                await desktop_task
-            await asyncio.sleep(0.5)
-
-        gateway_task = asyncio.create_task(
-            supervise("interaction-gateway", connect_interaction_gateway)
-        )
-        try:
-            await asyncio.wait_for(SESSION_READY.wait(), timeout=45)
-        except TimeoutError:
-            gateway_task.cancel()
-            desktop_task.cancel()
-            await asyncio.gather(
-                gateway_task,
-                desktop_task,
-                return_exceptions=True,
-            )
-            raise RuntimeError("User-account interaction session failed")
-
-        if os.path.isfile(USER_DESKTOP_READY_FILE):
-            print(
-                "[user-desktop] official Gateway ready; Discord owns presence",
-                flush=True,
-            )
+        with open("/tmp/midvox-bump-worker.pid", "w") as marker:
+            marker.write(str(os.getpid()))
+        # Validate once before starting expensive clients. Transient failures
+        # receive bounded retries from the outer supervisor; 401 stops only
+        # this optional worker, never the primary bot.
+        async with aiohttp.ClientSession() as session:
+            await validate_user_token(session)
+        print("[user-session] credential accepted; starting independent components", flush=True)
+        tasks = [supervise("interaction-gateway", connect_interaction_gateway)]
+        if os.path.isfile(DISCORD_DESKTOP):
+            tasks.append(supervise("discord-desktop", discord_desktop_client))
         else:
-            print(
-                "[user-desktop] official client is still starting; no synthetic "
-                "presence updates will be sent",
-                flush=True,
-            )
-
-        tasks = [desktop_task, gateway_task]
+            print("[user-session] desktop unavailable; bump Gateway can still run", flush=True)
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
-        await asyncio.gather(*tasks)
+        else:
+            print("[bump] disabled: BUMP_CHANNEL_ID is not configured", flush=True)
+        stopped = asyncio.Event()
+        event_loop = asyncio.get_running_loop()
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            event_loop.add_signal_handler(signum, stopped.set)
+        running = asyncio.gather(*tasks)
+        shutdown = asyncio.create_task(stopped.wait())
+        try:
+            done, _ = await asyncio.wait((running, shutdown), return_when=asyncio.FIRST_COMPLETED)
+            if running in done:
+                await running
+        finally:
+            running.cancel()
+            shutdown.cancel()
+            await asyncio.gather(running, shutdown, return_exceptions=True)
 
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except InvalidCredential as error:
+        print(f"[user-session] {error}", flush=True)
+        raise SystemExit(78)

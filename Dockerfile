@@ -130,6 +130,7 @@ COPY --from=dashboard_builder /build/dashboard dashboard/
 COPY bot/ bot/
 COPY docker/youtube_session_server.py /opt/youtube-session/server.py
 COPY docker/youtube_login_server.py /opt/youtube-session/login.py
+COPY docker/youtube_session_store.py /opt/youtube-session/youtube_session_store.py
 COPY start.sh start.sh
 RUN test -x /usr/local/bin/bgutil-pot \
     && python -m py_compile /opt/youtube-session/server.py \

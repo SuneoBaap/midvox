@@ -23,7 +23,11 @@ def youtube_cookie_header(cookies):
 
 
 class LoginBrowser:
-    def __init__(self):
+    def __init__(self, kind="youtube"):
+        self.kind = kind
+        self.display_name = ":89" if kind == "youtube" else ":88"
+        self.debug_port = 9223 if kind == "youtube" else 9224
+        self.url = "https://www.youtube.com/" if kind == "youtube" else "https://discord.com/login"
         self.process = self.display = self.profile = self.session = None
         self.socket = None
         self.sequence = 0
@@ -70,27 +74,27 @@ class LoginBrowser:
 
     async def start(self):
         await self.stop()
-        self.profile = tempfile.TemporaryDirectory(prefix="midvox-youtube-login-")
+        self.profile = tempfile.TemporaryDirectory(prefix=f"midvox-{self.kind}-login-")
         self.display = await asyncio.create_subprocess_exec(
-            "Xvfb", ":89", "-screen", "0", "1100x800x24", "-nolisten", "tcp",
+            "Xvfb", self.display_name, "-screen", "0", "1100x800x24", "-nolisten", "tcp",
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         await asyncio.sleep(0.5)
         args = ["chromium", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
                 "--no-first-run", "--no-default-browser-check", "--password-store=basic",
-                "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=9223",
+                "--remote-debugging-address=127.0.0.1", f"--remote-debugging-port={self.debug_port}",
                 f"--user-data-dir={self.profile.name}", "--window-size=1100,800",
-                "https://www.youtube.com/"]
-        if os.getenv("COBALT_PROXY_URL"):
+                self.url]
+        if self.kind == "youtube" and os.getenv("COBALT_PROXY_URL"):
             args.insert(-1, f"--proxy-server={os.environ['COBALT_PROXY_URL']}")
         self.process = await asyncio.create_subprocess_exec(
-            *args, env=dict(os.environ, DISPLAY=":89"),
+            *args, env=dict(os.environ, DISPLAY=self.display_name),
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         self.session = ClientSession()
         for _ in range(40):
             try:
-                async with self.session.get("http://127.0.0.1:9223/json/list") as response:
+                async with self.session.get(f"http://127.0.0.1:{self.debug_port}/json/list") as response:
                     pages = await response.json()
                 page = next(p for p in pages if p.get("type") == "page")
                 self.socket = await self.session.ws_connect(page["webSocketDebuggerUrl"])
@@ -136,17 +140,63 @@ class LoginBrowser:
                     for kind in ("keyDown", "keyUp"):
                         await self.command("Input.dispatchKeyEvent", {"type": kind, "key": key,
                                            "windowsVirtualKeyCode": code})
-                elif action == "youtube":
-                    await self.command("Page.navigate", {"url": "https://www.youtube.com/"})
+                elif action in ("youtube", "discord"):
+                    if action != self.kind:
+                        raise ValueError("Wrong login service")
+                    await self.command("Page.navigate", {"url": self.url})
                 elif action == "scroll":
                     await self.command("Input.dispatchMouseEvent", {"type": "mouseWheel", "x": 550,
                                        "y": 400, "deltaX": 0, "deltaY": int(data.get("delta", 400))})
+                elif action == "save" and self.kind == "discord":
+                    # The owner signs in directly on Discord. Keep the resulting
+                    # credential server-side; never return it to the dashboard.
+                    stored = await self.command("DOMStorage.getDOMStorageItems", {
+                        "storageId": {"securityOrigin": "https://discord.com", "isLocalStorage": True},
+                    })
+                    entries = dict(stored.get("entries", []))
+                    token = json.loads(entries.get("token", "null"))
+                    if not token:
+                        tokens = json.loads(entries.get("tokens", "{}"))
+                        if isinstance(tokens, dict) and len(tokens) == 1:
+                            token = next(iter(tokens.values()))
+                    if not isinstance(token, str) or not token:
+                        raise ValueError("Finish logging in to Discord before saving the session.")
+                    async with self.session.get("https://discord.com/api/v10/users/@me",
+                        headers={"Authorization": token, "User-Agent": "Mozilla/5.0"}) as response:
+                        if response.status != 200:
+                            raise ValueError("Discord could not validate this login. Complete verification and try again.")
+                        account = await response.json()
+                    if account.get("bot"):
+                        raise ValueError("Sign in with the account you want to use for bumping.")
+                    contents = json.dumps({"token": token, "id": account["id"], "username": account["username"]})
+                    from youtube_session_store import transfer
+                    path = Path("/tmp/midvox-discord-login.json")
+                    path.write_text(contents, encoding="utf-8")
+                    path.chmod(0o600)
+                    backed_up = await asyncio.to_thread(transfer, kind="discord")
+                    if not backed_up:
+                        raise ValueError("Login saved locally, but encrypted backup is unavailable. Check MongoDB configuration.")
+                    pid_file = Path("/tmp/midvox-bump-worker.pid")
+                    if pid_file.exists():
+                        pid = int(pid_file.read_text())
+                        try:
+                            if b"bump_sidecar.py" in Path(f"/proc/{pid}/cmdline").read_bytes():
+                                os.kill(pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                    await self.stop()
+                    return web.json_response({"message": f"Saved Discord account {account['username']}. Bump will use this login instead of USER_TOKEN."})
                 elif action == "save":
                     # Navigate back to YouTube before saving to bind the session there.
                     cookies = (await self.command("Network.getAllCookies"))["cookies"]
                     header = youtube_cookie_header(cookies)
                     COOKIE_FILE.write_text(json.dumps({"youtube": [header]}), encoding="utf-8")
                     COOKIE_FILE.chmod(0o600)
+                    try:
+                        from youtube_session_store import transfer
+                        await asyncio.to_thread(transfer)
+                    except Exception:
+                        print("[youtube-login] encrypted backup failed; current login remains usable", flush=True)
                     pid = int(Path("/tmp/midvox-cobalt.pid").read_text())
                     if b"src/cobalt.js" not in Path(f"/proc/{pid}/cmdline").read_bytes():
                         raise ValueError("Session saved, but Cobalt must be restarted to load it.")
@@ -171,12 +221,15 @@ class LoginBrowser:
 
 async def main():
     browser = LoginBrowser()
+    discord = LoginBrowser("discord")
     app = web.Application(client_max_size=8192)
     app.router.add_route("*", "/browser", browser.handle)
+    app.router.add_route("*", "/discord-browser", discord.handle)
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", 8082).start()
     reaper = asyncio.create_task(browser.reap())
+    discord_reaper = asyncio.create_task(discord.reap())
     stopped = asyncio.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
         asyncio.get_running_loop().add_signal_handler(sig, stopped.set)
@@ -184,6 +237,8 @@ async def main():
         await stopped.wait()
     finally:
         reaper.cancel()
+        discord_reaper.cancel()
+        await discord.stop()
         await browser.stop()
         await runner.cleanup()
 
