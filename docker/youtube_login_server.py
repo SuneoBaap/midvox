@@ -82,6 +82,8 @@ class LoginBrowser:
         await asyncio.sleep(0.5)
         args = ["chromium", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
                 "--no-first-run", "--no-default-browser-check", "--password-store=basic",
+                "--disable-extensions", "--mute-audio", "--renderer-process-limit=1",
+                "--js-flags=--max-old-space-size=128",
                 "--remote-debugging-address=127.0.0.1", f"--remote-debugging-port={self.debug_port}",
                 f"--user-data-dir={self.profile.name}", "--window-size=1100,800",
                 self.url]

@@ -827,10 +827,10 @@ if __name__ == "__main__":
             await validate_user_token(session)
         print("[user-session] credential accepted; starting independent components", flush=True)
         tasks = [supervise("interaction-gateway", connect_interaction_gateway)]
-        if os.path.isfile(DISCORD_DESKTOP):
+        if os.getenv("DISCORD_DESKTOP_ENABLED", "false").lower() == "true" and os.path.isfile(DISCORD_DESKTOP):
             tasks.append(supervise("discord-desktop", discord_desktop_client))
         else:
-            print("[user-session] desktop unavailable; bump Gateway can still run", flush=True)
+            print("[user-session] desktop disabled; using lightweight bump Gateway", flush=True)
         if CHANNEL_ID:
             tasks.append(supervise("bump", loop))
         else:

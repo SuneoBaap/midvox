@@ -229,3 +229,5 @@ MidVox is available under the [MIT License](LICENSE) and retains the notices req
 ### Owner Discord login
 
 Open `/dashboard/discord-login` while signed into the dashboard as a bot owner. Sign into Discord in the Railway browser, complete verification, and choose **Save session and close**. Bump uses this saved account ahead of the legacy `USER_TOKEN` variable. The credential stays on the server and is backed up encrypted in MongoDB using `NEXTAUTH_SECRET`; keep that secret stable to restore saved logins. The account needs access to `BUMP_CHANNEL_ID` and permission to use DISBOARD commands. Account worker failures do not prevent the primary bot or dashboard from starting.
+
+The bump worker uses a lightweight Gateway by default. The separate desktop presence client is optional (`DISCORD_DESKTOP_ENABLED=true`) and needs additional memory; it is not required for bumping or saving a Discord login.
