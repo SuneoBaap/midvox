@@ -674,7 +674,7 @@ class InstaDownloader(commands.Cog):
             tmp = os.path.join(tempfile.gettempdir(), "instadl_%(id)s.%(ext)s")
             opts = {
                 # Keep Instagram downloads to a single file so this bot never
-                # needs a local FFmpeg merge process.
+                # needs a merge; oversized Reels can be compressed locally.
                 "format": "b[ext=mp4]/b",
                 "format_sort": ["res", "fps", "vcodec:av01", "vcodec:vp9", "vcodec:h264"],
                 "outtmpl": tmp,
@@ -694,7 +694,7 @@ class InstaDownloader(commands.Cog):
                 last_err = None
                 try:
                     with yt_dlp.YoutubeDL(opts) as ydl:
-                        return download_fitting_video(ydl, url, upload_limit)
+                        return download_fitting_video(ydl, url, upload_limit, compress=True)
                 except Exception as e:
                     last_err = e
                     print(f"[InstaDL] yt-dlp attempt failed for {url}: {e}")

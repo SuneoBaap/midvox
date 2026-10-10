@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from media_quality import download_fitting_video, fitting_formats, upload_budget
 
 
@@ -40,6 +41,57 @@ class MediaQualityTests(unittest.TestCase):
             self.assertEqual(os.path.getsize(path), 50)
             self.assertEqual(downloader.attempted, ["high", "low"])
             self.assertFalse(os.path.exists(os.path.join(folder, "high.mp4")))
+
+    def test_instagram_single_oversized_source_is_compressed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = os.path.join(folder, "source.mp4")
+            compressed = os.path.join(folder, "compressed.mp4")
+            class Downloader:
+                params = {"max_filesize": 100}
+                attempted = []
+                def extract_info(self, url, download):
+                    return {"formats": [{"url": "big", "height": 1080, "filesize": 500},
+                                        {"url": "smaller", "height": 720, "filesize": 200}]}
+                def process_ie_result(self, info, download):
+                    self.attempted.append(info["formats"][0]["url"])
+                    self.source_budget = self.params["max_filesize"]
+                    with open(source, "wb") as output:
+                        output.write(b"x" * 200)
+                    return {"path": source}
+                def prepare_filename(self, info):
+                    return info["path"]
+            downloader = Downloader()
+            with open(compressed, "wb") as output:
+                output.write(b"x" * 80)
+            with patch("media_quality.compress_to_budget", return_value=compressed) as encode:
+                result = download_fitting_video(downloader, "reel", 100, compress=True)
+            self.assertEqual(result, compressed)
+            self.assertEqual(downloader.attempted, ["smaller"])
+            self.assertGreater(downloader.source_budget, 200)
+            self.assertEqual(downloader.params["max_filesize"], 100)
+            self.assertFalse(os.path.exists(source))
+            encode.assert_called_once_with(source, 100)
+
+    def test_oversized_source_without_compression_is_not_downloaded(self):
+        class Downloader:
+            def extract_info(self, url, download):
+                return {"formats": [{"url": "big", "filesize": 200}]}
+            def process_ie_result(self, info, download):
+                raise AssertionError("Should not download")
+        self.assertIsNone(download_fitting_video(Downloader(), "video", 100))
+
+    def test_encoding_failure_removes_partial_output(self):
+        import subprocess
+        from media_quality import compress_to_budget
+        with tempfile.TemporaryDirectory() as folder:
+            partial = os.path.join(folder, "partial.mp4")
+            fd = os.open(partial, os.O_CREAT | os.O_RDWR)
+            probe = subprocess.CompletedProcess([], 0, stdout=b'{"format":{"duration":"30"}}')
+            with patch("media_quality.shutil.which", return_value="binary"), \
+                 patch("media_quality.tempfile.mkstemp", return_value=(fd, partial)), \
+                 patch("media_quality.subprocess.run", side_effect=[probe, subprocess.TimeoutExpired("ffmpeg", 90)]):
+                self.assertIsNone(compress_to_budget("source", 1_000_000))
+            self.assertFalse(os.path.exists(partial))
 
     def test_server_limit_and_configured_cap(self):
         self.assertEqual(upload_budget(9500000, 8000000), 7840000)

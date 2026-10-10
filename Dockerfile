@@ -109,7 +109,7 @@ RUN apt-get update \
         libatomic1 libnotify4 libnspr4 libnss3 libpulse0 libstdc++6 libx11-6 \
         libxcb1 libxcomposite1 libxdamage1 libegl1 libgl1-mesa-dri \
         libxext6 libxfixes3 libxkbcommon0 libxrandr2 libxss1 libxtst6 \
-        passwd util-linux xdg-utils xvfb chromium \
+        passwd util-linux xdg-utils xvfb chromium ffmpeg \
     && useradd --system --create-home --home-dir /home/midvox --shell /usr/sbin/nologin midvox \
     && test -x /opt/Discord/discord \
     && test -n "$(find /var/lib/midvox/discord-home/discord -maxdepth 2 -type f -name Discord -perm /111 -print -quit)" \
