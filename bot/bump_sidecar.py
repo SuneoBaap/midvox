@@ -13,16 +13,8 @@ from desktop_health import DesktopHealth
 from desktop_awake import DesktopAwake
 
 def configured_account_token():
-    path = "/tmp/midvox-discord-login.json"
-    if os.path.isfile(path):
-        # A saved GUI login is authoritative; never silently fall back to a
-        # different account when the saved session is damaged or expires.
-        with open(path, encoding="utf-8") as saved:
-            token = json.load(saved).get("token")
-        if not isinstance(token, str) or not token:
-            raise ValueError("Saved Discord login is invalid; sign in again")
-        return token
-    return os.environ.get("USER_TOKEN", "")
+    # Use the explicitly configured account, never an older browser session.
+    return os.environ.get("USER_TOKEN", "").strip()
 
 
 TOKEN = configured_account_token()
