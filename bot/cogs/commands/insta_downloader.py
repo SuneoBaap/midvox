@@ -20,6 +20,7 @@ import urllib.request
 import urllib.error
 from collections import defaultdict
 from cobalt_errors import CobaltDownloadError, extraction_error
+from cobalt_transport import open_cobalt_request
 from hosted_downloads import HostedDownloads
 from media_quality import download_fitting_video, upload_budget
 
@@ -401,7 +402,7 @@ class InstaDownloader(commands.Cog):
                     req = urllib.request.Request(
                         endpoint, data=body, method="POST", headers=headers
                     )
-                    with urllib.request.urlopen(req, timeout=40) as resp:
+                    with open_cobalt_request(req, base_url, timeout=40) as resp:
                         return json.loads(resp.read().decode("utf-8", "replace"))
                 except urllib.error.HTTPError as exc:
                     last_error = exc
@@ -589,7 +590,9 @@ class InstaDownloader(commands.Cog):
 
         succeeded = False
         try:
-            succeeded = bool(await self._download_and_send_inner(message, url, config, source))
+            # Serialize expensive extraction/encoding to bound peak memory.
+            async with self._download_lock:
+                succeeded = bool(await self._download_and_send_inner(message, url, config, source))
         finally:
             self._pending_downloads.discard(failure_key)
             if succeeded:

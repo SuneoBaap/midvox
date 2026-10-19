@@ -241,7 +241,9 @@ echo "Starting local Cobalt sidecar on port 9000..."
       export HTTPS_PROXY="$COBALT_PROXY_URL"
       export NO_PROXY="127.0.0.1,localhost"
     fi
-    NODE_OPTIONS="${COBALT_NODE_OPTIONS:---max-old-space-size=192}" \
+    # Player parsing can exceed 192 MiB; keep a bounded allowance within the
+    # shared container's 1 GiB budget instead of aborting during extraction.
+    NODE_OPTIONS="${COBALT_NODE_OPTIONS:---max-old-space-size=384}" \
       API_URL="${COBALT_PUBLIC_URL:-http://127.0.0.1:9000/}" \
       API_PORT=9000 API_LISTEN_ADDRESS=127.0.0.1 \
       API_INSTANCE_COUNT=1 API_AUTH_REQUIRED=0 \

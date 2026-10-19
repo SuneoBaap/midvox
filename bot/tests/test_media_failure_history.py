@@ -17,11 +17,31 @@ exec(compile(ast.Module(body=[wrapper], type_ignores=[]), str(source), "exec"), 
 class FailureHistoryTests(unittest.IsolatedAsyncioTestCase):
     def setup_bot(self, mongo=None):
         return SimpleNamespace(mongo=mongo, _failed_downloads=set(), _pending_downloads=set(),
+                               _download_lock=asyncio.Lock(),
                                _send_status=AsyncMock(return_value=None),
                                _download_and_send_inner=AsyncMock(return_value=False))
 
     def message(self):
         return SimpleNamespace(id=123, guild=SimpleNamespace(id=456), channel=object(), delete=AsyncMock())
+
+    async def test_media_jobs_run_one_at_a_time(self):
+        bot = self.setup_bot()
+        active = peak = 0
+
+        async def download(*args):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0)
+            active -= 1
+            return True
+
+        bot._download_and_send_inner.side_effect = download
+        await asyncio.gather(*(
+            namespace["_download_and_send"](bot, self.message(), f"short-{index}", {"delete_original": True})
+            for index in range(3)
+        ))
+        self.assertEqual(peak, 1)
 
     async def test_first_failure_deletes_but_second_failure_preserves(self):
         bot = self.setup_bot()
