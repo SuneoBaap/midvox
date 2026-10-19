@@ -15,7 +15,8 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  return <AdminContent />;
+  const owners: string[] = (process.env.OWNER_IDS || "").match(/\d{17,20}/g) || [];
+  return <AdminContent canManageYouTubeLogin={owners.includes(session.user?.id || "")} />;
 }
 
 
