@@ -11,6 +11,8 @@ export const authOptions: AuthOptions = {
   useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
     DiscordProvider({
+      // Validate the issuer parameter included in Discord's OAuth callback.
+      issuer: "https://discord.com",
       clientId: runtimeEnv("DISCORD_CLIENT_ID"),
       clientSecret: runtimeEnv("DISCORD_CLIENT_SECRET"),
       authorization: { params: { scope: "identify guilds" } },
