@@ -1,4 +1,5 @@
 import ast
+import asyncio
 from pathlib import Path
 import unittest
 
@@ -9,6 +10,44 @@ restore_function = next(node for node in tree.body if getattr(node, "name", "") 
 namespace = {}
 exec(compile(ast.Module(body=[function, restore_function], type_ignores=[]), str(source), "exec"), namespace)
 cookie_header = namespace["youtube_cookie_header"]
+
+browser_namespace = {"asyncio": asyncio, "time": __import__("time"), "json": __import__("json")}
+classes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+exec(compile(ast.Module(body=classes, type_ignores=[]), str(source), "exec"), browser_namespace)
+
+
+class BrowserHealthTests(unittest.IsolatedAsyncioTestCase):
+    async def test_protocol_crash_requires_reopen_without_capture_retry(self):
+        class Socket:
+            closed = False
+            calls = 0
+
+            async def send_json(self, data):
+                self.calls += 1
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                import json
+                from types import SimpleNamespace
+                return SimpleNamespace(data=json.dumps({"id": 1, "error": {"code": -32000}}))
+
+        browser = browser_namespace["LoginBrowser"]()
+        browser.socket = Socket()
+        with self.assertRaises(browser_namespace["BrowserUnavailable"]):
+            await browser.screenshot()
+        self.assertEqual(browser.socket.calls, 1)
+
+    async def test_closed_connection_requests_reopen(self):
+        from types import SimpleNamespace
+        browser = browser_namespace["LoginBrowser"]()
+        browser.socket = SimpleNamespace(closed=True)
+        with self.assertRaises(browser_namespace["BrowserUnavailable"]):
+            await browser.command("Page.captureScreenshot")
+
+    async def test_login_opens_account_instead_of_video_feed(self):
+        self.assertEqual(browser_namespace["LoginBrowser"]().url, "https://www.youtube.com/account")
 
 
 class YouTubeLoginTests(unittest.TestCase):

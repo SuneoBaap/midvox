@@ -11,23 +11,33 @@ export default function YouTubeLogin() {
   const [text, setText] = useState("");
   const [image, setImage] = useState("");
   const imageUrl = useRef("");
+  const refreshing = useRef(false);
   const browserInput = useRef<HTMLDivElement>(null);
   const actionQueue = useRef<Promise<void>>(Promise.resolve());
   const typedText = useRef("");
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
+    try {
     const response = await fetch("/api/youtube-login", { cache: "no-store" });
     if (!response.ok) {
       const error = await response.json();
       setMessage(error.detail);
-      if (response.status === 401 || response.status === 403) setRunning(false);
+      if (error.reopen || response.status === 401 || response.status === 403) {
+        setRunning(false);
+        setImage("");
+      }
       return;
     }
     const url = URL.createObjectURL(await response.blob());
     if (imageUrl.current) URL.revokeObjectURL(imageUrl.current);
     imageUrl.current = url;
     setImage(url);
+    } finally {
+      refreshing.current = false;
+    }
   };
 
   const queueAction = (action: string, values: Record<string, unknown> = {}) => {
@@ -40,7 +50,10 @@ export default function YouTubeLogin() {
         });
         const result = await response.json();
         setMessage(result.detail || result.message);
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (result.reopen) { setRunning(false); setImage(""); }
+          return;
+        }
         if (action === "stop" || action === "save") {
           setRunning(false);
           setImage("");

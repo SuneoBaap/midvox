@@ -14,6 +14,10 @@ from aiohttp import ClientSession, web
 COOKIE_FILE = Path(os.getenv("COOKIE_PATH", "/tmp/midvox-youtube-cookies.json"))
 
 
+class BrowserUnavailable(ValueError):
+    """The browser must be reopened, rather than retrying a stale screenshot."""
+
+
 def youtube_cookie_header(cookies):
     selected = {c["name"]: c["value"] for c in cookies
                 if c.get("domain", "").lstrip(".") in ("youtube.com", "www.youtube.com")}
@@ -40,7 +44,7 @@ class LoginBrowser:
         self.kind = kind
         self.display_name = ":89" if kind == "youtube" else ":88"
         self.debug_port = 9223 if kind == "youtube" else 9224
-        self.url = "https://www.youtube.com/" if kind == "youtube" else "https://discord.com/login"
+        self.url = "https://www.youtube.com/account" if kind == "youtube" else "https://discord.com/login"
         self.process = self.display = self.profile = self.session = None
         self.socket = None
         self.sequence = 0
@@ -48,17 +52,26 @@ class LoginBrowser:
         self.lock = asyncio.Lock()
 
     async def command(self, method, params=None):
+        if not self.socket or self.socket.closed:
+            raise BrowserUnavailable("Browser disconnected. Reopen it; your saved session is safe.")
         self.sequence += 1
         ident = self.sequence
         await self.socket.send_json({"id": ident, "method": method, "params": params or {}})
-        async with asyncio.timeout(15):
-            async for message in self.socket:
-                data = json.loads(message.data)
-                if data.get("id") == ident:
-                    if "error" in data:
-                        raise ValueError("Browser could not complete that action. Reopen it and try again.")
-                    return data.get("result", {})
-        raise ValueError("Browser connection closed. Reopen the login browser.")
+        try:
+            async with asyncio.timeout(10):
+                async for message in self.socket:
+                    data = json.loads(message.data)
+                    if data.get("method") == "Inspector.targetCrashed":
+                        raise BrowserUnavailable("The browser ran out of resources. Reopen it; your saved session is safe.")
+                    if data.get("id") == ident:
+                        if "error" in data:
+                            # Log only protocol metadata, never page content or credentials.
+                            print(f"[youtube-login] {method} failed (code {data['error'].get('code')})", flush=True)
+                            raise BrowserUnavailable("Browser stopped responding. Reopen it; your saved session is safe.")
+                        return data.get("result", {})
+        except TimeoutError as exc:
+            raise BrowserUnavailable("Browser stopped responding. Reopen it; your saved session is safe.") from exc
+        raise BrowserUnavailable("Browser connection closed. Reopen the login browser.")
 
     async def stop(self):
         if self.session:
@@ -80,6 +93,8 @@ class LoginBrowser:
         for attempt in range(3):
             try:
                 return await self.command("Page.captureScreenshot", {"format": "jpeg", "quality": 75})
+            except BrowserUnavailable:
+                raise
             except (ValueError, TimeoutError):
                 if attempt == 2:
                     raise
@@ -96,7 +111,8 @@ class LoginBrowser:
         args = ["chromium", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
                 "--no-first-run", "--no-default-browser-check", "--password-store=basic",
                 "--disable-extensions", "--mute-audio", "--renderer-process-limit=1",
-                "--js-flags=--max-old-space-size=128",
+                "--js-flags=--max-old-space-size=256", "--disable-background-networking",
+                "--disable-component-update", "--disable-default-apps",
                 "--remote-debugging-address=127.0.0.1", f"--remote-debugging-port={self.debug_port}",
                 f"--user-data-dir={self.profile.name}", "--window-size=1100,800",
                 "about:blank" if self.kind == "youtube" else self.url]
@@ -117,6 +133,12 @@ class LoginBrowser:
                     "width": 1100, "height": 800, "deviceScaleFactor": 1, "mobile": False,
                 })
                 if self.kind == "youtube":
+                    # Account management needs no video streams or feed thumbnails.
+                    # Keep Google sign-in scripts, images and verification intact.
+                    await self.command("Network.enable")
+                    await self.command("Network.setBlockedURLs", {"urls": [
+                        "*://*.googlevideo.com/*", "*://i.ytimg.com/*",
+                    ]})
                     try:
                         cookies = youtube_browser_cookies(json.loads(COOKIE_FILE.read_text(encoding="utf-8")))
                     except (OSError, ValueError, TypeError, AttributeError):
@@ -236,6 +258,9 @@ class LoginBrowser:
                 else:
                     raise ValueError("Unsupported action")
                 return web.json_response({"message": "Ready"})
+            except BrowserUnavailable as exc:
+                await self.stop()
+                return web.json_response({"detail": str(exc), "reopen": True}, status=409)
             except Exception as exc:
                 # Never return Chromium messages, cookies, or credentials.
                 message = str(exc) if isinstance(exc, ValueError) else "Browser action failed. Reopen the login browser."
