@@ -22,6 +22,19 @@ def youtube_cookie_header(cookies):
     return "; ".join(f"{name}={value}" for name, value in selected.items())
 
 
+def youtube_browser_cookies(contents):
+    headers = contents.get("youtube", [])
+    if not isinstance(headers, list) or not headers or not isinstance(headers[0], str):
+        return []
+    cookies = []
+    for part in headers[0].split(";"):
+        name, separator, value = part.strip().partition("=")
+        if separator and name:
+            cookies.append({"name": name, "value": value, "domain": ".youtube.com",
+                            "path": "/", "secure": True})
+    return cookies
+
+
 class LoginBrowser:
     def __init__(self, kind="youtube"):
         self.kind = kind
@@ -86,7 +99,7 @@ class LoginBrowser:
                 "--js-flags=--max-old-space-size=128",
                 "--remote-debugging-address=127.0.0.1", f"--remote-debugging-port={self.debug_port}",
                 f"--user-data-dir={self.profile.name}", "--window-size=1100,800",
-                self.url]
+                "about:blank" if self.kind == "youtube" else self.url]
         if self.kind == "youtube" and os.getenv("COBALT_PROXY_URL"):
             args.insert(-1, f"--proxy-server={os.environ['COBALT_PROXY_URL']}")
         self.process = await asyncio.create_subprocess_exec(
@@ -103,6 +116,14 @@ class LoginBrowser:
                 await self.command("Emulation.setDeviceMetricsOverride", {
                     "width": 1100, "height": 800, "deviceScaleFactor": 1, "mobile": False,
                 })
+                if self.kind == "youtube":
+                    try:
+                        cookies = youtube_browser_cookies(json.loads(COOKIE_FILE.read_text(encoding="utf-8")))
+                    except (OSError, ValueError, TypeError, AttributeError):
+                        cookies = []
+                    if cookies:
+                        await self.command("Network.setCookies", {"cookies": cookies})
+                    await self.command("Page.navigate", {"url": self.url})
                 return
             except Exception:
                 await asyncio.sleep(0.5)
@@ -136,12 +157,17 @@ class LoginBrowser:
                     await self.command("Input.insertText", {"text": str(data.get("text", ""))[:2048]})
                 elif action == "key":
                     key = data.get("key")
-                    code = {"Enter": 13, "Tab": 9, "Backspace": 8, "Escape": 27}.get(key)
+                    modifiers = int(data.get("modifiers", 0)) & 10
+                    code = {"Enter": 13, "Tab": 9, "Backspace": 8, "Escape": 27,
+                            "Delete": 46, "ArrowLeft": 37, "ArrowUp": 38,
+                            "ArrowRight": 39, "ArrowDown": 40, "Home": 36, "End": 35}.get(key)
+                    if key == "a" and modifiers == 2:
+                        code = 65
                     if not code:
                         raise ValueError("Unsupported key")
                     for kind in ("keyDown", "keyUp"):
                         await self.command("Input.dispatchKeyEvent", {"type": kind, "key": key,
-                                           "windowsVirtualKeyCode": code})
+                                           "windowsVirtualKeyCode": code, "modifiers": modifiers})
                 elif action in ("youtube", "discord"):
                     if action != self.kind:
                         raise ValueError("Wrong login service")
@@ -196,15 +222,17 @@ class LoginBrowser:
                     COOKIE_FILE.chmod(0o600)
                     try:
                         from youtube_session_store import transfer
-                        await asyncio.to_thread(transfer)
+                        backed_up = await asyncio.to_thread(transfer)
                     except Exception:
-                        print("[youtube-login] encrypted backup failed; current login remains usable", flush=True)
+                        backed_up = False
+                    if not backed_up:
+                        raise ValueError("Session saved in this container, but the encrypted MongoDB backup failed. Keep this browser open and retry Save session after checking the database connection.")
                     pid = int(Path("/tmp/midvox-cobalt.pid").read_text())
                     if b"src/cobalt.js" not in Path(f"/proc/{pid}/cmdline").read_bytes():
                         raise ValueError("Session saved, but Cobalt must be restarted to load it.")
                     os.kill(pid, signal.SIGTERM)  # start.sh restarts only Cobalt with the saved session.
                     await self.stop()
-                    return web.json_response({"message": "Session saved. Cobalt is restarting; retry your Short in a few seconds."})
+                    return web.json_response({"message": "Session saved and encrypted in MongoDB. It restores after redeploys or hosting changes when you keep the same database, NEXTAUTH_SECRET, and primary OWNER_IDS entry. Cobalt is restarting."})
                 else:
                     raise ValueError("Unsupported action")
                 return web.json_response({"message": "Ready"})

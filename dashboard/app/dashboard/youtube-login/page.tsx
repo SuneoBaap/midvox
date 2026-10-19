@@ -11,6 +11,10 @@ export default function YouTubeLogin() {
   const [text, setText] = useState("");
   const [image, setImage] = useState("");
   const imageUrl = useRef("");
+  const browserInput = useRef<HTMLDivElement>(null);
+  const actionQueue = useRef<Promise<void>>(Promise.resolve());
+  const typedText = useRef("");
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = async () => {
     const response = await fetch("/api/youtube-login", { cache: "no-store" });
@@ -26,29 +30,45 @@ export default function YouTubeLogin() {
     setImage(url);
   };
 
-  const action = async (action: string, values: Record<string, unknown> = {}) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const response = await fetch("/api/youtube-login", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...values }),
-      });
-      const result = await response.json();
-      setMessage(result.detail || result.message);
-      if (!response.ok) return;
-      if (action === "stop" || action === "save") {
-        setRunning(false);
-        setImage("");
-      } else {
-        setRunning(true);
-        await refresh();
+  const queueAction = (action: string, values: Record<string, unknown> = {}) => {
+    const next = actionQueue.current.then(async () => {
+      setBusy(true);
+      try {
+        const response = await fetch("/api/youtube-login", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, ...values }),
+        });
+        const result = await response.json();
+        setMessage(result.detail || result.message);
+        if (!response.ok) return;
+        if (action === "stop" || action === "save") {
+          setRunning(false);
+          setImage("");
+        } else {
+          setRunning(true);
+          await refresh();
+        }
+      } catch {
+        setMessage("Could not reach the Railway browser. Try opening it again.");
+      } finally {
+        setBusy(false);
       }
-    } catch {
-      setMessage("Could not reach the Railway browser. Try opening it again.");
-    } finally {
-      setBusy(false);
-    }
+    });
+    actionQueue.current = next;
+    return next;
+  };
+
+  const flushTyping = () => {
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = null;
+    const pending = typedText.current;
+    typedText.current = "";
+    if (pending) void queueAction("text", { text: pending });
+  };
+
+  const action = (name: string, values: Record<string, unknown> = {}) => {
+    flushTyping();
+    return queueAction(name, values);
   };
 
   useEffect(() => {
@@ -57,11 +77,15 @@ export default function YouTubeLogin() {
     return () => clearInterval(timer);
   }, [running, busy]);
 
-  useEffect(() => () => { if (imageUrl.current) URL.revokeObjectURL(imageUrl.current); }, []);
+  useEffect(() => () => {
+    if (imageUrl.current) URL.revokeObjectURL(imageUrl.current);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typedText.current = "";
+  }, []);
 
   return <section className="mx-auto max-w-6xl space-y-5 p-6">
     <h1 className="text-2xl font-bold">YouTube login on Railway</h1>
-    <p className="text-sm text-[var(--panel-muted)]">Click inside the browser image, enter text below, and complete Google verification on your phone if asked. Return to YouTube after signing in, then save the session.</p>
+    <p className="text-sm text-[var(--panel-muted)]">Click a field inside the browser, then type or paste directly. Enter, Tab, Backspace, arrow keys and Ctrl+A work inside it. Press Escape to leave keyboard control. Complete Google verification yourself if asked, return to YouTube, then save the session.</p>
     <div className="flex flex-wrap gap-2">
       <Button disabled={busy} onClick={() => action("start")}>Open browser</Button>
       <Button variant="outline" disabled={busy || !running} onClick={() => action("youtube")}>Return to YouTube</Button>
@@ -73,17 +97,39 @@ export default function YouTubeLogin() {
       <form className="flex flex-wrap gap-2" onSubmit={event => {
         event.preventDefault(); action("text", { text }); setText("");
       }}>
-        <Input type="password" autoComplete="off" value={text} onChange={event => setText(event.target.value)} placeholder="Text for the selected browser field" className="max-w-md" />
+        <Input type="password" autoComplete="off" value={text} onChange={event => setText(event.target.value)} placeholder="Alternative: text for the selected browser field" className="max-w-md" />
         <Button type="submit" disabled={busy || !text}>Type into browser</Button>
         {["Enter", "Tab", "Backspace"].map(key => <Button type="button" variant="outline" disabled={busy} key={key} onClick={() => action("key", { key })}>{key}</Button>)}
         <Button type="button" variant="outline" disabled={busy} onClick={() => action("scroll", { delta: 500 })}>Scroll down</Button>
         <Button type="button" variant="outline" disabled={busy} onClick={() => action("scroll", { delta: -500 })}>Scroll up</Button>
       </form>
-      {image && <img src={image} alt="Live YouTube browser on Railway — click to interact" className="w-full rounded-xl border cursor-pointer" draggable={false} onClick={event => {
+      {image && <div ref={browserInput} tabIndex={0} role="application" aria-label="Remote YouTube login browser. Click a field and type. Press Escape to leave keyboard control." className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#B9CF7A]" onPaste={event => {
+        event.preventDefault();
+        void action("text", { text: event.clipboardData.getData("text") });
+      }} onKeyDown={event => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          void action("key", { key: "Escape" });
+          event.currentTarget.blur();
+        } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+          event.preventDefault();
+          void action("key", { key: "a", modifiers: 2 });
+        } else if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+          event.preventDefault();
+          typedText.current += event.key;
+          if (typingTimer.current) clearTimeout(typingTimer.current);
+          typingTimer.current = setTimeout(flushTyping, 120);
+        } else if (["Enter", "Tab", "Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          void action("key", { key: event.key, modifiers: event.shiftKey ? 8 : 0 });
+        }
+      }}><img src={image} alt="Live YouTube browser on Railway — click a field and type" className="w-full rounded-xl border cursor-pointer" draggable={false} onClick={event => {
+        browserInput.current?.focus({ preventScroll: true });
         const box = event.currentTarget.getBoundingClientRect();
         action("click", { x: (event.clientX - box.left) * 1100 / box.width, y: (event.clientY - box.top) * 800 / box.height });
-      }} />}
+      }} /></div>}
     </>}
-    <p className="text-xs text-[var(--panel-muted)]">The browser runs only during login. Saved cookies stay private and are backed up encrypted in MongoDB across redeploys. Signing in does not guarantee YouTube will accept this server connection.</p>
+    <p className="text-xs text-[var(--panel-muted)]">The browser runs only during login. Saved cookies stay private, are backed up encrypted in MongoDB, and load again when this browser opens. Keep the same database, NEXTAUTH_SECRET, and primary OWNER_IDS entry when moving hosts. Google may expire or revoke a session, requiring another login.</p>
   </section>;
 }

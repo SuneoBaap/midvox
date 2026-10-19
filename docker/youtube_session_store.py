@@ -3,7 +3,17 @@ import base64
 import hashlib
 import json
 import os
+import re
+from datetime import datetime, timezone
 from pathlib import Path
+
+
+def session_ids(kind):
+    legacy = kind + ":" + os.getenv("DISCORD_CLIENT_ID", "midvox")
+    owners = re.findall(r"\d{17,20}", os.getenv("OWNER_IDS", ""))
+    if kind == "youtube" and owners:
+        return ["youtube:owner:" + owners[0], legacy]
+    return [legacy]
 
 
 def transfer(restore=False, kind="youtube"):
@@ -19,9 +29,14 @@ def transfer(restore=False, kind="youtube"):
     with MongoClient(uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000,
                      socketTimeoutMS=5000) as client:
         collection = client.midvox.owner_login_sessions
-        identity = kind + ":" + os.getenv("DISCORD_CLIENT_ID", "midvox")
+        identities = session_ids(kind)
+        identity = identities[0]
         if restore:
-            record = collection.find_one({"_id": identity})
+            record = None
+            for key in identities:
+                record = collection.find_one({"_id": key})
+                if record:
+                    break
             if not record:
                 return False
             contents = cipher.decrypt(record["encrypted"].encode()).decode()
@@ -35,9 +50,15 @@ def transfer(restore=False, kind="youtube"):
             temporary.write_text(contents, encoding="utf-8")
             temporary.chmod(0o600)
             temporary.replace(path)
+            if record["_id"] != identity:
+                collection.replace_one({"_id": identity}, {
+                    "_id": identity, "encrypted": record["encrypted"],
+                    "saved_at": record.get("saved_at", datetime.now(timezone.utc)),
+                }, upsert=True)
         else:
             collection.replace_one({"_id": identity}, {
-                "_id": identity, "encrypted": cipher.encrypt(contents.encode()).decode()
+                "_id": identity, "encrypted": cipher.encrypt(contents.encode()).decode(),
+                "saved_at": datetime.now(timezone.utc),
             }, upsert=True)
     return True
 
