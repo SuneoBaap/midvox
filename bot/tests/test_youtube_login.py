@@ -17,6 +17,13 @@ exec(compile(ast.Module(body=classes, type_ignores=[]), str(source), "exec"), br
 
 
 class BrowserHealthTests(unittest.IsolatedAsyncioTestCase):
+    async def test_capture_uses_virtual_display_without_gpu_surface(self):
+        from unittest.mock import AsyncMock
+        browser = browser_namespace["LoginBrowser"]()
+        browser.command = AsyncMock(return_value={"data": "image"})
+        self.assertEqual(await browser.screenshot(), {"data": "image"})
+        self.assertFalse(browser.command.call_args.args[1]["fromSurface"])
+
     async def test_protocol_crash_requires_reopen_without_capture_retry(self):
         class Socket:
             closed = False

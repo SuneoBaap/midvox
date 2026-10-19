@@ -92,7 +92,11 @@ class LoginBrowser:
         # Chromium can briefly refuse capture during the first navigation.
         for attempt in range(3):
             try:
-                return await self.command("Page.captureScreenshot", {"format": "jpeg", "quality": 75})
+                # Xvfb has no reliable GPU compositor surface. Capture the view
+                # directly so a loaded page does not fail with CDP -32000.
+                return await self.command("Page.captureScreenshot", {
+                    "format": "jpeg", "quality": 75, "fromSurface": False,
+                })
             except BrowserUnavailable:
                 raise
             except (ValueError, TimeoutError):
